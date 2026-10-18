@@ -87,7 +87,12 @@ app.use((err, req, res, next) => {
   res.status(err.status || 500).json({ error: err.status ? err.message : '服务器内部错误' });
 });
 
-const PORT = process.env.PORT || 3001;
-db.ready.then(() => {
-  app.listen(PORT, () => console.log(`[server] 教师工作台 API 已启动: http://localhost:${PORT}`));
-});
+/* 导出 Express 应用：本地 node index.js 直接监听；Vercel 由 api/index.js 导入为 Serverless 处理器 */
+module.exports = app;
+
+if (require.main === module) {
+  const PORT = process.env.PORT || 3001;
+  db.ready.then(() => {
+    app.listen(PORT, () => console.log(`[server] 教师工作台 API 已启动: http://localhost:${PORT}`));
+  });
+}
