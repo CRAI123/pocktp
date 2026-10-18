@@ -1,0 +1,106 @@
+/**
+ * 管理后台接口（仅 is_admin 教师可访问）：
+ * - 批量生成激活码 / 列表筛选 / 作废
+ * - 教师用户列表（含激活状态与数据规模）
+ */
+const crypto = require('crypto');
+const express = require('express');
+const db = require('../db');
+const { ah } = require('../util');
+
+const router = express.Router();
+
+/* 管理员鉴权：token 有效且 is_admin */
+router.use(ah(async (req, res, next) => {
+  const t = await db.get('SELECT is_admin FROM teachers WHERE id = ?', [req.teacherId]);
+  if (!t?.is_admin) return res.status(403).json({ error: '无权访问管理后台' });
+  next();
+}));
+
+/* 无歧义字符集（去除 0/O/1/I） */
+const CHARSET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+function genCode() {
+  const bytes = crypto.randomBytes(16);
+  let s = '';
+  for (let i = 0; i < 16; i++) s += CHARSET[bytes[i] % CHARSET.length];
+  return s;
+}
+
+/* 批量生成激活码 */
+router.post('/codes', ah(async (req, res) => {
+  const count = Math.min(Math.max(parseInt(req.body?.count, 10) || 1, 1), 500);
+  const batch = String(req.body?.batch || '').trim().slice(0, 50);
+  const note = String(req.body?.note || '').trim().slice(0, 200);
+  const parsedCredits = parseInt(req.body?.credits, 10);
+  const credits = Math.min(Math.max(Number.isFinite(parsedCredits) ? parsedCredits : 1000, 0), 10000000);
+
+  /* 激活后有效天数：0=永久；默认 7 天 */
+  const parsedDays = parseInt(req.body?.validDays, 10);
+  const validDays = Math.min(Math.max(Number.isFinite(parsedDays) ? parsedDays : 7, 0), 3650);
+
+  /* 可选：码本身的兑换截止日（一般不用，留空=随时可兑） */
+  const expiresAt = String(req.body?.expiresAt || '').trim();
+  if (expiresAt && !/^\d{4}-\d{2}-\d{2}$/.test(expiresAt)) {
+    return res.status(400).json({ error: '兑换截止日格式应为 YYYY-MM-DD' });
+  }
+
+  const created = [];
+  await db.transaction(async (tx) => {
+    while (created.length < count) {
+      try {
+        const code = genCode();
+        await tx.run(
+          'INSERT INTO activation_codes (code, batch, note, expires_at, credits, valid_days) VALUES (?,?,?,?,?,?)',
+          [code, batch, note, expiresAt, credits, validDays]
+        );
+        created.push(code);
+      } catch (e) {
+        if (e.code !== '23505') throw e; // 撞码重试（Postgres 唯一约束冲突）
+      }
+    }
+  });
+  res.json({ created, count: created.length, credits, validDays });
+}));
+
+/* 激活码列表 + 统计 */
+router.get('/codes', ah(async (req, res) => {
+  const { status, batch } = req.query;
+  const conds = [], args = [];
+  if (status && ['unused', 'used', 'revoked'].includes(status)) { conds.push('ac.status = ?'); args.push(status); }
+  if (batch) { conds.push('ac.batch = ?'); args.push(String(batch)); }
+  const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
+
+  const list = await db.all(`
+    SELECT ac.*, t.name AS used_by_name, t.phone AS used_by_phone
+    FROM activation_codes ac LEFT JOIN teachers t ON t.id = ac.used_by
+    ${where} ORDER BY ac.id DESC LIMIT 500
+  `, args);
+
+  const stats = {};
+  (await db.all('SELECT status, COUNT(*) n FROM activation_codes GROUP BY status'))
+    .forEach(r => { stats[r.status] = r.n; });
+  const batches = (await db.all("SELECT DISTINCT batch FROM activation_codes WHERE batch != '' ORDER BY batch DESC")).map(r => r.batch);
+
+  res.json({ list, stats: { unused: 0, used: 0, revoked: 0, ...stats }, batches });
+}));
+
+/* 作废（仅限未使用的码） */
+router.post('/codes/:id/revoke', ah(async (req, res) => {
+  const r = await db.run("UPDATE activation_codes SET status = 'revoked' WHERE id = ? AND status = 'unused'", [req.params.id]);
+  if (r.changes === 0) return res.status(409).json({ error: '仅未使用的激活码可作废' });
+  res.json({ ok: true });
+}));
+
+/* 教师用户列表 */
+router.get('/teachers', ah(async (req, res) => {
+  const list = await db.all(`
+    SELECT t.id, t.name, t.phone, t.activated, t.is_admin, t.credits, t.membership_expires_at, t.activated_at, t.created_at,
+      (SELECT COUNT(*) FROM classes c WHERE c.teacher_id = t.id) AS classes,
+      (SELECT COUNT(*) FROM students s JOIN classes c ON c.id = s.class_id WHERE c.teacher_id = t.id) AS students,
+      (SELECT code FROM activation_codes ac WHERE ac.used_by = t.id) AS used_code
+    FROM teachers t ORDER BY t.id DESC LIMIT 500
+  `);
+  res.json(list.map(t => ({ ...t, activated: !!t.activated, is_admin: !!t.is_admin })));
+}));
+
+module.exports = router;

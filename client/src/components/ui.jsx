@@ -1,0 +1,105 @@
+import { X } from 'lucide-react';
+
+/** 统计卡片 */
+export function StatCard({ icon: Icon, label, value, hint, tone = 'blue' }) {
+  const tones = {
+    blue: 'from-[#0071e3] to-[#00c6ff]',
+    green: 'from-[#28cd41] to-[#34d058]',
+    orange: 'from-[#ff9500] to-[#ffcc00]',
+    purple: 'from-[#af52de] to-[#d783ff]',
+  };
+  return (
+    <div className="card card-hover flex items-center gap-4 p-5">
+      <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br text-white shadow-md ${tones[tone]}`}>
+        <Icon size={22} />
+      </div>
+      <div className="min-w-0">
+        <div className="text-2xl font-semibold tracking-tight">{value}</div>
+        <div className="truncate text-sm text-ink-secondary">{label}{hint ? ` · ${hint}` : ''}</div>
+      </div>
+    </div>
+  );
+}
+
+/** 区块标题 */
+export function SectionHeader({ title, desc, action }) {
+  return (
+    <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+      <div>
+        <h2 className="text-xl font-semibold tracking-tight">{title}</h2>
+        {desc && <p className="mt-1 text-sm text-ink-secondary">{desc}</p>}
+      </div>
+      {action}
+    </div>
+  );
+}
+
+/** 主按钮 / 次按钮 */
+export function Button({ children, variant = 'primary', className = '', ...props }) {
+  const styles = {
+    primary: 'brand-gradient text-white shadow-md shadow-blue-500/25 hover:opacity-90',
+    secondary: 'bg-black/[0.05] text-ink hover:bg-black/[0.08]',
+    danger: 'bg-[#ff3b30]/10 text-[#ff3b30] hover:bg-[#ff3b30]/15',
+  };
+  return (
+    <button {...props} className={`btn-pill inline-flex items-center gap-2 px-4 py-2 text-sm font-medium disabled:opacity-50 ${styles[variant]} ${className}`}>
+      {children}
+    </button>
+  );
+}
+
+/** 标签 */
+export function Badge({ children, tone = 'gray' }) {
+  const tones = {
+    gray: 'bg-black/[0.05] text-ink-secondary',
+    blue: 'bg-[#0071e3]/10 text-[#0071e3]',
+    green: 'bg-[#28cd41]/12 text-[#1fa733]',
+    orange: 'bg-[#ff9500]/12 text-[#c93400]',
+    red: 'bg-[#ff3b30]/10 text-[#ff3b30]',
+    purple: 'bg-[#af52de]/10 text-[#af52de]',
+  };
+  return <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${tones[tone]}`}>{children}</span>;
+}
+
+/** 弹窗 */
+export function Modal({ open, onClose, title, children, width = 'max-w-lg' }) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={onClose} />
+      <div className={`card relative w-full ${width} max-h-[85vh] overflow-y-auto p-6`}>
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-lg font-semibold tracking-tight">{title}</h3>
+          <button onClick={onClose} className="btn-pill p-1.5 text-ink-secondary hover:bg-black/5"><X size={18} /></button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/** 表单字段 */
+export function Field({ label, children }) {
+  return (
+    <label className="block">
+      <span className="mb-1.5 block text-sm font-medium text-ink-secondary">{label}</span>
+      {children}
+    </label>
+  );
+}
+
+export const inputCls =
+  'w-full rounded-xl border border-black/10 bg-bg-light px-3.5 py-2.5 text-sm outline-none transition focus:border-[#0071e3] focus:bg-white focus:ring-2 focus:ring-[#0071e3]/15';
+
+/** 空状态 */
+export function Empty({ text = '暂无数据' }) {
+  return <div className="card p-10 text-center text-sm text-ink-secondary">{text}</div>;
+}
+
+/** 状态 -> Badge 配色 */
+export const statusTone = {
+  出勤: 'green', 迟到: 'orange', 缺勤: 'red', 请假: 'blue',
+  已批改: 'green', 待批改: 'orange', 未提交: 'gray',
+  高: 'red', 中: 'orange', 低: 'gray',
+  课件: 'blue', 教案: 'purple', 习题: 'orange', 视频: 'green', 其他: 'gray',
+};

@@ -1,0 +1,9 @@
+﻿node : ◇ injected env (1) from .env
+At line:15 char:2753
++ ... pgrep\bin'; cd "e:/desktop/pocktp/server"; node index.js 2>&1 | Tee-O ...
++                                                ~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (◇ injected env (1) from .env:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+[db] Supabase Postgres 初始化完成
+[server] 教师工作台 API 已启动: http://localhost:3001

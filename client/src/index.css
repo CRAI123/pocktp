@@ -1,0 +1,216 @@
+@import "tailwindcss";
+
+/* 设计令牌：与主站 rayzo.cn 保持一致（Apple 风格） */
+@theme {
+  --color-primary-blue: #0071e3;
+  --color-primary-green: #28cd41;
+  --color-bg-light: #f5f5f7;
+  --color-bg-white: #ffffff;
+  --color-ink: #1d1d1f;
+  --color-ink-secondary: #6e6e73;
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
+html {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  background-color: var(--color-bg-light);
+  color: var(--color-ink);
+}
+
+/* 玻璃拟态（主站导航同款） */
+.glass {
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+/* 品牌渐变：蓝 -> 绿 */
+.brand-gradient {
+  background-image: linear-gradient(90deg, #0071e3, #28cd41);
+}
+.brand-gradient-text {
+  background-image: linear-gradient(90deg, #0071e3, #28cd41);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* 卡片（主站大圆角 + 细腻阴影） */
+.card {
+  background: #fff;
+  border-radius: 1.25rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 8px 24px rgba(0, 0, 0, 0.05);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+.card-hover:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05), 0 16px 40px rgba(0, 0, 0, 0.08);
+}
+
+/* 药丸按钮 */
+.btn-pill {
+  border-radius: 9999px;
+  transition: all 0.2s ease;
+}
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: rgba(0,0,0,.15); border-radius: 4px; }
+
+/* ===========================================================
+ * 教学专项练习 · 打印样式
+ *  - 屏幕：.print-only 默认隐藏
+ *  - 打印：隐藏导航/工具栏/侧栏/header/footer，仅渲染练习卷
+ *  - A4/A3 纸张由 Practice 组件动态注入 @page 规则
+ * =========================================================== */
+.print-only { display: none; }
+
+.print-sheet {
+  font-family: var(--font-sans);
+  color: #000;
+  line-height: 1.65;
+}
+.print-header h1 {
+  font-size: 22pt;
+  font-weight: 700;
+  margin: 0 0 4pt 0;
+  text-align: center;
+  letter-spacing: 2pt;
+}
+.print-sub {
+  text-align: center;
+  font-size: 11pt;
+  color: #555;
+  margin-bottom: 10pt;
+}
+.print-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18pt;
+  font-size: 10.5pt;
+  border-top: 1pt solid #000;
+  border-bottom: 1pt solid #000;
+  padding: 6pt 0;
+  margin-bottom: 14pt;
+}
+.print-meta span { white-space: nowrap; }
+.print-list {
+  display: grid;
+  gap: 10pt 8pt;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+  counter-reset: q;
+}
+.print-item {
+  display: block;
+  margin: 0;
+  padding: 0;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+.print-head {
+  display: flex;
+  align-items: baseline;
+  gap: 4pt;
+  font-size: 11pt;
+  line-height: 1.5;
+  margin-bottom: 4pt;
+}
+.print-no {
+  font-weight: 700;
+  font-size: 11.5pt;
+  min-width: 16pt;
+  flex-shrink: 0;
+  color: #000;
+}
+.print-prompt {
+  flex: 1;
+  font-size: 11.5pt;
+  line-height: 1.55;
+  color: #000;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+.print-body { display: block; }
+.print-answers {
+  font-size: 10.5pt;
+  color: #555;
+  margin-bottom: 4pt;
+}
+.print-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 8pt;
+  margin-top: 6pt;
+}
+.print-line {
+  border-bottom: 0.7pt solid #333;
+  height: 18pt;
+}
+
+/* 答题区容器：田字格 / 四线三格按题型渲染（SVG 矢量样式） */
+.print-answers-area { margin-top: 4pt; }
+.print-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2pt 1pt;
+  align-items: center;
+}
+
+/* 语文 · 田字格（SVG 矢量） */
+.tzg {
+  display: inline-block;
+  width: 32pt;
+  height: 32pt;
+  vertical-align: middle;
+  margin: 1pt 1pt;
+}
+
+/* 英语 · 四线三格（SVG 矢量） */
+.fl {
+  display: inline-flex;
+  vertical-align: middle;
+  margin: 0 2pt;
+}
+.fl svg { width: 100%; height: 30pt; display: block; }
+
+/* 答案页（独立第二页起） */
+.print-answer-page { page-break-before: always; }
+.print-explain { font-size: 10pt; color: #444; margin-top: 3pt; }
+
+.print-footer {
+  margin-top: 22pt;
+  padding-top: 8pt;
+  border-top: 0.5pt dashed #888;
+  text-align: center;
+  font-size: 9pt;
+  color: #888;
+}
+
+@media print {
+  /* 隐藏非打印元素 */
+  body { background: #fff !important; }
+  .no-print { display: none !important; }
+  .print-only { display: block !important; }
+
+  /* 隐藏整站框架（侧栏 / header / footer / 主区其它内容） */
+  aside, header, footer { display: none !important; }
+  main { padding: 0 !important; max-width: none !important; margin: 0 !important; }
+
+  /* 字体与颜色 */
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  a { color: inherit !important; text-decoration: none !important; }
+
+  /* 印刷卷：撑满 A4 内容区，但内部留出均匀左右内边距，避免文字贴边 */
+  .print-sheet { padding: 0 4mm; box-sizing: border-box; width: 100%; }
+  .print-head { padding-right: 2mm; }
+
+  /* 分页保护 */
+  .print-item { page-break-inside: avoid; }
+}
