@@ -419,10 +419,10 @@ export default function Admin() {
         <div className="mb-3 flex flex-wrap justify-end gap-2">
           <Button
             variant="secondary"
-            onClick={() => doCopy(generated.codes.map(c => redeemUrl(c)).join('\n'), 'all-links')}
+            onClick={() => doCopy(generated.codes.map(c => `一键激活网址：${redeemUrl(c)}\t激活码：${fmtCode(c)}`).join('\n\n\n'), 'all-links')}
           >
             {copied === 'all-links' ? <Check size={15} className="text-[#28cd41]" /> : <Link2 size={15} />}
-            {copied === 'all-links' ? '已复制链接' : '一键复制兑换链接'}
+            {copied === 'all-links' ? '已复制' : '一键复制网址+激活码'}
           </Button>
           <Button
             variant="secondary"
@@ -442,7 +442,7 @@ export default function Admin() {
           </div>
         </div>
         <p className="mt-3 text-xs leading-relaxed text-ink-secondary">
-          推荐直接把「兑换链接」发给买家：打开链接后登录/注册即可自动激活并到账算力（每个码仅可使用一次）。关闭弹窗前请确认已保存。
+          推荐直接把「网址+激活码」设置到闲鱼自动发货：每行一条，格式为「兑换网址：xxx 激活码：xxx」，买家打开链接登录/注册即可自动激活并到账算力（每个码仅可使用一次）。关闭弹窗前请确认已保存。
         </p>
       </Modal>
     </div>
