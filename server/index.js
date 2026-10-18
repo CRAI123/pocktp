@@ -82,6 +82,19 @@ app.get('/api/overview', authRequired, activatedRequired, ah(async (req, res) =>
   res.json(data);
 }));
 
+/* ---------- 前端静态托管：单进程同时提供 API 与网页（合并部署用） ---------- */
+const path = require('path');
+const fs = require('fs');
+const distIndex = path.join(__dirname, '..', 'client', 'dist', 'index.html');
+if (fs.existsSync(distIndex)) {
+  app.use(express.static(path.dirname(distIndex)));
+  /* SPA 兜底：非 /api 路径一律返回 index.html，前端路由（/login /admin 等）由 React Router 接管 */
+  app.use((req, res, next) => {
+    if (req.path.startsWith('/api/')) return next();
+    res.sendFile(distIndex);
+  });
+}
+
 app.use((err, req, res, next) => {
   console.error(err);
   res.status(err.status || 500).json({ error: err.status ? err.message : '服务器内部错误' });
@@ -92,7 +105,7 @@ module.exports = app;
 
 if (require.main === module) {
   const PORT = process.env.PORT || 3001;
-  db.ready.then(() => {
-    app.listen(PORT, () => console.log(`[server] 教师工作台 API 已启动: http://localhost:${PORT}`));
-  });
+  db.ready
+    .then(() => app.listen(PORT, () => console.log(`[server] 教师工作台 API 已启动: http://localhost:${PORT}`)))
+    .catch(e => { console.error('[server] 数据库初始化失败，无法启动:', e.message); process.exit(1); });
 }

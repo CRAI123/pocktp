@@ -462,9 +462,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_teachers_phone ON teachers(phone);
   console.log('[db] Supabase Postgres 初始化完成');
 }
 
-const ready = init().catch(err => {
-  console.error('[db] 初始化失败:', err.message);
-  process.exit(1);
-});
+/* ready 直接暴露 init 的 Promise：失败时 reject，
+ * 由使用方决定处理方式（本地启动进程退出；Serverless 返回 503 错误详情） */
+const ready = init();
 
 module.exports = { all, get, run, transaction, exec, ready, pool };
