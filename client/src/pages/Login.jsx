@@ -26,7 +26,21 @@ export default function Login() {
   };
 
   return (
-    <div className="auth-bg flex min-h-screen items-center justify-center px-4">
+    <div className="auth-bg relative flex min-h-screen items-center justify-center px-4">
+      {/* 品牌氛围装饰：卡片后方斜向重复排版的渐变文字（纯装饰，不拦截交互） */}
+      <div className="pointer-events-none absolute inset-0 -z-10 select-none overflow-hidden" aria-hidden="true">
+        <div className="absolute -inset-[16%] -rotate-6 flex flex-col justify-between py-[8%] opacity-[0.12]">
+          {[0, 1, 2, 3, 4, 5, 6].map(i => (
+            <div
+              key={i}
+              className={`brand-gradient-text whitespace-nowrap text-xl font-extrabold tracking-[0.25em] sm:text-3xl ${i % 2 ? 'pl-16 sm:pl-28' : ''}`}
+            >
+              {'Rayzo Teach · '.repeat(18)}
+            </div>
+          ))}
+        </div>
+      </div>
+
       <div className="w-full max-w-md">
         {/* 品牌区：官网 LOGO + 产品名 + slogan */}
         <div className="mb-8 text-center">
@@ -82,12 +96,6 @@ export default function Login() {
           <p className="mt-4 text-center text-xs leading-relaxed text-ink-secondary">
             手机号未注册将自动创建账号；新账号需使用激活码解锁完整功能
           </p>
-        </div>
-
-        {/* 演示账号提示 */}
-        <div className="mt-4 rounded-2xl border border-dashed border-black/10 bg-white/60 px-5 py-3.5 text-center text-xs leading-relaxed text-ink-secondary">
-          演示账号：<code className="rounded bg-black/[0.05] px-1.5 py-0.5 font-mono">13800000000</code>
-          密码：<code className="rounded bg-black/[0.05] px-1.5 py-0.5 font-mono">123456</code>（含完整演示数据）
         </div>
       </div>
     </div>
