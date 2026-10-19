@@ -26,7 +26,10 @@ function genCode() {
   return s;
 }
 
-/* 批量生成激活码 */
+/* 批量生成激活码
+ * 注意：Vercel Serverless 有 60s 上限，而库在东京、单条 INSERT 往返约 150ms，
+ * 逐条插入 500 个需要 70s+ 必然超时（浏览器表现为 ERR_CONNECTION_CLOSED）。
+ * 这里改为「内存生成去重 + 单条多值 INSERT」，整批只需一次数据库往返。 */
 router.post('/codes', ah(async (req, res) => {
   const count = Math.min(Math.max(parseInt(req.body?.count, 10) || 1, 1), 500);
   const batch = String(req.body?.batch || '').trim().slice(0, 50);
@@ -44,21 +47,30 @@ router.post('/codes', ah(async (req, res) => {
     return res.status(400).json({ error: '兑换截止日格式应为 YYYY-MM-DD' });
   }
 
-  const created = [];
-  await db.transaction(async (tx) => {
-    while (created.length < count) {
-      try {
-        const code = genCode();
-        await tx.run(
-          'INSERT INTO activation_codes (code, batch, note, expires_at, credits, valid_days) VALUES (?,?,?,?,?,?)',
-          [code, batch, note, expiresAt, credits, validDays]
-        );
-        created.push(code);
-      } catch (e) {
-        if (e.code !== '23505') throw e; // 撞码重试（Postgres 唯一约束冲突）
-      }
-    }
-  });
+  /* 一次生成整批并在内存内去重（32^16 码空间下与库内撞码概率可忽略，
+   * 万一撞唯一约束（23505），整批重新生成重试一次） */
+  const genBatch = () => {
+    const set = new Set();
+    while (set.size < count) set.add(genCode());
+    return [...set];
+  };
+
+  const buildSql = (codes) => {
+    /* VALUES ($1,$2,$3,$4,$5,$6),($7,...) —— 占位符由 db 层统一转义 */
+    const rows = codes.map(() => '(?,?,?,?,?,?)').join(',');
+    return `INSERT INTO activation_codes (code, batch, note, expires_at, credits, valid_days) VALUES ${rows}`;
+  };
+
+  let created = genBatch();
+  try {
+    const params = created.flatMap(c => [c, batch, note, expiresAt, credits, validDays]);
+    await db.run(buildSql(created), params);
+  } catch (e) {
+    if (e.code !== '23505') throw e;
+    created = genBatch();
+    const params = created.flatMap(c => [c, batch, note, expiresAt, credits, validDays]);
+    await db.run(buildSql(created), params);
+  }
   res.json({ created, count: created.length, credits, validDays });
 }));
 
