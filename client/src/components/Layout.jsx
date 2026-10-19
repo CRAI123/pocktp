@@ -186,8 +186,8 @@ export default function Layout() {
           <Outlet />
         </main>
 
-        <footer className="flex flex-col items-end gap-0.5 px-4 pb-6 text-right sm:px-8">
-          <div className="flex flex-wrap items-center justify-end gap-x-2 gap-y-1 text-xs text-ink-secondary/60">
+        <footer className="flex flex-col items-center gap-0.5 px-4 pb-6 text-center sm:px-8">
+          <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-xs text-ink-secondary/60">
             <span className="brand-gradient-text font-medium">连接创意与未来教育</span>
             <span className="text-ink-secondary/30">·</span>
             <span>© 2026 Rayzo 集团旗下产品</span>

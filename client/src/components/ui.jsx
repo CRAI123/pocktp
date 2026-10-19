@@ -96,13 +96,13 @@ export function Empty({ text = '暂无数据' }) {
   return <div className="card p-10 text-center text-sm text-ink-secondary">{text}</div>;
 }
 
-/** Rayzo 集团品牌背书（右下角）：集团署名 + 官网服务链接 + 审查声明 */
+/** Rayzo 集团品牌背书（底部居中）：集团署名 + 官网服务链接 + 审查声明 */
 export function BrandFooter({ fixed = false, className = '' }) {
   return (
     <footer
-      className={`${fixed ? 'absolute inset-x-0 bottom-0' : ''} flex flex-col items-end gap-0.5 px-5 pb-4 text-right text-xs text-ink-secondary/60 sm:pb-5 ${className}`}
+      className={`${fixed ? 'absolute inset-x-0 bottom-0' : ''} flex flex-col items-center gap-0.5 px-5 pb-4 text-center text-xs text-ink-secondary/60 sm:pb-5 ${className}`}
     >
-      <div className="flex flex-wrap items-center justify-end gap-x-2 gap-y-1">
+      <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1">
         <span>© 2026 Rayzo 集团旗下产品</span>
         <span className="text-ink-secondary/30">·</span>
         <a
