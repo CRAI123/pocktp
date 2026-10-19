@@ -43,7 +43,7 @@ export default function SubjectIndex() {
               <span className="rounded-full bg-[#ff9500]/10 px-2 py-0.5 text-xs font-medium text-[#ff9500]">仿中考题型</span>
             </h3>
             <p className="mt-1.5 text-sm leading-relaxed text-ink-secondary">
-              语数英综合卷 · 全年级覆盖 · 新题型新风向 · 逐题勾选入卷 · 不满意可单题重出 · A4 打印
+              语数英独立成部分 · 阅读理解/完形填空/作文 · 全年级覆盖 · 新题型新风向 · 逐题勾选入卷 · 不满意可单题重出 · A4 打印
             </p>
           </div>
           <div className="inline-flex items-center gap-1 text-sm font-medium text-[#0071e3] transition group-hover:gap-2">

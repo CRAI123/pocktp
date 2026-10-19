@@ -26,18 +26,20 @@ const DIFFS = [
   { v: 'easy', l: '基础' }, { v: 'medium', l: '中等' }, { v: 'hard', l: '拔高' },
 ];
 
-/* 科目元信息（顺序即试卷排版顺序） */
+/* 科目元信息（顺序即试卷排版顺序；chip=屏幕端学科标识底色） */
 const SUBJECTS = [
-  { key: 'chinese', label: '语文', tone: 'red' },
-  { key: 'math', label: '数学', tone: 'blue' },
-  { key: 'english', label: '英语', tone: 'green' },
+  { key: 'chinese', label: '语文', tone: 'red', chip: 'bg-[#ff3b30]/10 text-[#ff3b30]' },
+  { key: 'math', label: '数学', tone: 'blue', chip: 'bg-[#0071e3]/10 text-[#0071e3]' },
+  { key: 'english', label: '英语', tone: 'green', chip: 'bg-[#28cd41]/12 text-[#1fa733]' },
 ];
 const SUBJ_META = Object.fromEntries(SUBJECTS.map(s => [s.key, s]));
 const CN_NUM = ['一', '二', '三', '四', '五'];
 const LETTERS = ['A', 'B', 'C', 'D'];
 
-/* 打印分页：选择题矮、解答题高，按权重装入 A4 页 */
-const qWeight = (q) => q.qtype === '选择题' ? 1 : q.qtype === '填空题' ? 1.5 : 2.4;
+/* 打印分页：选择题矮、阅读/作文高，按权重装入 A4 页 */
+const qWeight = (q) => ({
+  '选择题': 1, '填空题': 1.5, '阅读理解': 2.2, '完形填空': 2, '简答题': 2, '解答题': 2.4, '作文题': 4.5,
+}[q.qtype] || 2);
 function paginate(items, weightFn, firstCap, cap) {
   const pages = [];
   let cur = [], w = 0, c = firstCap;
@@ -50,13 +52,24 @@ function paginate(items, weightFn, firstCap, cap) {
   return pages;
 }
 
-/* 打印答题区：填空 2 行横线，解答/简答 4 行 */
+/* 打印答题区：填空 2 行横线，阅读/简答 3 行，解答 4 行，作文用稿纸方格 */
 function PrintAnswerArea({ q }) {
   if (q.qtype === '选择题') return null;
-  const lines = q.qtype === '填空题' ? 2 : 4;
+  if (q.qtype === '作文题') return <EssayGrid />;
+  const lines = q.qtype === '填空题' ? 2 : q.qtype === '解答题' ? 4 : 3;
   return (
     <div className="print-lines">
       {Array.from({ length: lines }, (_, k) => <div key={k} className="print-line" />)}
+    </div>
+  );
+}
+
+/* 作文稿纸：20 列 × 18 行标准方格 */
+function EssayGrid() {
+  const cols = 20, rows = 18;
+  return (
+    <div className="essay-grid" style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}>
+      {Array.from({ length: cols * rows }, (_, i) => <span key={i} />)}
     </div>
   );
 }
@@ -90,19 +103,6 @@ export default function ComprehensiveExam() {
     const set = new Set(sel);
     return questions.filter(q => set.has(q.id));
   }, [questions, sel]);
-
-  /* 全局题号（跨学科连续编号）+ 分科分组 */
-  const numbered = useMemo(() => {
-    let no = 0;
-    const map = new Map();
-    picked.forEach(q => { map.set(q.id, ++no); });
-    const groups = [];
-    SUBJECTS.forEach(s => {
-      const qs = picked.filter(q => q.subject === s.key);
-      if (qs.length) groups.push({ key: s.key, label: s.label, qs });
-    });
-    return { map, groups };
-  }, [picked]);
 
   /* A4 @page 规则（与 Practice 一致） */
   useEffect(() => {
@@ -217,9 +217,42 @@ export default function ComprehensiveExam() {
       }`}>{children}</button>
   );
 
-  /* ---------- 打印页面数据：题目页分页 + 答案页分页 ---------- */
-  const qPages = paginate(picked, qWeight, 7, 9);
-  const aPages = paginate(picked, () => 1, 15, 17);
+  /* ---------- 打印页面数据：语数英各自独立成部分 ----------
+   * 每部分独立编号（1. 2. 3. …）、独立分页，部分之间强制另起一页 */
+  const subjectBlocks = useMemo(() => {
+    let pageNo = 0;
+    return SUBJECTS.map(s => {
+      const qs = picked.filter(q => q.subject === s.key);
+      const no = new Map(qs.map((q, i) => [q.id, i + 1]));
+      const points = qs.reduce((sum, q) => sum + (Number(q.points) || 0), 0);
+      const pages = paginate(qs, qWeight, 7, 9)
+        .map((items, i) => ({ items, first: i === 0, pageNo: ++pageNo }));
+      return { key: s.key, label: s.label, chip: s.chip, qs, no, points, pages };
+    }).filter(b => b.qs.length);
+  }, [picked]);
+
+  const totalQP = subjectBlocks.reduce((s, b) => s + b.pages.length, 0);
+
+  /* 答案页：沿用学科分组（跨页标注「续」），作文/阅读答案占位更大 */
+  const answerBlocks = useMemo(() => {
+    const items = subjectBlocks.flatMap(b => b.qs);
+    const pages = paginate(items,
+      q => q.qtype === '作文题' ? 3 : (q.qtype === '阅读理解' || q.qtype === '完形填空' ? 2 : 1), 12, 14);
+    const started = new Set();
+    return pages.map(itemsOnPage => {
+      const groups = [];
+      subjectBlocks.forEach(b => {
+        const gItems = itemsOnPage.filter(q => q.subject === b.key);
+        if (!gItems.length) return;
+        const cont = started.has(b.key);
+        started.add(b.key);
+        groups.push({ ...b, items: gItems, cont });
+      });
+      return groups;
+    });
+  }, [picked, subjectBlocks]);
+
+  const totalPages = totalQP + answerBlocks.length;
 
   /* ---------- 屏幕端单题卡片 ---------- */
   const QuestionCard = ({ q }) => {
@@ -238,7 +271,12 @@ export default function ComprehensiveExam() {
               <Badge tone={meta.tone}>{meta.label}</Badge>
               <Badge tone="purple">{q.qtype}</Badge>
               <span className="text-xs text-ink-secondary">{q.points} 分</span>
+              {q.qtype === '作文题' && <span className="text-xs text-ink-secondary">· 含稿纸答题区</span>}
             </div>
+            {/* 阅读材料（阅读理解 / 完形填空） */}
+            {q.passage && (
+              <div className="mb-2 rounded-xl border-l-2 border-black/10 bg-bg-light px-3.5 py-2.5 text-[13px] leading-relaxed text-ink-secondary whitespace-pre-wrap">{q.passage}</div>
+            )}
             <div className="whitespace-pre-wrap text-sm leading-relaxed sm:text-[15px]">{q.stem}</div>
             {q.qtype === '选择题' && Array.isArray(q.choices) && (
               <div className="mt-2 grid gap-1.5 sm:grid-cols-2">
@@ -294,7 +332,7 @@ export default function ComprehensiveExam() {
 
   return (
     <div className="space-y-5 pb-32">
-      <SectionHeader title="综合测试" desc="仿中考题型结构 · 语数英综合卷 · 全年级覆盖（数学不含画图题）" />
+      <SectionHeader title="综合测试" desc="语数英独立成部分 · 仿中考题型（含阅读理解/完形填空/作文）· 全年级覆盖 · 逐题勾选 · 单题重出 · A4 打印" />
 
       {/* ============ 组卷配置卡 ============ */}
       <div className="card space-y-3.5 p-5">
@@ -353,7 +391,7 @@ export default function ComprehensiveExam() {
           </div>
           <h2 className="text-xl font-semibold tracking-tight">配置上方参数，生成综合测试卷</h2>
           <p className="max-w-md text-sm text-ink-secondary">
-            题型结构仿照中考（选择题 / 填空题 / 解答题），难度适配所选年级；支持逐题勾选、单题重出与 A4 打印
+            语数英各自独立成部分，题型完整仿中考（选择 / 填空 / 解答 / 阅读理解 / 完形填空 / 作文，数学不含画图题）；支持逐题勾选、单题重出与 A4 打印
           </p>
         </div>
       )}
@@ -363,22 +401,24 @@ export default function ComprehensiveExam() {
             <Loader2 size={26} className="animate-spin" />
           </div>
           <h2 className="text-xl font-semibold tracking-tight">AI 命题中…</h2>
-          <p className="max-w-md text-sm text-ink-secondary">整卷一次生成，题量较大时需要 20-40 秒</p>
+          <p className="max-w-md text-sm text-ink-secondary">整卷一次生成，含阅读理解与作文，题量较大时需要 1-3 分钟，请勿离开页面</p>
         </div>
       )}
 
-      {/* ============ 试卷预览（按学科分组，可勾选） ============ */}
+      {/* ============ 试卷预览（语数英独立成部分，可勾选） ============ */}
       {generated && !loading && questions.length > 0 && (
         <div className="space-y-5">
-          {SUBJECTS.map(s => {
+          {SUBJECTS.map((s, si) => {
             const qs = questions.filter(q => q.subject === s.key);
             if (!qs.length) return null;
             const pickedN = qs.filter(q => sel.includes(q.id)).length;
+            const pts = qs.reduce((sum, q) => sum + (Number(q.points) || 0), 0);
             return (
               <div key={s.key}>
-                <div className="mb-2.5 flex items-center gap-2">
+                <div className="mb-2.5 flex flex-wrap items-center gap-2">
+                  <span className={`inline-flex h-6 items-center rounded-full px-2.5 text-xs font-semibold ${s.chip}`}>第{CN_NUM[si]}部分</span>
                   <h3 className="text-base font-semibold">{s.label}部分</h3>
-                  <span className="text-xs text-ink-secondary">已选 {pickedN}/{qs.length} 题</span>
+                  <span className="text-xs text-ink-secondary">已选 {pickedN}/{qs.length} 题 · 共 {pts} 分</span>
                 </div>
                 <div className="space-y-2.5">
                   {qs.map(q => <QuestionCard key={q.id} q={q} />)}
@@ -407,7 +447,7 @@ export default function ComprehensiveExam() {
             </button>
             <span className="mx-1 h-5 w-px bg-black/10" />
             <button onClick={downloadPDF} disabled={pdfBusy || !picked.length}
-              title="生成 PDF 打印版（A4 标准分页，含答案页）"
+              title="生成 PDF 打印版（A4 标准分页，语数英独立成部分，含答案页）"
               className="brand-gradient ml-1 flex h-9 items-center gap-1.5 rounded-full px-4 text-sm font-medium text-white shadow-lg shadow-blue-500/30 transition active:scale-90 disabled:opacity-60">
               {pdfBusy ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}
               {pdfBusy ? '生成中' : `PDF（${picked.length} 题）`}
@@ -416,55 +456,55 @@ export default function ComprehensiveExam() {
         </div>
       )}
 
-      {/* ============ 打印视图：题目页（A4 分页） ============ */}
+      {/* ============ 打印视图：题目页（语数英独立成部分，独立编号分页） ============ */}
       <div className="print-only">
-        {qPages.map((page, pi) => (
-          <div key={`q${pi}`} className="exam-page print-sheet" style={pi > 0 ? { pageBreakBefore: 'always' } : undefined}>
-            {pi === 0 && (
-              <div className="print-header">
-                <h1>{title}</h1>
-                <div className="print-sub">
-                  {DIFFS.find(d => d.v === cfg.difficulty)?.l}难度{cfg.trend ? ' · 含新题型新风向' : ''} · 仿中考题型结构
+        {subjectBlocks.map((b, bi) =>
+          b.pages.map(pg => (
+            <div key={`${b.key}-${pg.pageNo}`} className="exam-page print-sheet"
+              style={bi === 0 && pg.first ? undefined : { pageBreakBefore: 'always' }}>
+              {bi === 0 && pg.first && (
+                <div className="print-header">
+                  <h1>{title}</h1>
+                  <div className="print-sub">
+                    {DIFFS.find(d => d.v === cfg.difficulty)?.l}难度{cfg.trend ? ' · 含新题型新风向' : ''} · 仿中考题型结构
+                  </div>
+                  <div className="print-meta">
+                    <span>姓名：____________</span>
+                    <span>班级：____________</span>
+                    <span>日期：{todayStr()}</span>
+                    <span>得分：________</span>
+                  </div>
                 </div>
-                <div className="print-meta">
-                  <span>姓名：____________</span>
-                  <span>班级：____________</span>
-                  <span>日期：{todayStr()}</span>
-                  <span>得分：________</span>
-                </div>
-              </div>
-            )}
-            {numbered.groups.map((g, gi) => {
-              const gqs = page.filter(q => q.subject === g.key);
-              if (!gqs.length) return null;
-              return (
-                <div key={g.key}>
-                  <div className="exam-sec">{CN_NUM[gi]}、{g.label}（共 {g.qs.length} 题）</div>
-                  <ol className="print-list" style={{ gridTemplateColumns: '1fr' }}>
-                    {gqs.map(q => (
-                      <li key={q.id} className="print-item">
-                        <div className="print-head">
-                          <span className="print-no">{numbered.map.get(q.id)}.</span>
-                          <span className="print-prompt">（{q.points} 分）{q.stem}</span>
-                        </div>
-                        {q.qtype === '选择题' && Array.isArray(q.choices) && (
-                          <div className="exam-choices">
-                            {q.choices.map((c, i) => <span key={i}>{LETTERS[i]}. {c}</span>)}
-                          </div>
-                        )}
-                        <div className="print-answers-area"><PrintAnswerArea q={q} /></div>
-                      </li>
-                    ))}
-                  </ol>
-                </div>
-              );
-            })}
-            <div className="print-footer">教师工作台 · 综合测试卷 · 第 {pi + 1} / {qPages.length + aPages.length} 页</div>
-          </div>
-        ))}
+              )}
+              {pg.first ? (
+                <div className="exam-sec">第{CN_NUM[bi]}部分 {b.label}（共 {b.qs.length} 题 · 满分 {b.points} 分）</div>
+              ) : (
+                <div className="exam-sec">第{CN_NUM[bi]}部分 {b.label}（续）</div>
+              )}
+              <ol className="print-list" style={{ gridTemplateColumns: '1fr' }}>
+                {pg.items.map(q => (
+                  <li key={q.id} className="print-item">
+                    <div className="print-head">
+                      <span className="print-no">{b.no.get(q.id)}.</span>
+                      <span className="print-prompt">（{q.points} 分）{q.stem}</span>
+                    </div>
+                    {q.passage && <div className="exam-passage">{q.passage}</div>}
+                    {q.qtype === '选择题' && Array.isArray(q.choices) && (
+                      <div className="exam-choices">
+                        {q.choices.map((c, i) => <span key={i}>{LETTERS[i]}. {c}</span>)}
+                      </div>
+                    )}
+                    <div className="print-answers-area"><PrintAnswerArea q={q} /></div>
+                  </li>
+                ))}
+              </ol>
+              <div className="print-footer">教师工作台 · {title} · 第 {pg.pageNo} / {totalPages} 页</div>
+            </div>
+          ))
+        )}
 
-        {/* ============ 打印视图：答案页（另起页） ============ */}
-        {aPages.map((page, pi) => (
+        {/* ============ 打印视图：答案页（另起页，按学科分组） ============ */}
+        {answerBlocks.map((groups, pi) => (
           <div key={`a${pi}`} className="exam-page print-sheet print-answer-page">
             {pi === 0 && (
               <div className="print-header">
@@ -476,20 +516,25 @@ export default function ComprehensiveExam() {
                 </div>
               </div>
             )}
-            <ol className="print-list" style={{ gridTemplateColumns: '1fr' }}>
-              {page.map(q => (
-                <li key={q.id} className="print-item">
-                  <div className="print-no">{numbered.map.get(q.id)}.</div>
-                  <div className="print-body">
-                    <div className="print-prompt">
-                      【{SUBJ_META[q.subject]?.label} · {q.qtype}】<b className="font-mono">{q.answer}</b>
-                    </div>
-                    {q.explanation && <div className="print-explain">解析：{q.explanation}</div>}
-                  </div>
-                </li>
-              ))}
-            </ol>
-            <div className="print-footer">教师工作台 · 答案卷 · 第 {qPages.length + pi + 1} / {qPages.length + aPages.length} 页</div>
+            {groups.map(g => (
+              <div key={g.key}>
+                <div className="exam-sec">第{CN_NUM[SUBJECTS.findIndex(s => s.key === g.key)]}部分 {g.label}{g.cont ? '（续）' : ''}</div>
+                <ol className="print-list" style={{ gridTemplateColumns: '1fr' }}>
+                  {g.items.map(q => (
+                    <li key={q.id} className="print-item">
+                      <div className="print-no">{g.no.get(q.id)}.</div>
+                      <div className="print-body">
+                        <div className="print-prompt">
+                          【{g.label} · {q.qtype}】<b className="font-mono">{q.answer}</b>
+                        </div>
+                        {q.explanation && <div className="print-explain">解析：{q.explanation}</div>}
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            ))}
+            <div className="print-footer">教师工作台 · 答案卷 · 第 {totalQP + pi + 1} / {totalPages} 页</div>
           </div>
         ))}
       </div>
