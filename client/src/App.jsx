@@ -33,6 +33,7 @@ import Comments from './pages/Comments.jsx';
 import AiWriter from './pages/AiWriter.jsx';
 import Journals from './pages/Journals.jsx';
 import Classroom from './pages/Classroom.jsx';
+import NotFound from './pages/NotFound.jsx';
 import PrivacyNotice from './components/PrivacyNotice.jsx';
 
 /** 路由守卫：未登录跳 /login；未激活或会员到期跳 /activate 续费 */
@@ -91,9 +92,10 @@ export default function App() {
           <Route path="journals" element={<Journals />} />
           <Route path="classroom" element={<Classroom />} />
           <Route path="admin" element={<RequireAdmin />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Route>
+      {/* 品牌 404：任何未匹配路径（含未登录）均展示 */}
+      <Route path="*" element={<NotFound />} />
       </Routes>
     </>
   );

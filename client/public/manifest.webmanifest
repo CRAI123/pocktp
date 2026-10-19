@@ -1,0 +1,20 @@
+{
+  "name": "教师工作台 · Rayzo",
+  "short_name": "教师工作台",
+  "description": "连接创意与未来教育，教学管理与班务处理一体化平台",
+  "lang": "zh-CN",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f5f5f7",
+  "theme_color": "#0071e3",
+  "icons": [
+    {
+      "src": "/rayzo-logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

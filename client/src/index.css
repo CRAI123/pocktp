@@ -77,6 +77,16 @@ body {
   transition: all 0.2s ease;
 }
 
+/* 页面切换过渡：路由变化时主内容区淡入上浮（Apple 风格缓动） */
+@keyframes page-enter {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.page-enter { animation: page-enter 0.35s cubic-bezier(0.22, 1, 0.36, 1) both; }
+@media (prefers-reduced-motion: reduce) {
+  .page-enter { animation: none; }
+}
+
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-thumb { background: rgba(0,0,0,.15); border-radius: 4px; }
 

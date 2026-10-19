@@ -183,7 +183,9 @@ export default function Layout() {
         </header>
 
         <main className="flex-1 px-4 py-6 sm:px-8 sm:py-8">
-          <Outlet />
+          <div key={pathname} className="page-enter">
+            <Outlet />
+          </div>
         </main>
 
         <footer className="flex flex-col items-center gap-0.5 px-4 pb-6 text-center sm:px-8">

@@ -1,15 +1,16 @@
 import { useEffect, useState } from 'react';
 import { Plus, Trash2, BookOpen, Clock, Users } from 'lucide-react';
 import { api } from '../api.js';
-import { SectionHeader, Button, Modal, Field, inputCls, Badge, Empty } from '../components/ui.jsx';
+import { SectionHeader, Button, Modal, Field, inputCls, Badge, Empty, SkeletonList } from '../components/ui.jsx';
 
 export default function Courses() {
   const [courses, setCourses] = useState([]);
   const [classes, setClasses] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ name: '', subject: '信息科技', class_id: '', schedule: '' });
 
-  const load = () => api.get('/courses').then(setCourses).catch(console.error);
+  const load = () => api.get('/courses').then(setCourses).catch(console.error).finally(() => setLoading(false));
   useEffect(() => {
     load();
     api.get('/classes').then(setClasses).catch(console.error);
@@ -36,7 +37,14 @@ export default function Courses() {
         desc="本学期所有课程的教学进度与资源概览"
         action={<Button onClick={() => setOpen(true)}><Plus size={16} />新建课程</Button>}
       />
-      {courses.length === 0 ? <Empty text="还没有课程，点击右上角新建" /> : (
+      {loading ? <SkeletonList rows={3} /> : courses.length === 0 ? (
+        <Empty
+          icon={BookOpen}
+          text="还没有课程"
+          desc="创建第一门课程，统一管理教学进度、资料与作业"
+          action={<Button onClick={() => setOpen(true)}><Plus size={16} />新建课程</Button>}
+        />
+      ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {courses.map(c => (
             <div key={c.id} className="card card-hover group flex flex-col p-6">

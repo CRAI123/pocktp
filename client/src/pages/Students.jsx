@@ -1,7 +1,7 @@
 ﻿import { useEffect, useRef, useState } from 'react';
-import { Plus, Trash2, Pencil, Phone, MessageCircle, Download, Upload, Keyboard, CheckCircle2 } from 'lucide-react';
+import { Plus, Trash2, Pencil, Phone, MessageCircle, Download, Upload, Keyboard, CheckCircle2, Users } from 'lucide-react';
 import { api } from '../api.js';
-import { SectionHeader, Button, Modal, Field, inputCls, Badge, Empty } from '../components/ui.jsx';
+import { SectionHeader, Button, Modal, Field, inputCls, Badge, Empty, SkeletonList } from '../components/ui.jsx';
 
 const EMPTY_FORM = { class_id: '', name: '', gender: '男', student_no: '', parent_phone: '', parent_wechat: '' };
 
@@ -16,6 +16,7 @@ export default function Students() {
   const [classes, setClasses] = useState([]);
   const [students, setStudents] = useState([]);
   const [filter, setFilter] = useState('');
+  const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -26,7 +27,7 @@ export default function Students() {
   const quickRefs = useRef([]);
   const classRef = useRef(null);
 
-  const load = () => api.get(`/students${filter ? `?class_id=${filter}` : ''}`).then(setStudents).catch(console.error);
+  const load = () => api.get(`/students${filter ? `?class_id=${filter}` : ''}`).then(setStudents).catch(console.error).finally(() => setLoading(false));
   useEffect(() => { api.get('/classes').then(setClasses).catch(console.error); }, []);
   useEffect(() => { load(); }, [filter]);
 
@@ -179,7 +180,14 @@ export default function Students() {
         ))}
       </div>
 
-      {students.length === 0 ? <Empty text="该班级暂无学生" /> : (
+      {loading ? <SkeletonList rows={4} /> : students.length === 0 ? (
+        <Empty
+          icon={Users}
+          text="该班级暂无学生"
+          desc="添加学生后即可进行考勤、成绩与德育管理"
+          action={<Button onClick={() => setOpen(true)}><Plus size={16} />添加学生</Button>}
+        />
+      ) : (
         <div className="card overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[560px] text-sm">

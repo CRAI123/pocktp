@@ -1,4 +1,4 @@
-import { X, ShieldCheck } from 'lucide-react';
+import { X, ShieldCheck, Inbox } from 'lucide-react';
 
 /** 统计卡片 */
 export function StatCard({ icon: Icon, label, value, hint, tone = 'blue' }) {
@@ -91,9 +91,37 @@ export function Field({ label, children }) {
 export const inputCls =
   'w-full rounded-xl border border-black/10 bg-bg-light px-3.5 py-2.5 text-sm outline-none transition focus:border-[#0071e3] focus:bg-white focus:ring-2 focus:ring-[#0071e3]/15';
 
-/** 空状态 */
-export function Empty({ text = '暂无数据' }) {
-  return <div className="card p-10 text-center text-sm text-ink-secondary">{text}</div>;
+/** 空状态：图标 + 标题 + 可选描述与引导按钮 */
+export function Empty({ icon: Icon = Inbox, text = '暂无数据', desc, action }) {
+  return (
+    <div className="card flex flex-col items-center justify-center gap-3 p-10 text-center">
+      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-black/[0.04] text-ink-secondary/50">
+        <Icon size={26} />
+      </div>
+      <div>
+        <div className="text-sm font-medium text-ink">{text}</div>
+        {desc && <div className="mt-1 text-xs leading-relaxed text-ink-secondary">{desc}</div>}
+      </div>
+      {action}
+    </div>
+  );
+}
+
+/** 列表骨架屏：与卡片列表布局一致，避免文字加载提示的生硬感 */
+export function SkeletonList({ rows = 4 }) {
+  return (
+    <div className="space-y-3" aria-hidden="true">
+      {Array.from({ length: rows }).map((_, i) => (
+        <div key={i} className="card flex items-center gap-4 p-5">
+          <div className="h-11 w-11 shrink-0 animate-pulse rounded-xl bg-black/[0.06]" />
+          <div className="flex-1 space-y-2">
+            <div className="h-3.5 w-1/3 animate-pulse rounded-full bg-black/[0.06]" />
+            <div className="h-3 w-1/2 animate-pulse rounded-full bg-black/[0.04]" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 /** Rayzo 集团品牌背书（底部居中）：集团署名 + 官网服务链接 + 审查声明 */
