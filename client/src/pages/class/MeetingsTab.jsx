@@ -55,11 +55,11 @@ export default function MeetingsTab({ classId }) {
                   <div className="text-xs text-ink-secondary">{m.meeting_date}</div>
                 </div>
                 <button onClick={() => setEdit({ id: m.id, title: m.title, content: m.content, meeting_date: m.meeting_date })}
-                  className="btn-pill p-1.5 text-ink-secondary opacity-0 hover:bg-[#0071e3]/10 hover:text-[#0071e3] group-hover:opacity-100" title="编辑">
+                  className="btn-pill p-2 text-ink-secondary opacity-60 hover:bg-[#0071e3]/10 hover:text-[#0071e3] sm:opacity-0 sm:group-hover:opacity-100" title="编辑">
                   <Pencil size={14} />
                 </button>
                 <button onClick={async () => { await api.del(`/meetings/${m.id}`); load(); }}
-                  className="btn-pill p-1.5 text-ink-secondary opacity-0 hover:bg-[#ff3b30]/10 hover:text-[#ff3b30] group-hover:opacity-100" title="删除">
+                  className="btn-pill p-2 text-ink-secondary opacity-60 hover:bg-[#ff3b30]/10 hover:text-[#ff3b30] sm:opacity-0 sm:group-hover:opacity-100" title="删除">
                   <Trash2 size={14} />
                 </button>
               </div>

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Phone, Lock, User, LogIn } from 'lucide-react';
 import { api, auth, isMembershipActive } from '../api.js';
-import { Button, Field, inputCls } from '../components/ui.jsx';
+import { Button, Field, inputCls, BrandFooter } from '../components/ui.jsx';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -26,7 +26,7 @@ export default function Login() {
   };
 
   return (
-    <div className="auth-bg relative flex min-h-screen items-center justify-center px-4">
+    <div className="auth-bg relative flex min-h-screen items-center justify-center px-4 pb-16">
       {/* 品牌氛围装饰：卡片后方斜向重复排版的渐变文字（纯装饰，不拦截交互） */}
       <div className="pointer-events-none absolute inset-0 -z-10 select-none overflow-hidden" aria-hidden="true">
         <div className="absolute -inset-[16%] -rotate-6 flex flex-col justify-between py-[8%] opacity-[0.12]">
@@ -44,7 +44,7 @@ export default function Login() {
       <div className="w-full max-w-md">
         {/* 品牌区：官网 LOGO + 产品名 + slogan */}
         <div className="mb-8 text-center">
-          <img src="/rayzo-logo.png" alt="教师工作台 LOGO" className="brand-logo mx-auto mb-4 h-16 w-16 rounded-3xl" />
+          <img src="/rayzo-logo.png" alt="教师工作台 LOGO" className="brand-logo mx-auto mb-5 h-20 w-20 rounded-full" />
           <h1 className="text-2xl font-semibold tracking-tight">教师工作台</h1>
           <p className="brand-gradient-text mt-1 text-sm font-medium">连接创意与未来教育</p>
           <p className="mt-1.5 text-sm text-ink-secondary">教学管理与班务处理一体化平台</p>
@@ -98,6 +98,8 @@ export default function Login() {
           </p>
         </div>
       </div>
+
+      <BrandFooter fixed />
     </div>
   );
 }

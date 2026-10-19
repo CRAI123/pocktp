@@ -182,7 +182,7 @@ export default function Students() {
       {students.length === 0 ? <Empty text="该班级暂无学生" /> : (
         <div className="card overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full min-w-[560px] text-sm">
               <thead>
                 <tr className="bg-bg-light text-left text-ink-secondary">
                   <th className="px-6 py-3 font-medium">学号</th>

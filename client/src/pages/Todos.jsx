@@ -106,7 +106,7 @@ export default function Todos() {
                 </div>
                 <button
                   onClick={async () => { if (confirm('确认删除该待办？')) { await api.del(`/todos/${t.id}`); load(); } }}
-                  className="btn-pill p-1.5 text-ink-secondary/50 opacity-0 transition group-hover:opacity-100 hover:bg-[#ff3b30]/10 hover:text-[#ff3b30]"
+                  className="btn-pill p-2 text-ink-secondary/50 opacity-60 transition hover:bg-[#ff3b30]/10 hover:text-[#ff3b30] sm:opacity-0 sm:group-hover:opacity-100"
                 >
                   <Trash2 size={16} />
                 </button>

@@ -39,7 +39,7 @@ export default function FundsTab({ classId }) {
   return (
     <div className="space-y-4">
       {/* 结余总览 */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div className="card flex items-center gap-3 p-4">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[#0071e3] to-[#00c6ff] text-white"><Wallet size={18} /></div>
           <div><div className="text-xl font-bold">¥{data.balance.toFixed(2)}</div><div className="text-xs text-ink-secondary">当前结余</div></div>
@@ -61,7 +61,8 @@ export default function FundsTab({ classId }) {
 
       {/* 流水表 */}
       <div className="card overflow-hidden p-0">
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[600px] text-sm">
           <thead>
             <tr className="border-b border-black/5 bg-bg-light text-left text-xs text-ink-secondary">
               <th className="px-4 py-3 font-medium">日期</th>
@@ -84,7 +85,7 @@ export default function FundsTab({ classId }) {
                 </td>
                 <td className="px-4 py-3 text-right">
                   <button onClick={async () => { await api.del(`/funds/${r.id}`); load(); }}
-                    className="btn-pill p-1 text-ink-secondary opacity-0 hover:text-[#ff3b30] group-hover:opacity-100" title="删除">
+                    className="btn-pill p-2 text-ink-secondary opacity-60 hover:text-[#ff3b30] sm:opacity-0 sm:group-hover:opacity-100" title="删除">
                     <Trash2 size={13} />
                   </button>
                 </td>
@@ -92,6 +93,7 @@ export default function FundsTab({ classId }) {
             ))}
           </tbody>
         </table>
+        </div>
         {!data.records.length && <Empty text="暂无收支记录" />}
       </div>
 

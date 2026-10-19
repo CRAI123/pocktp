@@ -87,7 +87,7 @@ export default function Renew() {
             )}
           </div>
         </div>
-        <div className="grid grid-cols-4 divide-x divide-black/[0.06] bg-bg-light text-center text-xs">
+        <div className="grid grid-cols-2 divide-x divide-black/[0.06] bg-bg-light text-center text-xs sm:grid-cols-4">
           <div className="p-3"><div className="text-ink-secondary">AI 出题</div><div className="mt-0.5 font-semibold">5 算力/次</div></div>
           <div className="p-3"><div className="text-ink-secondary">AI 批改</div><div className="mt-0.5 font-semibold">1 算力/次</div></div>
           <div className="p-3"><div className="text-ink-secondary">AI 文案</div><div className="mt-0.5 font-semibold">2-10 算力/次</div></div>
@@ -155,7 +155,7 @@ export default function Renew() {
               <div className="flex items-center gap-1.5 font-medium text-[#1f9e33]">
                 <Sparkles size={14} />兑换成功
               </div>
-              <div className="mt-1.5 grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs text-ink-secondary">
+              <div className="mt-1.5 grid grid-cols-1 gap-x-4 gap-y-0.5 text-xs text-ink-secondary sm:grid-cols-2">
                 <div>算力余额：<b className="text-ink">{success.credits}</b></div>
                 <div>{success.renewal ? '续费叠加' : '本次获得'}：<b className="text-ink">+{success.valid_days ? `${success.valid_days}天 ` : ''}{success.credits - (teacher.credits || 0)} 算力</b></div>
                 {success.membership_expires_at && <div>会员到期：<b className="text-ink">{success.membership_expires_at}</b></div>}

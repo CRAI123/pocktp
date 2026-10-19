@@ -94,7 +94,7 @@ export default function MoralTab({ classId }) {
     <div className="space-y-4">
       {/* 前三名领奖台 */}
       {top3.length > 0 && (
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           {top3.map((s, i) => (
             <div key={s.student_id} className={`card flex items-center gap-3 p-4 ${i === 0 ? 'border-[#ff9500]/40 bg-gradient-to-br from-[#ff9500]/5 to-[#ffcc00]/5' : ''}`}>
               <Trophy size={20} className={medal[i]} />
@@ -148,7 +148,7 @@ export default function MoralTab({ classId }) {
                   </div>
                 </div>
                 <button onClick={async () => { await api.del(`/moral-scores/${r.id}`); load(); }}
-                  className="btn-pill p-1 text-ink-secondary opacity-0 hover:text-[#ff3b30] group-hover:opacity-100" title="删除">
+                  className="btn-pill p-2 text-ink-secondary opacity-60 hover:text-[#ff3b30] sm:opacity-0 sm:group-hover:opacity-100" title="删除">
                   <Trash2 size={13} />
                 </button>
               </div>

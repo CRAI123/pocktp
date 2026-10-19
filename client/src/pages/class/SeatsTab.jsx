@@ -212,12 +212,12 @@ export default function SeatsTab({ classId }) {
 
   /* 大屏模式：只读全屏座次图（空置区不渲染，呈现不规则布局原貌） */
   if (bigScreen) return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-white p-6" onClick={() => setBigScreen(false)}>
+    <div className="fixed inset-0 z-50 flex flex-col bg-white p-4 sm:p-6" onClick={() => setBigScreen(false)}>
       <div className="mb-4 text-center text-sm text-ink-secondary">讲台 ↑ · 点击任意处退出大屏</div>
-      <div className="flex flex-1 items-center justify-center">
-        <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0,1fr))` }}>
+      <div className="flex flex-1 items-center justify-center overflow-auto">
+        <div className="grid w-full gap-2 sm:gap-3" style={{ gridTemplateColumns: `repeat(${cols}, minmax(64px, 1fr))`, maxWidth: cols * 128 }}>
           {grid.flatMap((row, r) => row.map((cell, c) => (
-            <div key={`${r}-${c}`} className={`flex h-20 w-28 items-center justify-center rounded-2xl text-lg font-medium ${
+            <div key={`${r}-${c}`} className={`flex h-16 items-center justify-center rounded-2xl text-base font-medium sm:h-20 sm:text-lg ${
               cell?.disabled ? 'bg-white'
               : cell ? 'bg-gradient-to-br from-[#0071e3]/10 to-[#00c6ff]/10 text-ink'
               : 'bg-black/[0.03] text-ink-secondary/40'
@@ -230,15 +230,15 @@ export default function SeatsTab({ classId }) {
 
   /* 行两侧悬浮 +/− 控件 */
   const RowCtrl = ({ r, fromRight }) => (
-    <div className="flex w-5 shrink-0 flex-col gap-0.5 opacity-0 transition group-hover/row:opacity-100">
+    <div className="flex w-6 shrink-0 flex-col gap-0.5 opacity-60 transition sm:opacity-0 sm:group-hover/row:opacity-100">
       <button title={fromRight ? '删除本行右侧座位' : '删除本行左侧座位'} disabled={!rowCanRemove(r)}
         onClick={() => rowRemoveSeat(r, fromRight)}
-        className="btn-pill p-0.5 text-ink-secondary hover:bg-black/5 hover:text-[#ff3b30] disabled:opacity-25 disabled:hover:text-ink-secondary">
+        className="btn-pill p-1 text-ink-secondary hover:bg-black/5 hover:text-[#ff3b30] disabled:opacity-25 disabled:hover:text-ink-secondary">
         <Minus size={11} />
       </button>
       <button title={fromRight ? '本行右侧补一个座位' : '本行左侧补一个座位'} disabled={!rowCanAdd(r)}
         onClick={() => rowAddSeat(r, fromRight)}
-        className="btn-pill p-0.5 text-ink-secondary hover:bg-[#0071e3]/10 hover:text-[#0071e3] disabled:opacity-25 disabled:hover:text-ink-secondary">
+        className="btn-pill p-1 text-ink-secondary hover:bg-[#0071e3]/10 hover:text-[#0071e3] disabled:opacity-25 disabled:hover:text-ink-secondary">
         <Plus size={11} />
       </button>
     </div>
@@ -271,11 +271,11 @@ export default function SeatsTab({ classId }) {
         <div className="mx-auto mb-4 w-40 rounded-xl bg-ink/80 py-1.5 text-center text-xs text-white">讲 台</div>
 
         {/* 座次网格：每行独立包裹，支持行内座位数不同 */}
-        <div className="space-y-2">
+        <div className="space-y-2 overflow-x-auto pb-1">
           {grid.map((row, r) => (
-            <div key={r} className="group/row flex items-center">
+            <div key={r} className="group/row flex min-w-max items-center">
               <RowCtrl r={r} fromRight={false} />
-              <div className="grid flex-1 gap-2 px-1" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0,1fr))` }}>
+              <div className="grid flex-1 gap-1.5 px-1 sm:gap-2" style={{ gridTemplateColumns: `repeat(${cols}, minmax(48px, 1fr))` }}>
                 {row.map((cell, c) => {
                   const isSel = selected && selected.pool == null && selected.row === r && selected.col === c;
                   const isOver = dragOver && dragOver.row === r && dragOver.col === c;
@@ -310,14 +310,14 @@ export default function SeatsTab({ classId }) {
                       {cell && (
                         <button
                           onClick={(e) => { e.stopPropagation(); removeCell(r, c); }}
-                          className="absolute -right-1.5 -top-1.5 hidden rounded-full bg-white p-0.5 text-ink-secondary shadow-md hover:text-[#ff3b30] group-hover:block"
+                          className="absolute -right-1.5 -top-1.5 rounded-full bg-white p-1 text-ink-secondary opacity-70 shadow-md hover:text-[#ff3b30] sm:opacity-0 sm:group-hover:opacity-100"
                           title="移出座位"
                         ><UserX size={12} /></button>
                       )}
                       {!cell && (
                         <button
                           onClick={(e) => { e.stopPropagation(); markDisabled(r, c); }}
-                          className="absolute -right-1.5 -top-1.5 hidden rounded-full bg-white p-0.5 text-ink-secondary shadow-md hover:text-[#ff9500] group-hover:block"
+                          className="absolute -right-1.5 -top-1.5 rounded-full bg-white p-1 text-ink-secondary opacity-70 shadow-md hover:text-[#ff9500] sm:opacity-0 sm:group-hover:opacity-100"
                           title="此处无座位（挖空）"
                         ><Ban size={12} /></button>
                       )}

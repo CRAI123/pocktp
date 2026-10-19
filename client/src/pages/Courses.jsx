@@ -44,7 +44,7 @@ export default function Courses() {
                 <div className="brand-gradient flex h-11 w-11 items-center justify-center rounded-2xl text-white">
                   <BookOpen size={20} />
                 </div>
-                <button onClick={() => remove(c.id)} className="btn-pill p-1.5 text-ink-secondary/50 opacity-0 transition group-hover:opacity-100 hover:bg-[#ff3b30]/10 hover:text-[#ff3b30]">
+                <button onClick={() => remove(c.id)} title="删除课程" className="btn-pill p-2 text-ink-secondary/50 opacity-60 transition hover:bg-[#ff3b30]/10 hover:text-[#ff3b30] sm:opacity-0 sm:group-hover:opacity-100">
                   <Trash2 size={16} />
                 </button>
               </div>

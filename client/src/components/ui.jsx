@@ -1,4 +1,4 @@
-import { X } from 'lucide-react';
+import { X, ShieldCheck } from 'lucide-react';
 
 /** 统计卡片 */
 export function StatCard({ icon: Icon, label, value, hint, tone = 'blue' }) {
@@ -9,13 +9,13 @@ export function StatCard({ icon: Icon, label, value, hint, tone = 'blue' }) {
     purple: 'from-[#af52de] to-[#d783ff]',
   };
   return (
-    <div className="card card-hover flex items-center gap-4 p-5">
-      <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br text-white shadow-md ${tones[tone]}`}>
-        <Icon size={22} />
+    <div className="card card-hover flex items-center gap-3 p-4 sm:gap-4 sm:p-5">
+      <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br text-white shadow-md sm:h-12 sm:w-12 ${tones[tone]}`}>
+        <Icon size={20} />
       </div>
       <div className="min-w-0">
-        <div className="text-2xl font-semibold tracking-tight">{value}</div>
-        <div className="truncate text-sm text-ink-secondary">{label}{hint ? ` · ${hint}` : ''}</div>
+        <div className="text-xl font-semibold tracking-tight sm:text-2xl">{value}</div>
+        <div className="truncate text-xs text-ink-secondary sm:text-sm">{label}{hint ? ` · ${hint}` : ''}</div>
       </div>
     </div>
   );
@@ -94,6 +94,32 @@ export const inputCls =
 /** 空状态 */
 export function Empty({ text = '暂无数据' }) {
   return <div className="card p-10 text-center text-sm text-ink-secondary">{text}</div>;
+}
+
+/** Rayzo 集团品牌背书（右下角）：集团署名 + 官网服务链接 + 审查声明 */
+export function BrandFooter({ fixed = false, className = '' }) {
+  return (
+    <footer
+      className={`${fixed ? 'absolute inset-x-0 bottom-0' : ''} flex flex-col items-end gap-0.5 px-5 pb-4 text-right text-xs text-ink-secondary/60 sm:pb-5 ${className}`}
+    >
+      <div className="flex flex-wrap items-center justify-end gap-x-2 gap-y-1">
+        <span>© 2026 Rayzo 集团旗下产品</span>
+        <span className="text-ink-secondary/30">·</span>
+        <a
+          href="https://rayzo.cn"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="font-medium text-ink-secondary transition hover:text-[#0071e3] hover:underline underline-offset-2"
+        >
+          由 Rayzo.cn 提供服务
+        </a>
+      </div>
+      <div className="flex items-center gap-1 text-[11px] text-ink-secondary/50">
+        <ShieldCheck size={11} className="text-[#28cd41]/70" />
+        该网站已由集团创新部门 2026 年审查通过
+      </div>
+    </footer>
+  );
 }
 
 /** 状态 -> Badge 配色 */

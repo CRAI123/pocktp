@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
 import { KeyRound, Sparkles, LogOut, ShoppingBag, CalendarClock, ExternalLink } from 'lucide-react';
 import { api, auth, isMembershipActive, todayStr } from '../api.js';
-import { Button, inputCls } from '../components/ui.jsx';
+import { Button, inputCls, BrandFooter } from '../components/ui.jsx';
 
 const XIANYU_URL = 'https://m.tb.cn/h.j1YRJO9?tk=LOXzTu26Lti';
 const XIANYU_SHOP = 'Rayzo密钥事务所';
@@ -47,10 +47,10 @@ export default function Activate() {
   };
 
   return (
-    <div className="auth-bg flex min-h-screen items-center justify-center px-4">
+    <div className="auth-bg relative flex min-h-screen items-center justify-center px-4 pb-16">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
-          <img src="/rayzo-logo.png" alt="教师工作台 LOGO" className="brand-logo mx-auto mb-4 h-16 w-16 rounded-3xl" />
+          <img src="/rayzo-logo.png" alt="教师工作台 LOGO" className="brand-logo mx-auto mb-5 h-20 w-20 rounded-full" />
           <h1 className="text-2xl font-semibold tracking-tight">{expired ? '会员续费' : '激活账号'}</h1>
           <p className="brand-gradient-text mt-1 text-sm font-medium">连接创意与未来教育</p>
           <p className="mt-1.5 text-sm text-ink-secondary">
@@ -108,6 +108,8 @@ export default function Activate() {
           <LogOut size={15} /> 退出当前账号{teacher?.phone ? `（${teacher.phone}）` : ''}
         </button>
       </div>
+
+      <BrandFooter fixed />
     </div>
   );
 }

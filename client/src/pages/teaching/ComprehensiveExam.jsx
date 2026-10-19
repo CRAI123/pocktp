@@ -93,6 +93,8 @@ export default function ComprehensiveExam() {
   const [regenBusy, setRegenBusy] = useState(null);
   const [regenErr, setRegenErr] = useState('');
   const [pdfBusy, setPdfBusy] = useState(false);
+  /* 屏幕端学科页签：一科一个页面，切换查看，互不混杂 */
+  const [activeSubj, setActiveSubj] = useState('chinese');
 
   const totalPlanned = Object.values(cfg.subjects).reduce((s, n) => s + n, 0);
   const gradeLabel = GRADES.find(g => g.v === cfg.grade)?.l || '';
@@ -131,6 +133,9 @@ export default function ComprehensiveExam() {
       setExpanded({});
       setRegenFor(null);
       setGenerated(true);
+      /* 自动定位到第一个有题的学科页 */
+      const firstSubj = SUBJECTS.find(s => qs.some(q => q.subject === s.key));
+      if (firstSubj) setActiveSubj(firstSubj.key);
       if (d.credits != null && auth.teacher) auth.save(auth.token, { ...auth.teacher, credits: d.credits });
     } catch (e) {
       setErr(e.message || '生成失败');
@@ -254,8 +259,8 @@ export default function ComprehensiveExam() {
 
   const totalPages = totalQP + answerBlocks.length;
 
-  /* ---------- 屏幕端单题卡片 ---------- */
-  const QuestionCard = ({ q }) => {
+  /* ---------- 屏幕端单题卡片（no = 科内题号） ---------- */
+  const QuestionCard = ({ q, no }) => {
     const checked = sel.includes(q.id);
     const meta = SUBJ_META[q.subject] || SUBJECTS[0];
     const showAns = !!expanded[q.id];
@@ -263,11 +268,12 @@ export default function ComprehensiveExam() {
     return (
       <div className={`card p-4 transition ${checked ? '' : 'opacity-55'}`}>
         <div className="flex items-start gap-3">
-          <input type="checkbox" checked={checked}
+          <input type="checkbox" checked={checked} aria-label={`选中第 ${no} 题`}
             onChange={() => setSel(list => checked ? list.filter(x => x !== q.id) : [...list, q.id])}
-            className="mt-1 h-4 w-4 shrink-0 accent-[#0071e3]" />
+            className="mt-1.5 h-4 w-4 shrink-0 accent-[#0071e3]" />
           <div className="min-w-0 flex-1">
-            <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
+            <div className="mb-2 flex flex-wrap items-center gap-1.5">
+              <span className="text-sm font-semibold tabular-nums">{no}.</span>
               <Badge tone={meta.tone}>{meta.label}</Badge>
               <Badge tone="purple">{q.qtype}</Badge>
               <span className="text-xs text-ink-secondary">{q.points} 分</span>
@@ -405,45 +411,74 @@ export default function ComprehensiveExam() {
         </div>
       )}
 
-      {/* ============ 试卷预览（语数英独立成部分，可勾选） ============ */}
+      {/* ============ 试卷预览：一科一个页面（Tab 切换），可勾选 ============ */}
       {generated && !loading && questions.length > 0 && (
-        <div className="space-y-5">
-          {SUBJECTS.map((s, si) => {
+        <div className="space-y-4">
+          {/* 学科页签：每科显示 已选/总数 */}
+          <div className="card sticky top-20 z-10 flex flex-wrap items-center gap-1.5 p-2">
+            {SUBJECTS.map(s => {
+              const qs = questions.filter(q => q.subject === s.key);
+              if (!qs.length) return null;
+              const pickedN = qs.filter(q => sel.includes(q.id)).length;
+              const active = activeSubj === s.key;
+              return (
+                <button key={s.key} onClick={() => setActiveSubj(s.key)}
+                  className={`btn-pill flex items-center gap-1.5 px-4 py-2 text-sm font-medium transition active:scale-95 ${
+                    active ? `${s.chip} shadow-sm` : 'text-ink-secondary hover:bg-black/[0.04] hover:text-ink'
+                  }`}>
+                  {s.label}
+                  <span className={`text-xs tabular-nums ${active ? 'text-white/80' : 'text-ink-secondary/60'}`}>
+                    {pickedN}/{qs.length}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* 当前学科页：部分标题 + 题目 */}
+          {(() => {
+            const si = SUBJECTS.findIndex(s => s.key === activeSubj);
+            if (si < 0) return null;
+            const s = SUBJECTS[si];
             const qs = questions.filter(q => q.subject === s.key);
             if (!qs.length) return null;
             const pickedN = qs.filter(q => sel.includes(q.id)).length;
             const pts = qs.reduce((sum, q) => sum + (Number(q.points) || 0), 0);
             return (
-              <div key={s.key}>
-                <div className="mb-2.5 flex flex-wrap items-center gap-2">
+              <div>
+                <div className="mb-3 flex flex-wrap items-center gap-2">
                   <span className={`inline-flex h-6 items-center rounded-full px-2.5 text-xs font-semibold ${s.chip}`}>第{CN_NUM[si]}部分</span>
                   <h3 className="text-base font-semibold">{s.label}部分</h3>
                   <span className="text-xs text-ink-secondary">已选 {pickedN}/{qs.length} 题 · 共 {pts} 分</span>
                 </div>
-                <div className="space-y-2.5">
-                  {qs.map(q => <QuestionCard key={q.id} q={q} />)}
+                <div className="space-y-3">
+                  {qs.map((q, i) => <QuestionCard key={q.id} q={q} no={i + 1} />)}
                 </div>
               </div>
             );
-          })}
+          })()}
         </div>
       )}
 
       {/* ============ 底部悬浮岛 ============ */}
       {generated && questions.length > 0 && (
-        <div className="no-print pointer-events-none fixed inset-x-0 bottom-6 z-50 flex justify-center px-4 pb-[max(env(safe-area-inset-bottom),0px)]">
+        <div className="no-print pointer-events-none fixed inset-x-0 bottom-4 z-50 flex justify-center px-3 pb-[max(env(safe-area-inset-bottom),0px)] sm:bottom-6 sm:px-4">
           <div className="pointer-events-auto relative flex max-w-full flex-wrap items-center justify-center gap-0.5 rounded-full p-1.5 shadow-2xl shadow-black/20 ring-1 ring-white/40"
             style={{ background: 'rgba(255,255,255,0.72)', backdropFilter: 'saturate(180%) blur(24px)', WebkitBackdropFilter: 'saturate(180%) blur(24px)' }}>
             <span className="flex items-center gap-1.5 px-3 text-xs text-ink-secondary">
               <Sparkles size={13} className="text-[#0071e3]" />已选 <b className="text-ink">{picked.length}</b>/{questions.length} 题
             </span>
-            <button onClick={() => setSel(questions.map(q => q.id))}
+            <button
+              onClick={() => setSel(list => [...new Set([...list, ...questions.filter(q => q.subject === activeSubj).map(q => q.id)])])}
+              title={`全选当前学科（${SUBJECTS.find(s => s.key === activeSubj)?.label || ''}）`}
               className="flex h-9 items-center gap-1.5 rounded-full px-3 text-sm text-ink transition hover:bg-black/5 active:scale-90">
-              <CheckSquare size={15} />全选
+              <CheckSquare size={15} /><span className="hidden sm:inline">全选本科</span>
             </button>
-            <button onClick={() => setSel([])}
+            <button
+              onClick={() => setSel(list => list.filter(id => !questions.some(q => q.id === id && q.subject === activeSubj)))}
+              title={`清空当前学科（${SUBJECTS.find(s => s.key === activeSubj)?.label || ''}）`}
               className="flex h-9 items-center gap-1.5 rounded-full px-3 text-sm text-ink transition hover:bg-black/5 active:scale-90">
-              <Square size={15} />清空
+              <Square size={15} /><span className="hidden sm:inline">清空本科</span>
             </button>
             <span className="mx-1 h-5 w-px bg-black/10" />
             <button onClick={downloadPDF} disabled={pdfBusy || !picked.length}

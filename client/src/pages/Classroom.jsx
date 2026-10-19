@@ -212,12 +212,12 @@ function QuickScore({ classId, students, groups }) {
           </span>
         )}
         <button onClick={() => add(s, 1)} title="加 1 分"
-          className="flex h-8 w-8 items-center justify-center rounded-full bg-[#30d158]/20 text-[#30d158] transition hover:bg-[#30d158]/35 active:scale-90">
-          <Plus size={16} />
+          className="flex h-10 w-10 items-center justify-center rounded-full bg-[#30d158]/20 text-[#30d158] transition hover:bg-[#30d158]/35 active:scale-90">
+          <Plus size={17} />
         </button>
         <button onClick={() => add(s, -1)} title="扣 1 分"
-          className="flex h-8 w-8 items-center justify-center rounded-full bg-[#ff453a]/15 text-[#ff453a] transition hover:bg-[#ff453a]/30 active:scale-90">
-          <Minus size={16} />
+          className="flex h-10 w-10 items-center justify-center rounded-full bg-[#ff453a]/15 text-[#ff453a] transition hover:bg-[#ff453a]/30 active:scale-90">
+          <Minus size={17} />
         </button>
       </div>
     );

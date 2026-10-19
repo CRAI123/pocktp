@@ -61,7 +61,8 @@ export default function Materials() {
                 <span className="hidden shrink-0 text-xs text-ink-secondary sm:block">{(m.created_at || '').slice(0, 10)}</span>
                 <button
                   onClick={async () => { if (confirm('确认删除该资料？')) { await api.del(`/materials/${m.id}`); load(); } }}
-                  className="btn-pill shrink-0 p-1.5 text-ink-secondary/50 opacity-0 transition group-hover:opacity-100 hover:bg-[#ff3b30]/10 hover:text-[#ff3b30]"
+                  title="删除资料"
+                  className="btn-pill shrink-0 p-2 text-ink-secondary/50 opacity-60 transition hover:bg-[#ff3b30]/10 hover:text-[#ff3b30] sm:opacity-0 sm:group-hover:opacity-100"
                 >
                   <Trash2 size={16} />
                 </button>

@@ -64,7 +64,7 @@ export default function Layout() {
     <div className="flex h-full flex-col">
       {/* 品牌区：官网 LOGO + 产品名 + slogan */}
       <NavLink to="/" className="flex items-center gap-3 px-6 pt-7 pb-6" onClick={() => setOpen(false)}>
-        <img src="/rayzo-logo.png" alt="教师工作台 LOGO" className="brand-logo h-10 w-10 rounded-2xl" />
+        <img src="/rayzo-logo.png" alt="教师工作台 LOGO" className="brand-logo h-12 w-12 rounded-full" />
         <div>
           <div className="text-[15px] font-semibold tracking-tight text-ink">教师工作台</div>
           <div className="text-xs text-ink-secondary">连接创意与未来教育</div>
@@ -134,7 +134,7 @@ export default function Layout() {
 
           {/* 官网 LOGO + 品牌名 + slogan（窄屏仅显示 LOGO） */}
           <Link to="/" className="flex items-center gap-2.5" title="教师工作台 · 连接创意与未来教育">
-            <img src="/rayzo-logo.png" alt="教师工作台 LOGO" className="brand-logo h-9 w-9 rounded-xl" />
+            <img src="/rayzo-logo.png" alt="教师工作台 LOGO" className="brand-logo h-10 w-10 rounded-full" />
             <span className="hidden flex-col leading-tight sm:flex">
               <span className="text-[15px] font-semibold tracking-tight text-ink">教师工作台</span>
               <span className="text-[11px] tracking-wide text-ink-secondary">连接创意与未来教育</span>
@@ -186,12 +186,25 @@ export default function Layout() {
           <Outlet />
         </main>
 
-        <footer className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 px-8 pb-6 text-center text-xs text-ink-secondary/60">
-          <span>教师工作台</span>
-          <span className="text-ink-secondary/30">·</span>
-          <span className="brand-gradient-text font-medium">连接创意与未来教育</span>
-          <span className="text-ink-secondary/30">·</span>
-          <span>教学与班务一体化管理</span>
+        <footer className="flex flex-col items-end gap-0.5 px-4 pb-6 text-right sm:px-8">
+          <div className="flex flex-wrap items-center justify-end gap-x-2 gap-y-1 text-xs text-ink-secondary/60">
+            <span className="brand-gradient-text font-medium">连接创意与未来教育</span>
+            <span className="text-ink-secondary/30">·</span>
+            <span>© 2026 Rayzo 集团旗下产品</span>
+            <span className="text-ink-secondary/30">·</span>
+            <a
+              href="https://rayzo.cn"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-ink-secondary transition hover:text-[#0071e3] hover:underline underline-offset-2"
+            >
+              由 Rayzo.cn 提供服务
+            </a>
+          </div>
+          <div className="flex items-center gap-1 text-[11px] text-ink-secondary/50">
+            <ShieldCheck size={11} className="text-[#28cd41]/70" />
+            该网站已由集团创新部门 2026 年审查通过
+          </div>
         </footer>
       </div>
     </div>

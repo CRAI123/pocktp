@@ -198,7 +198,7 @@ export default function Grades() {
           <div className="card overflow-hidden">
             <div className="border-b border-black/5 px-6 py-4 font-semibold">成绩记录</div>
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full min-w-[560px] text-sm">
                 <thead>
                   <tr className="bg-bg-light text-left text-ink-secondary">
                     <th className="px-6 py-3 font-medium">学生</th>
@@ -406,7 +406,7 @@ function ClassExamAnalysis() {
           <div className="card overflow-hidden">
             <div className="border-b border-black/5 px-6 py-4 font-semibold">总分排名</div>
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full min-w-[560px] text-sm">
                 <thead>
                   <tr className="bg-bg-light text-left text-ink-secondary">
                     <th className="px-6 py-3 font-medium">名次</th>

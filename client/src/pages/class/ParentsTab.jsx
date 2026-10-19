@@ -40,7 +40,7 @@ export default function ParentsTab({ classId }) {
   return (
     <div className="card overflow-hidden p-0">
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="w-full min-w-[520px] text-sm">
           <thead>
             <tr className="border-b border-black/5 bg-bg-light text-left text-xs text-ink-secondary">
               <th className="px-4 py-3 font-medium">学生</th>
@@ -115,7 +115,7 @@ export default function ParentsTab({ classId }) {
                 <div className="mb-1 flex items-center gap-2">
                   <Badge tone="blue">{l.contact_type}</Badge>
                   <span className="text-xs text-ink-secondary">{l.contacted_at}</span>
-                  <button onClick={() => delLog(l.id)} className="btn-pill ml-auto p-1 text-ink-secondary opacity-0 hover:text-[#ff3b30] group-hover:opacity-100" title="删除">
+                  <button onClick={() => delLog(l.id)} className="btn-pill ml-auto p-2 text-ink-secondary opacity-60 hover:text-[#ff3b30] sm:opacity-0 sm:group-hover:opacity-100" title="删除">
                     <Trash2 size={13} />
                   </button>
                 </div>

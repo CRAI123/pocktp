@@ -201,7 +201,7 @@ export default function Practice({
 
   /* 屏幕工具栏 → 改为底部浮动岛（macOS 灵动岛风格）：固定居中、玻璃质感、始终可达 */
   const screenToolbar = (
-    <div className="no-print pointer-events-none fixed inset-x-0 bottom-6 z-50 flex justify-center px-4 pb-[max(env(safe-area-inset-bottom),0px)]">
+    <div className="no-print pointer-events-none fixed inset-x-0 bottom-4 z-50 flex justify-center px-3 pb-[max(env(safe-area-inset-bottom),0px)] sm:bottom-6 sm:px-4">
       <div
         data-float-island
         className="pointer-events-auto relative flex max-w-full flex-wrap items-center justify-center gap-0.5 rounded-full p-1.5 shadow-2xl shadow-black/20 ring-1 ring-white/40"
@@ -246,14 +246,14 @@ export default function Practice({
               title={isChinese ? '提交答案' : '提交校验'}
               className="h-9 px-3 rounded-full text-[#0071e3] hover:bg-[#0071e3]/10 flex items-center gap-1.5 text-sm transition active:scale-90"
             >
-              <Send size={15} />{isChinese ? '提交' : '校验'}
+              <Send size={15} /><span className="hidden sm:inline">{isChinese ? '提交' : '校验'}</span>
             </button>
             <button
               onClick={() => setRevealed(p => ({ ...p, [q.id]: !p[q.id] }))}
               title={isChinese ? '查看解析' : '显示答案'}
               className="h-9 px-3 rounded-full text-[#28cd41] hover:bg-[#28cd41]/10 flex items-center gap-1.5 text-sm transition active:scale-90"
             >
-              <Eye size={15} />{revealed[q.id] ? '隐藏' : (isChinese ? '解析' : '答案')}
+              <Eye size={15} /><span className="hidden sm:inline">{revealed[q.id] ? '隐藏' : (isChinese ? '解析' : '答案')}</span>
             </button>
             <button
               onClick={() => { setAiGrade(p => { const n = { ...p }; delete n[q.id]; return n; }); gradeWithAI(q); }}
@@ -261,7 +261,7 @@ export default function Practice({
               title="重新让 AI 批改当前题（扣 1 算力）"
               className="h-9 px-3 rounded-full text-[#af52de] hover:bg-[#af52de]/10 flex items-center gap-1.5 text-sm transition active:scale-90 disabled:opacity-30"
             >
-              <Wand2 size={15} />AI 批改
+              <Wand2 size={15} /><span className="hidden sm:inline">AI 批改</span>
             </button>
             <button
               onClick={runSimilar}
@@ -269,14 +269,14 @@ export default function Practice({
               title="AI 举一反三：基于当前题生成 3 道同类变式并追加到试卷（扣 2 算力）"
               className="h-9 px-3 rounded-full text-[#ff9500] hover:bg-[#ff9500]/10 flex items-center gap-1.5 text-sm transition active:scale-90 disabled:opacity-50"
             >
-              {similarBusy ? <Loader2 size={15} className="animate-spin" /> : <Sparkles size={15} />}举一反三
+              {similarBusy ? <Loader2 size={15} className="animate-spin" /> : <Sparkles size={15} />}<span className="hidden sm:inline">举一反三</span>
             </button>
             <button
               onClick={reset}
               title={isChinese ? '重置练习' : '重新练习'}
               className="h-9 px-3 rounded-full text-[#ff3b30] hover:bg-[#ff3b30]/10 flex items-center gap-1.5 text-sm transition active:scale-90"
             >
-              <RotateCcw size={15} />{isChinese ? '重置' : '重练'}
+              <RotateCcw size={15} /><span className="hidden sm:inline">{isChinese ? '重置' : '重练'}</span>
             </button>
           </>
         )}
@@ -289,7 +289,7 @@ export default function Practice({
           title="配置本题（年级/难度/数量/提示词/选题）"
           className="h-9 px-3 rounded-full text-ink hover:bg-black/5 flex items-center gap-1.5 text-sm transition active:scale-90"
         >
-          <Sliders size={15} />配置
+          <Sliders size={15} /><span className="hidden sm:inline">配置</span>
         </button>
         <button
           onClick={downloadPDF}

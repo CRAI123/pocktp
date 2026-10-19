@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { KeyRound, Sparkles, Phone, Lock, User, Zap, CheckCircle2, ArrowRight, CalendarClock } from 'lucide-react';
 import { api, auth } from '../api.js';
-import { Button, Field, inputCls } from '../components/ui.jsx';
+import { Button, Field, inputCls, BrandFooter } from '../components/ui.jsx';
 
 /** 激活码分组显示：XXXX-XXXX-XXXX-XXXX */
 const fmtCode = (c) => (c || '').replace(/[^A-Z0-9]/gi, '').toUpperCase().replace(/(.{4})(?=.)/g, '$1-');
@@ -63,10 +63,10 @@ export default function Redeem() {
   };
 
   return (
-    <div className="auth-bg flex min-h-screen items-center justify-center px-4 py-10">
+    <div className="auth-bg relative flex min-h-screen items-center justify-center px-4 py-10">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
-          <img src="/rayzo-logo.png" alt="教师工作台 LOGO" className="brand-logo mx-auto mb-4 h-16 w-16 rounded-3xl" />
+          <img src="/rayzo-logo.png" alt="教师工作台 LOGO" className="brand-logo mx-auto mb-5 h-20 w-20 rounded-full" />
           <h1 className="text-2xl font-semibold tracking-tight">激活教师工作台</h1>
           <p className="brand-gradient-text mt-1 text-sm font-medium">连接创意与未来教育</p>
           <p className="mt-1.5 text-sm text-ink-secondary">登录或注册后自动完成激活，解锁全部功能与算力</p>
@@ -165,6 +165,8 @@ export default function Redeem() {
           </div>
         )}
       </div>
+
+      <BrandFooter fixed />
     </div>
   );
 }

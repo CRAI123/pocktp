@@ -52,7 +52,7 @@ export default function CommitteeTab({ classId }) {
               </div>
               <button
                 onClick={() => del(c.id)}
-                className="btn-pill p-1.5 text-ink-secondary opacity-0 transition hover:bg-[#ff3b30]/10 hover:text-[#ff3b30] group-hover:opacity-100"
+                className="btn-pill p-2 text-ink-secondary opacity-60 transition hover:bg-[#ff3b30]/10 hover:text-[#ff3b30] sm:opacity-0 sm:group-hover:opacity-100"
                 title="移除"
               ><Trash2 size={14} /></button>
             </div>
