@@ -28,6 +28,24 @@ body {
   backdrop-filter: saturate(180%) blur(20px);
   -webkit-backdrop-filter: saturate(180%) blur(20px);
   border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.02), 0 4px 16px rgba(0, 0, 0, 0.035);
+}
+
+/* 登录 / 激活等入口页背景：极淡的品牌色光晕，增加层次感 */
+.auth-bg {
+  background:
+    radial-gradient(1100px 480px at 50% -12%, rgba(0, 113, 227, 0.09), transparent 62%),
+    radial-gradient(900px 420px at 92% 108%, rgba(40, 205, 65, 0.08), transparent 60%),
+    var(--color-bg-light);
+}
+
+/* 品牌 LOGO 容器：统一圆角、细描边与投影，保证各尺寸下边缘干净 */
+.brand-logo {
+  object-fit: cover;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 4px 12px rgba(0, 113, 227, 0.10);
+  outline: 1px solid rgba(0, 0, 0, 0.05);
+  outline-offset: -1px;
 }
 
 /* 品牌渐变：蓝 -> 绿 */

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { GraduationCap, KeyRound, Sparkles, Phone, Lock, User, Zap, CheckCircle2, ArrowRight, CalendarClock } from 'lucide-react';
+import { KeyRound, Sparkles, Phone, Lock, User, Zap, CheckCircle2, ArrowRight, CalendarClock } from 'lucide-react';
 import { api, auth } from '../api.js';
 import { Button, Field, inputCls } from '../components/ui.jsx';
 
@@ -63,13 +63,12 @@ export default function Redeem() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-bg-light px-4 py-10">
+    <div className="auth-bg flex min-h-screen items-center justify-center px-4 py-10">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
-          <div className="brand-gradient mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-3xl text-white shadow-lg shadow-blue-500/25">
-            <GraduationCap size={26} />
-          </div>
+          <img src="/rayzo-logo.png" alt="教师工作台 LOGO" className="brand-logo mx-auto mb-4 h-16 w-16 rounded-3xl" />
           <h1 className="text-2xl font-semibold tracking-tight">激活教师工作台</h1>
+          <p className="brand-gradient-text mt-1 text-sm font-medium">连接创意与未来教育</p>
           <p className="mt-1.5 text-sm text-ink-secondary">登录或注册后自动完成激活，解锁全部功能与算力</p>
         </div>
 

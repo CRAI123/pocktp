@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { GraduationCap, Phone, Lock, User, LogIn } from 'lucide-react';
+import { Phone, Lock, User, LogIn } from 'lucide-react';
 import { api, auth, isMembershipActive } from '../api.js';
 import { Button, Field, inputCls } from '../components/ui.jsx';
 
@@ -26,14 +26,13 @@ export default function Login() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-bg-light px-4">
+    <div className="auth-bg flex min-h-screen items-center justify-center px-4">
       <div className="w-full max-w-md">
-        {/* 品牌区 */}
+        {/* 品牌区：官网 LOGO + 产品名 + slogan */}
         <div className="mb-8 text-center">
-          <div className="brand-gradient mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-3xl text-white shadow-lg shadow-blue-500/25">
-            <GraduationCap size={26} />
-          </div>
+          <img src="/rayzo-logo.png" alt="教师工作台 LOGO" className="brand-logo mx-auto mb-4 h-16 w-16 rounded-3xl" />
           <h1 className="text-2xl font-semibold tracking-tight">教师工作台</h1>
+          <p className="brand-gradient-text mt-1 text-sm font-medium">连接创意与未来教育</p>
           <p className="mt-1.5 text-sm text-ink-secondary">教学管理与班务处理一体化平台</p>
         </div>
 

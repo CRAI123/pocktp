@@ -1,7 +1,7 @@
 import { NavLink, Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, BookOpen, FolderOpen, ClipboardList, LineChart, Sparkles,
-  Users, CalendarCheck, MessageSquare, ListTodo, GraduationCap, Menu, X, LogOut, ShieldCheck, Zap,
+  Users, CalendarCheck, MessageSquare, ListTodo, Menu, X, LogOut, ShieldCheck, Zap,
   MonitorPlay, PenLine, Wand2, BookText,
 } from 'lucide-react';
 import { useState } from 'react';
@@ -61,14 +61,12 @@ export default function Layout() {
 
   const sidebar = (
     <div className="flex h-full flex-col">
-      {/* 品牌区 */}
+      {/* 品牌区：官网 LOGO + 产品名 + slogan */}
       <NavLink to="/" className="flex items-center gap-3 px-6 pt-7 pb-6" onClick={() => setOpen(false)}>
-        <div className="brand-gradient flex h-10 w-10 items-center justify-center rounded-2xl text-white shadow-lg shadow-blue-500/20">
-          <GraduationCap size={20} strokeWidth={2.2} />
-        </div>
+        <img src="/rayzo-logo.png" alt="教师工作台 LOGO" className="brand-logo h-10 w-10 rounded-2xl" />
         <div>
           <div className="text-[15px] font-semibold tracking-tight text-ink">教师工作台</div>
-          <div className="text-xs text-ink-secondary">Teacher Workspace</div>
+          <div className="text-xs text-ink-secondary">连接创意与未来教育</div>
         </div>
       </NavLink>
 
@@ -132,7 +130,20 @@ export default function Layout() {
           <button className="btn-pill p-2 hover:bg-black/5 lg:hidden" onClick={() => setOpen(!open)}>
             {open ? <X size={20} /> : <Menu size={20} />}
           </button>
-          <h1 className="text-lg font-semibold tracking-tight">
+
+          {/* 官网 LOGO + 品牌名 + slogan（窄屏仅显示 LOGO） */}
+          <Link to="/" className="flex items-center gap-2.5" title="教师工作台 · 连接创意与未来教育">
+            <img src="/rayzo-logo.png" alt="教师工作台 LOGO" className="brand-logo h-9 w-9 rounded-xl" />
+            <span className="hidden flex-col leading-tight sm:flex">
+              <span className="text-[15px] font-semibold tracking-tight text-ink">教师工作台</span>
+              <span className="text-[11px] tracking-wide text-ink-secondary">连接创意与未来教育</span>
+            </span>
+          </Link>
+
+          {/* 品牌区与页面标题的分隔线 */}
+          <div className="mx-1 hidden h-6 w-px bg-black/10 md:block" />
+
+          <h1 className="truncate text-lg font-semibold tracking-tight">
             {TITLES[pathname] || (pathname.startsWith('/classes/') ? '班级管理' : '教师工作台')}
           </h1>
           <div className="ml-auto flex items-center gap-3">
@@ -174,8 +185,12 @@ export default function Layout() {
           <Outlet />
         </main>
 
-        <footer className="px-8 pb-6 text-center text-xs text-ink-secondary/60">
-          教师工作台 · 教学与班务一体化管理
+        <footer className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 px-8 pb-6 text-center text-xs text-ink-secondary/60">
+          <span>教师工作台</span>
+          <span className="text-ink-secondary/30">·</span>
+          <span className="brand-gradient-text font-medium">连接创意与未来教育</span>
+          <span className="text-ink-secondary/30">·</span>
+          <span>教学与班务一体化管理</span>
         </footer>
       </div>
     </div>
