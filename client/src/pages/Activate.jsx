@@ -1,8 +1,11 @@
 import { useState } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
-import { KeyRound, Sparkles, LogOut, ShoppingBag, CalendarClock } from 'lucide-react';
+import { KeyRound, Sparkles, LogOut, ShoppingBag, CalendarClock, ExternalLink } from 'lucide-react';
 import { api, auth, isMembershipActive, todayStr } from '../api.js';
 import { Button, inputCls } from '../components/ui.jsx';
+
+const XIANYU_URL = 'https://m.tb.cn/h.j1YRJO9?tk=LOXzTu26Lti';
+const XIANYU_SHOP = 'Rayzo密钥事务所';
 
 export default function Activate() {
   const navigate = useNavigate();
@@ -88,7 +91,13 @@ export default function Activate() {
             <div className="flex items-center gap-1.5 font-medium text-[#0071e3]">
               <ShoppingBag size={13} /> 如何获取激活码
             </div>
-            <p className="mt-1">前往闲鱼搜索「教师工作台激活码」购买，或联系客服获取试用码。每个激活码仅限一个账号使用。</p>
+            <p className="mt-1">
+              前往闲鱼 App，搜索店铺名「<span className="font-semibold text-[#0071e3]">{XIANYU_SHOP}</span>」购买，或直接
+              <a href={XIANYU_URL} target="_blank" rel="noopener noreferrer" className="mx-1 inline-flex items-center gap-0.5 font-medium text-[#0071e3] underline-offset-2 hover:underline">
+                点击跳转闲鱼 <ExternalLink size={11} />
+              </a>
+              。每个激活码仅限一个账号使用，购买后请妥善保管。
+            </p>
           </div>
         </div>
 
