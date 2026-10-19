@@ -466,4 +466,10 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_teachers_phone ON teachers(phone);
  * 由使用方决定处理方式（本地启动进程退出；Serverless 返回 503 错误详情） */
 const ready = init();
 
+/* 立即附加 no-op catch：杜绝 unhandled rejection。
+ * Serverless 环境（Vercel）遇到未处理的 rejection 会直接杀死函数实例，
+ * 导致所有请求返回无信息的 500 FUNCTION_INVOCATION_FAILED。
+ * 真实错误通过 api/index.js 的 dbReady 转成 503 + message 返回 */
+ready.catch(() => {});
+
 module.exports = { all, get, run, transaction, exec, ready, pool };
