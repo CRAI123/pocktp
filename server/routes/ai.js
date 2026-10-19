@@ -23,6 +23,7 @@ const COSTS = {
   grade: 1,         // AI 批改（单题，轻量）
   extract: 2,       // 聊天记录解析（提取待办/加减分/整理纪要）
   similar: 2,       // 举一反三（基于单题生成同型变式）
+  regenerate: 1,    // 单题重出（按改进提示词重新命制 1 题）
   write: {
     comment: 10,    // AI 期末评语（一次全班）
     notice: 2,      // 家长通知
@@ -88,6 +89,7 @@ const TYPE_PROMPT = {
   wordbank: '英语选词填空：给一段短文挖 3 个空 + 6 个候选词',
   reading: '英语阅读理解：给一篇短文（80-150 词）+ 3-5 道选择题（4 选 1），覆盖主旨/细节/推断/词义',
   dictationEn: '英语单词听写：给出中文释义，让学生写出对应英文单词',
+  exam: '综合测试卷：仿中考题型结构的语文/数学/英语综合卷（选择题/填空题/解答题，数学不含画图题）',
 };
 
 /* 中考命题新风向指令（任意年级档可选开启） */
@@ -489,6 +491,189 @@ ${JSON.stringify(original, null, 2)}
      `举一反三 · ${preview}`, JSON.stringify(questions), cost]
   ).catch(err => console.warn('[ai] history save failed:', err.message));
   res.json({ questions, cost, credits: charged.credits, usage: result.usage });
+}));
+
+/* ===== 综合测试（仿中考题型的语/数/英综合卷，数学不含画图题） ===== */
+
+/* 各学科命题范围与题型结构说明 */
+const EXAM_SUBJECT_DESC = {
+  chinese: '语文（选择题=字词/病句/文学常识/积累运用；填空题=古诗文默写/名著常识；简答题=现代文阅读/语言运用）',
+  math: '数学（选择题/填空题/解答题=计算、方程与不等式、函数、几何证明、统计概率、实际应用；严禁画图题、作图题、尺规作图题，几何内容以文字描述图形让学生计算或证明）',
+  english: '英语（选择题=单项选择/语法/交际用语；填空题=词汇运用/语法填空/句型转换；简答题=阅读表达/补全对话）',
+};
+const EXAM_SUBJ_KEY = { '语文': 'chinese', '数学': 'math', '英语': 'english' };
+const EXAM_QTYPES = ['选择题', '填空题', '解答题', '简答题'];
+
+const SYSTEM_EXAM = (grade, difficulty, parts, trend, keyword) => `你是${GRADE_DESC(grade)}命题专家，请命制一份仿中考题型结构的综合测试卷。
+包含以下部分：
+${parts.map(p => `- ${EXAM_SUBJECT_DESC[p.subject]}，共 ${p.count} 题`).join('\n')}
+要求：
+- 题型结构仿照中考（选择题四选一、填空题、解答/简答题组合），${grade === 'zk' || Number(grade) >= 7 ? '选材与难度贴合中考真题风格' : '知识与难度严格符合该年级课标，仅题型结构仿中考'}
+- 难度：${difficulty}（easy=基础、medium=中等、hard=拔高）
+${trend ? TREND_DIRECTIVE + '- 每个学科至少 1 道新题型（真实情境化 / 跨学科融合 / 开放性设问 / 新材料）\n' : ''}- 主题/关键词：${keyword || '不限'}
+- 数学严禁出现需要画图、作图、识图的题目
+- 题目符合课标、表述准确、无错别字/拼写错误；选择题答案唯一，填空题答案简洁
+- 题干/选项/解析中如需引用，一律使用中文引号「」，JSON 字符串内禁止出现未转义的英文双引号
+- 严格返回 JSON，不要任何解释或 markdown 代码块包装
+
+JSON Schema:
+{
+  "questions": [
+    {
+      "subject": "语文|数学|英语",
+      "qtype": "选择题|填空题|解答题|简答题",
+      "stem": "题干（填空题空格用 ____ 表示）",
+      "choices": ["仅选择题：4 个选项内容，不含 A. 前缀"],
+      "answer": "选择题填 A/B/C/D；其余填参考答案（解答题给关键步骤与结果）",
+      "explanation": "一句话解析",
+      "points": 3
+    }
+  ]
+}`;
+
+/* 修复字符串内未转义的英文双引号（模型输出中文内容时的常见病）：
+ * 状态机逐字符扫描——字符串外遇 " 进入字符串；字符串内遇 " 时，
+ * 若其后紧跟结构符（, } ] :）则视为闭合引号，否则为内层引号，转义之 */
+function repairInnerQuotes(s) {
+  let out = '';
+  let inStr = false;
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i];
+    if (ch === '\\' && inStr) { out += ch + (s[i + 1] || ''); i++; continue; }
+    if (ch === '"') {
+      if (!inStr) { inStr = true; out += ch; continue; }
+      if (/^\s*[,}\]:]/.test(s.slice(i + 1))) { inStr = false; out += ch; }
+      else { out += '\\"'; }
+      continue;
+    }
+    out += ch;
+  }
+  return out;
+}
+
+/* AI 返回文本的容错 JSON 解析：剥离 ```json 包装 → 截取首个 { 到末个 } → 内层引号修复 */
+function parseJsonLoose(text) {
+  const clean = String(text || '').replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
+  const first = clean.indexOf('{');
+  const last = clean.lastIndexOf('}');
+  const sliced = first >= 0 && last > first ? clean.slice(first, last + 1) : clean;
+  try { return JSON.parse(sliced); } catch { /* fallthrough */ }
+  try { return JSON.parse(repairInnerQuotes(sliced)); } catch (e) {
+    console.warn('[parseJsonLoose] 修复后仍失败:', e.message);
+  }
+  return null;
+}
+
+/* ===== POST /api/ai/exam  生成综合测试卷（整卷一次生成，扣 5 算力） ===== */
+router.post('/exam', ah(async (req, res) => {
+  const { grade = '9', difficulty = 'medium', keyword = '', trend = true } = req.body || {};
+  /* subjects: [{ subject: 'chinese'|'math'|'english', count }] —— 按科题量 */
+  const raw = Array.isArray(req.body?.subjects) ? req.body.subjects : [];
+  const parts = raw
+    .filter(p => p && EXAM_SUBJECT_DESC[p.subject])
+    .map(p => ({ subject: p.subject, count: Math.max(0, Math.min(15, Number(p.count) || 0)) }))
+    .filter(p => p.count > 0);
+  const total = parts.reduce((s, p) => s + p.count, 0);
+  if (!parts.length) return res.status(400).json({ error: '请至少选择一个学科并设置题量' });
+  if (total > 30) return res.status(400).json({ error: '整卷最多 30 题，请减少题量' });
+
+  const result = await chat([
+    { role: 'system', content: SYSTEM_EXAM(grade, difficulty, parts, !!trend, keyword) },
+    { role: 'user', content: `请生成综合测试卷，共 ${total} 道题。` },
+  ], { maxTokens: 8000 });
+  const parsed = parseJsonLoose(result.choices?.[0]?.message?.content);
+  const rawQs = Array.isArray(parsed?.questions) ? parsed.questions : [];
+  if (!rawQs.length) {
+    console.error('[ai/exam] 解析失败 len=%d finish=%s',
+      String(result.choices?.[0]?.message?.content || '').length, result.choices?.[0]?.finish_reason);
+    return res.status(502).json({ error: 'AI 返回解析失败' });
+  }
+
+  /* 归一化：学科映射回 key、按科限量、题型/字段清洗、注入元信息 */
+  const byKey = { chinese: [], math: [], english: [] };
+  rawQs.forEach(q => {
+    if (!q || typeof q !== 'object' || !String(q.stem || '').trim()) return;
+    const k = EXAM_SUBJ_KEY[q.subject] || parts[0].subject;
+    byKey[k].push(q);
+  });
+  const questions = [];
+  for (const p of parts) {
+    byKey[p.subject].slice(0, p.count).forEach(q => {
+      const choices = Array.isArray(q.choices) ? q.choices.map(c => String(c).trim()).filter(Boolean).slice(0, 4) : [];
+      const qtype = EXAM_QTYPES.includes(q.qtype) ? q.qtype : (choices.length >= 2 ? '选择题' : '填空题');
+      questions.push({
+        id: `ai-exam-${Date.now()}-${questions.length}`,
+        grade, difficulty, topic: keyword || '综合测试',
+        subject: p.subject,
+        qtype,
+        stem: String(q.stem).trim(),
+        ...(qtype === '选择题' ? { choices, answer: String(q.answer || 'A').trim().toUpperCase().slice(0, 1) } : { answer: String(q.answer ?? '').trim() }),
+        explanation: String(q.explanation || '').trim(),
+        points: Number(q.points) > 0 ? Math.min(20, Number(q.points)) : (qtype === '解答题' || qtype === '简答题' ? 6 : 3),
+      });
+    });
+  }
+  if (!questions.length) return res.status(502).json({ error: 'AI 返回解析失败' });
+
+  const cost = COSTS.generate;
+  const charged = await charge(req.teacherId, cost);
+  db.run(
+    `INSERT INTO ai_history (teacher_id, type, grade, difficulty, count, keyword, questions, cost)
+     VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8)`,
+    [req.teacherId, 'exam', String(grade), difficulty, questions.length,
+     keyword || parts.map(p => `${EXAM_SUBJECT_DESC[p.subject].slice(0, 2)}${p.count}`).join('/'),
+     JSON.stringify(questions), cost]
+  ).catch(err => console.warn('[ai] history save failed:', err.message));
+  res.json({ questions, cost, credits: charged.credits, usage: result.usage });
+}));
+
+/* ===== POST /api/ai/regenerate  单题重出：按改进提示词重新命制 1 题替换（扣 1 算力） ===== */
+router.post('/regenerate', ah(async (req, res) => {
+  const { type, question, feedback = '' } = req.body || {};
+  if (!type || !TYPE_PROMPT[type]) return res.status(400).json({ error: 'type 不合法' });
+  if (!question || typeof question !== 'object') return res.status(400).json({ error: 'question 必填' });
+  const fb = String(feedback).trim().slice(0, 200);
+  if (!fb) return res.status(400).json({ error: '请填写改进提示词' });
+
+  /* 去掉内部字段后作为参考原题 */
+  const original = { ...question };
+  delete original.id; delete original.groupIndex; delete original.groupSize;
+  delete original.grade; delete original.difficulty; delete original.topic;
+  const prompt = `题型：${TYPE_PROMPT[type] || type}
+参考原题（JSON）：
+${JSON.stringify(original, null, 2)}
+
+老师对这道题不满意，改进要求：${fb}
+
+请按改进要求重新命制 1 道题替换原题——保持学科、题型、字段结构、年级与难度不变，仅按改进要求调整素材/情境/考点/表述。严格返回 JSON，不要 markdown 包装：
+{"question": {…与原题同结构…}}`;
+  const result = await chat([{ role: 'user', content: prompt }], { maxTokens: 2500 });
+  const parsed = parseJsonLoose(result.choices?.[0]?.message?.content);
+  const q = parsed?.question;
+  if (!q || typeof q !== 'object') return res.status(502).json({ error: 'AI 返回解析失败' });
+
+  /* 清洗并继承原题上下文（学科/题型不信任 AI 改动，强制沿用原题） */
+  const out = {
+    id: `ai-regen-${Date.now()}`,
+    grade: question.grade || '', difficulty: question.difficulty || 'medium',
+    topic: `单题重出${question.topic ? ` · ${question.topic}` : ''}`,
+    ...q,
+    ...(question.subject ? { subject: question.subject } : {}),
+    ...(question.qtype ? { qtype: question.qtype } : {}),
+  };
+  if (!String(out.stem || out.sentence || out.word || out.passage || out.pinyin || '').trim()) {
+    return res.status(502).json({ error: 'AI 返回解析失败' });
+  }
+  const cost = COSTS.regenerate;
+  const charged = await charge(req.teacherId, cost);
+  const preview = String(out.stem || out.sentence || out.word || out.passage || out.pinyin || '').slice(0, 150);
+  db.run(
+    `INSERT INTO ai_history (teacher_id, type, grade, difficulty, count, keyword, questions, cost)
+     VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8)`,
+    [req.teacherId, `regen-${type}`, String(question.grade || ''), question.difficulty || 'medium', 1,
+     `单题重出 · ${fb.slice(0, 60)} · ${preview.slice(0, 60)}`, JSON.stringify([out]), cost]
+  ).catch(err => console.warn('[ai] history save failed:', err.message));
+  res.json({ question: out, cost, credits: charged.credits, usage: result.usage });
 }));
 
 module.exports = router;

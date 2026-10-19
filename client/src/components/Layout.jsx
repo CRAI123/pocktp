@@ -41,6 +41,7 @@ const TITLES = {
   '/teaching/english/wordbank': '选词填空专项',
   '/teaching/english/reading': '阅读理解专项',
   '/teaching/english/dictation': '单词听写专项',
+  '/teaching/exam': '综合测试',
   '/students': '班级成员管理', '/attendance': '考勤记录管理',
   '/notifications': '微信消息通知', '/todos': '班级事务待办',
   '/classroom': '课堂小助手', '/comments': 'AI 期末评语',

@@ -18,6 +18,7 @@ import EnglishSentence from './pages/teaching/EnglishSentence.jsx';
 import EnglishWordbank from './pages/teaching/EnglishWordbank.jsx';
 import EnglishReading from './pages/teaching/EnglishReading.jsx';
 import EnglishDictation from './pages/teaching/EnglishDictation.jsx';
+import ComprehensiveExam from './pages/teaching/ComprehensiveExam.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import ClassDetail from './pages/ClassDetail.jsx';
 import Courses from './pages/Courses.jsx';
@@ -79,6 +80,7 @@ export default function App() {
           <Route path="teaching/english/wordbank" element={<EnglishWordbank />} />
           <Route path="teaching/english/reading" element={<EnglishReading />} />
           <Route path="teaching/english/dictation" element={<EnglishDictation />} />
+          <Route path="teaching/exam" element={<ComprehensiveExam />} />
           <Route path="students" element={<Students />} />
           <Route path="classes/:id" element={<ClassDetail />} />
           <Route path="attendance" element={<Attendance />} />

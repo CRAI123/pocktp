@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Navigate } from 'react-router-dom';
 import { KeyRound, Sparkles, LogOut, ShoppingBag, CalendarClock } from 'lucide-react';
 import { api, auth, isMembershipActive, todayStr } from '../api.js';
 import { Button, inputCls } from '../components/ui.jsx';
@@ -13,10 +13,9 @@ export default function Activate() {
 
   const expired = teacher?.activated && !isMembershipActive(teacher);
 
-  // 会员有效 / 管理员 → 无需停留
+  // 会员有效 / 管理员 → 无需停留，用 <Navigate> 声明式跳转（避免渲染期调用 navigate 导致白屏/卡死）
   if (teacher && isMembershipActive(teacher)) {
-    navigate('/', { replace: true });
-    return null;
+    return <Navigate to="/" replace />;
   }
 
   const submit = async (e) => {

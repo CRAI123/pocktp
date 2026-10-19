@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Navigate } from 'react-router-dom';
 import { Zap, ShoppingBag, Copy, CheckCircle2, KeyRound, Sparkles, ArrowRight, ExternalLink, ShieldCheck } from 'lucide-react';
 import { api, auth, todayStr, isMembershipActive } from '../api.js';
 import { Button, inputCls } from '../components/ui.jsx';
@@ -41,10 +41,9 @@ export default function Renew() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(null);
 
-  /* 未激活或会员过期：仍走 /activate 完整流程 */
+  /* 未激活或会员过期：仍走 /activate 完整流程（声明式跳转，避免渲染期 navigate 导致白屏） */
   if (!teacher || !teacher.activated || !isMembershipActive(teacher)) {
-    navigate('/activate', { replace: true });
-    return null;
+    return <Navigate to="/activate" replace />;
   }
 
   const submit = async (e) => {
