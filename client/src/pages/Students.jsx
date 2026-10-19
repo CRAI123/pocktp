@@ -1,9 +1,16 @@
-import { useEffect, useRef, useState } from 'react';
-import { Plus, Trash2, Pencil, Phone, MessageCircle, Download, Upload } from 'lucide-react';
+﻿import { useEffect, useRef, useState } from 'react';
+import { Plus, Trash2, Pencil, Phone, MessageCircle, Download, Upload, Keyboard, CheckCircle2 } from 'lucide-react';
 import { api } from '../api.js';
 import { SectionHeader, Button, Modal, Field, inputCls, Badge, Empty } from '../components/ui.jsx';
 
 const EMPTY_FORM = { class_id: '', name: '', gender: '男', student_no: '', parent_phone: '', parent_wechat: '' };
+
+/** 必填星号 */
+const Star = () => <span className="ml-0.5 text-[#ff3b30]">*</span>;
+/** 键位提示 */
+const Kbd = ({ children }) => (
+  <kbd className="mx-0.5 inline-block rounded-md border border-black/10 bg-white px-1.5 py-px font-sans text-[11px] font-semibold text-ink shadow-sm">{children}</kbd>
+);
 
 export default function Students() {
   const [classes, setClasses] = useState([]);
@@ -12,6 +19,12 @@ export default function Students() {
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
+  /* 快速添加：保存中状态 / 行内错误 / 本次连续添加计数 / 各输入框引用（空格跳格用） */
+  const [saving, setSaving] = useState(false);
+  const [quickError, setQuickError] = useState('');
+  const [addedCount, setAddedCount] = useState(0);
+  const quickRefs = useRef([]);
+  const classRef = useRef(null);
 
   const load = () => api.get(`/students${filter ? `?class_id=${filter}` : ''}`).then(setStudents).catch(console.error);
   useEffect(() => { api.get('/classes').then(setClasses).catch(console.error); }, []);
@@ -64,19 +77,71 @@ export default function Students() {
 
   const openEdit = (s) => {
     setEditingId(s.id);
+    setQuickError('');
     setForm({ class_id: s.class_id, name: s.name, gender: s.gender, student_no: s.student_no, parent_phone: s.parent_phone, parent_wechat: s.parent_wechat });
     setOpen(true);
   };
 
-  const submit = async (e) => {
-    e.preventDefault();
-    if (editingId) await api.put(`/students/${editingId}`, form);
-    else await api.post('/students', form);
+  /** 打开添加弹窗：默认带入当前选中的班级，重置连续计数 */
+  const openCreate = () => {
+    setEditingId(null);
+    setQuickError('');
+    setAddedCount(0);
+    setForm({ ...EMPTY_FORM, class_id: filter || '' });
+    setOpen(true);
+  };
+
+  const closeModal = () => {
     setOpen(false);
     setEditingId(null);
+    setQuickError('');
     setForm(EMPTY_FORM);
-    load();
-    api.get('/classes').then(setClasses);
+  };
+
+  /** 录入格键盘流：空格→下一格；回车→提交（IME 组词期间均不拦截，保证中文输入选词正常） */
+  const onFieldKeyDown = (idx) => (e) => {
+    if (e.nativeEvent.isComposing) return;
+    if (e.code === 'Space') {
+      e.preventDefault();
+      quickRefs.current[idx + 1]?.focus();
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      e.currentTarget.form?.requestSubmit();
+    }
+  };
+
+  /**
+   * 保存一个学生
+   * @param continueMode true=保存后清空并准备录入下一人（回车连录）；false=保存后关闭
+   */
+  const saveOne = async (continueMode) => {
+    if (saving) return;
+    if (!form.class_id) { setQuickError('请先选择班级'); classRef.current?.focus(); return; }
+    if (!form.name.trim()) { setQuickError('姓名为必填项'); quickRefs.current[0]?.focus(); return; }
+    setSaving(true);
+    setQuickError('');
+    try {
+      if (editingId) {
+        await api.put(`/students/${editingId}`, form);
+        closeModal();
+        return;
+      }
+      await api.post('/students', { ...form, name: form.name.trim() });
+      load();
+      api.get('/classes').then(setClasses);
+      if (continueMode) {
+        setAddedCount(n => n + 1);
+        /* 班级保留，性别恢复默认男，个人信息清空，焦点回到姓名格 */
+        setForm(f => ({ ...EMPTY_FORM, class_id: f.class_id }));
+        setTimeout(() => quickRefs.current[0]?.focus(), 30);
+      } else {
+        closeModal();
+      }
+    } catch (err) {
+      setQuickError(err.message || '保存失败，请重试');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -91,7 +156,7 @@ export default function Students() {
               <Upload size={15} />{importing ? '导入中…' : '导入 CSV'}
             </Button>
             <input ref={fileRef} type="file" accept=".csv,text/csv" className="hidden" onChange={e => importCsv(e.target.files?.[0])} />
-            <Button onClick={() => { setEditingId(null); setForm(EMPTY_FORM); setOpen(true); }}><Plus size={16} />添加学生</Button>
+            <Button onClick={openCreate}><Plus size={16} />添加学生</Button>
           </div>
         }
       />
@@ -161,41 +226,107 @@ export default function Students() {
         </div>
       )}
 
-      <Modal open={open} onClose={() => setOpen(false)} title={editingId ? '编辑学生' : '添加学生'}>
-        <form onSubmit={submit} className="space-y-4">
+      <Modal open={open} onClose={closeModal} title={editingId ? '编辑学生' : '快速添加学生'}>
+        <form onSubmit={e => { e.preventDefault(); saveOne(true); }} className="space-y-4">
+          {/* 键位操作提示（仅添加模式） */}
+          {!editingId && (
+            <div className="flex items-start gap-2 rounded-xl bg-[#0071e3]/[0.06] px-3.5 py-2.5 text-xs leading-relaxed text-[#0a66c2]">
+              <Keyboard size={14} className="mt-0.5 shrink-0" />
+              <span>
+                每格填完按 <Kbd>空格</Kbd> 跳到下一格，<Kbd>回车</Kbd> 保存并自动添加下一人；性别格聚焦后用 ↑/↓ 切换；带 <Star /> 为必填，家长电话、微信选填。
+              </span>
+            </div>
+          )}
+
+          <Field label={<span>班级<Star /></span>}>
+            <select
+              ref={classRef} required disabled={!!editingId} className={inputCls}
+              value={form.class_id}
+              onKeyDown={e => { if (!e.nativeEvent.isComposing && e.key === 'Enter') { e.preventDefault(); e.currentTarget.form?.requestSubmit(); } }}
+              onChange={e => setForm({ ...form, class_id: e.target.value })}
+            >
+              <option value="">请选择</option>
+              {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </Field>
+
           <div className="grid grid-cols-2 gap-4">
-            <Field label="姓名">
-              <input required className={inputCls} value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
+            <Field label={<span>姓名<Star /></span>}>
+              <input
+                ref={el => (quickRefs.current[0] = el)}
+                required autoFocus={!editingId} className={inputCls}
+                value={form.name}
+                onKeyDown={onFieldKeyDown(0)}
+                onChange={e => setForm({ ...form, name: e.target.value })}
+              />
             </Field>
-            <Field label="性别">
-              <select className={inputCls} value={form.gender} onChange={e => setForm({ ...form, gender: e.target.value })}>
+            <Field label={<span>性别<Star /></span>}>
+              <select
+                ref={el => (quickRefs.current[1] = el)}
+                className={inputCls} value={form.gender}
+                onKeyDown={onFieldKeyDown(1)}
+                onChange={e => setForm({ ...form, gender: e.target.value })}
+              >
                 <option>男</option><option>女</option>
               </select>
             </Field>
           </div>
+
           <div className="grid grid-cols-2 gap-4">
-            <Field label="班级">
-              <select required disabled={!!editingId} className={inputCls} value={form.class_id} onChange={e => setForm({ ...form, class_id: e.target.value })}>
-                <option value="">请选择</option>
-                {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
+            <Field label="学号（选填）">
+              <input
+                ref={el => (quickRefs.current[2] = el)}
+                className={inputCls} value={form.student_no}
+                onKeyDown={onFieldKeyDown(2)}
+                onChange={e => setForm({ ...form, student_no: e.target.value })}
+              />
             </Field>
-            <Field label="学号">
-              <input className={inputCls} value={form.student_no} onChange={e => setForm({ ...form, student_no: e.target.value })} />
+            <Field label="家长电话（选填）">
+              <input
+                ref={el => (quickRefs.current[3] = el)}
+                inputMode="tel" className={inputCls} value={form.parent_phone}
+                onKeyDown={onFieldKeyDown(3)}
+                onChange={e => setForm({ ...form, parent_phone: e.target.value })}
+              />
             </Field>
           </div>
-          <Field label="家长电话">
-            <input className={inputCls} value={form.parent_phone} onChange={e => setForm({ ...form, parent_phone: e.target.value })} />
+
+          <Field label="家长微信（选填）">
+            <input
+              ref={el => (quickRefs.current[4] = el)}
+              className={inputCls} value={form.parent_wechat}
+              onKeyDown={onFieldKeyDown(4)}
+              onChange={e => setForm({ ...form, parent_wechat: e.target.value })}
+            />
           </Field>
-          <Field label="家长微信">
-            <input className={inputCls} value={form.parent_wechat} onChange={e => setForm({ ...form, parent_wechat: e.target.value })} />
-          </Field>
-          <div className="flex justify-end gap-3 pt-2">
-            <Button type="button" variant="secondary" onClick={() => setOpen(false)}>取消</Button>
-            <Button type="submit">{editingId ? '保存修改' : '添加'}</Button>
+
+          {quickError && (
+            <div className="rounded-xl bg-[#ff3b30]/8 px-4 py-2.5 text-sm text-[#ff3b30]">{quickError}</div>
+          )}
+
+          <div className="flex items-center justify-between gap-3 pt-2">
+            <div className="min-h-[28px]">
+              {!editingId && addedCount > 0 && (
+                <Badge tone="green">
+                  <CheckCircle2 size={12} />本次已添加 {addedCount} 人
+                </Badge>
+              )}
+            </div>
+            <div className="flex shrink-0 gap-3">
+              <Button type="button" variant="secondary" onClick={closeModal}>{editingId ? '取消' : '关闭'}</Button>
+              {!editingId && (
+                <Button type="button" variant="secondary" disabled={saving} onClick={() => saveOne(false)}>
+                  保存并关闭
+                </Button>
+              )}
+              <Button type="submit" disabled={saving}>
+                {saving ? '保存中…' : editingId ? '保存修改' : '保存并继续（回车）'}
+              </Button>
+            </div>
           </div>
         </form>
       </Modal>
     </div>
   );
 }
+

@@ -32,6 +32,7 @@ import Comments from './pages/Comments.jsx';
 import AiWriter from './pages/AiWriter.jsx';
 import Journals from './pages/Journals.jsx';
 import Classroom from './pages/Classroom.jsx';
+import PrivacyNotice from './components/PrivacyNotice.jsx';
 
 /** 路由守卫：未登录跳 /login；未激活或会员到期跳 /activate 续费 */
 function RequireAuth() {
@@ -51,7 +52,10 @@ function RequireAdmin() {
 
 export default function App() {
   return (
-    <Routes>
+    <>
+      {/* Cookie / 隐私提示条：全站首访出现，同意状态仅存本地 */}
+      <PrivacyNotice />
+      <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/redeem/:code?" element={<Redeem />} />
       <Route path="/activate" element={auth.token ? <Activate /> : <Navigate to="/login" replace />} />
@@ -88,6 +92,7 @@ export default function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Route>
-    </Routes>
+      </Routes>
+    </>
   );
 }
