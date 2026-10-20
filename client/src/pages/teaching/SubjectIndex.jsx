@@ -1,6 +1,6 @@
 /** 学科总入口：语文 / 数学 / 英语 专项 + 综合测试（逐科独立生成） */
 import { Link } from 'react-router-dom';
-import { BookText, Sigma, Languages, ArrowRight, Sparkles, GraduationCap, Layers, CheckSquare, Printer } from 'lucide-react';
+import { BookText, Sigma, Languages, ArrowRight, Sparkles, GraduationCap, Layers, CheckSquare, Printer, Timer } from 'lucide-react';
 import { SectionHeader } from '../../components/ui.jsx';
 
 const SUBJECTS = [
@@ -78,6 +78,29 @@ export default function SubjectIndex() {
               </div>
             ))}
           </div>
+        </div>
+      </Link>
+
+      {/* ============ 课堂练习：全科目，按课题与题型出卷 ============ */}
+      <Link to="/teaching/classroom-practice" className="card card-hover group relative overflow-hidden">
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-[#28cd41]/[0.05] via-transparent to-[#0071e3]/[0.06]" />
+        <div className="relative flex flex-wrap items-center gap-4 p-6">
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#28cd41] to-[#34d058] text-white shadow-md shadow-green-500/25">
+            <Timer size={24} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h3 className="flex flex-wrap items-center gap-2 text-lg font-semibold tracking-tight">
+              课堂练习
+              <span className="rounded-full bg-[#28cd41]/10 px-2 py-0.5 text-xs font-medium text-[#1f9e33]">全科目</span>
+              <span className="rounded-full bg-[#0071e3]/10 px-2 py-0.5 text-xs font-medium text-[#0071e3]">描述词可改</span>
+            </h3>
+            <p className="mt-1 text-sm leading-relaxed text-ink-secondary">
+              输入课题与知识点，自选题型数量（如 1 道选择题 + 2 道论述题），自动生成命题描述词——确认或直接修改后 AI 出卷，适合课堂 5-10 分钟即时检测。
+            </p>
+          </div>
+          <span className="inline-flex items-center gap-1 rounded-full bg-[#28cd41]/10 px-4 py-2 text-sm font-medium text-[#1f9e33] transition group-hover:bg-[#28cd41] group-hover:text-white">
+            去出卷 <ArrowRight size={15} />
+          </span>
         </div>
       </Link>
 

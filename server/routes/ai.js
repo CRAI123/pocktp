@@ -31,6 +31,7 @@ const COSTS = {
     weekly: 3,     // 班级周报
     summary: 8,     // 学期总结（长文）
   },
+  practice: 2,      // 课堂练习（全科目，按题型数量出题）
 };
 
 /* 通用 Chat Completions 调用：主模型失败 fallback 备模型（每次独立超时） */
@@ -661,6 +662,76 @@ router.post('/exam', ah(async (req, res) => {
      JSON.stringify(questions), cost]
   ).catch(err => console.warn('[ai] history save failed:', err.message));
   res.json({ questions, cost, credits: charged.credits, usage: result.usage });
+}));
+
+/* ===== POST /api/ai/practice  课堂练习（全科目：科目+课题+知识点+题型清单，扣 2 算力） ===== */
+router.post('/practice', ah(async (req, res) => {
+  const { subject, grade, topic, knowledge = '', prompt = '' } = req.body || {};
+  /* items: [{ qtype, count }] —— 题型自由（选择/填空/判断/简答/论述/计算…），非语数英白名单 */
+  const rawItems = Array.isArray(req.body?.items) ? req.body.items : [];
+  const items = rawItems
+    .map(i => ({ qtype: String(i?.qtype || '').trim().slice(0, 12), count: Math.max(0, Math.min(10, Number(i?.count) || 0)) }))
+    .filter(i => i.qtype && i.count > 0);
+  const total = items.reduce((s, i) => s + i.count, 0);
+  if (!String(subject || '').trim()) return res.status(400).json({ error: '请选择科目' });
+  if (!String(topic || '').trim()) return res.status(400).json({ error: '请填写本节课课题' });
+  if (!items.length) return res.status(400).json({ error: '请至少设置一种题型与数量' });
+  if (total > 10) return res.status(400).json({ error: '课堂练习最多 10 题，适合 5-10 分钟课堂检测' });
+
+  const sys = `你是${String(subject).trim()}资深教师与命题专家，深谙${GRADE_DESC(String(grade || '7'))}课程标准与课堂教学节奏。请为课堂练习命题：紧扣课题与知识点、题干表述规范、难度适合课堂 5-10 分钟即时检测；选择题给 4 个选项；论述/简答题答案给评分要点；每题附简要解析。`;
+  const user = `【课题】《${String(topic).trim()}》
+【科目】${String(subject).trim()}
+【年级】${GRADE_DESC(String(grade || '7'))}
+【知识点】${String(knowledge || '本节课核心内容')}
+【题型与数量】${items.map(i => `${i.qtype}×${i.count}`).join('、')}（不得增减题型与数量）
+【老师确认的命题描述词】
+${String(prompt || '').trim() || '（无补充要求）'}
+
+请严格按题型与数量命制，返回 JSON（不要 markdown 包装，字符串内引用一律用「」）：
+{"questions": [{"qtype":"题型","stem":"题干","choices":["选项A","选项B","选项C","选项D"],"answer":"答案（选择题为字母，论述/简答为评分要点）","explanation":"简要解析","points":分值}]}`;
+
+  const result = await chat([
+    { role: 'system', content: sys },
+    { role: 'user', content: user },
+  ], { maxTokens: 6000 });
+  const parsed = parseJsonLoose(result.choices?.[0]?.message?.content);
+  const rawQs = Array.isArray(parsed?.questions) ? parsed.questions : [];
+
+  /* 归一化（qtype 保留用户/模型原值，不套语数英白名单；按题型配额限量） */
+  const questions = [];
+  const tally = {};
+  items.forEach(i => { tally[i.qtype] = (tally[i.qtype] || 0) + i.count; });
+  for (const q of rawQs) {
+    if (!q || typeof q !== 'object' || !String(q.stem || '').trim()) continue;
+    const t = String(q.qtype || '').trim().slice(0, 12);
+    if (!t || !tally[t]) continue;          // 非约定题型丢弃
+    if (tally[t] <= 0) continue;
+    tally[t]--;
+    const choices = Array.isArray(q.choices) ? q.choices.map(c => String(c).trim()).filter(Boolean).slice(0, 4) : [];
+    const pts = Number(q.points);
+    questions.push({
+      id: `ai-practice-${Date.now()}-${questions.length}`,
+      grade: String(grade || ''), subject: String(subject).trim(),
+      topic: String(topic).trim(), qtype: t,
+      stem: String(q.stem).trim(),
+      ...(choices.length ? { choices } : {}),
+      answer: String(q.answer ?? '').trim(),
+      explanation: String(q.explanation || '').trim(),
+      points: pts > 0 ? Math.min(20, pts) : (/选择|填空|判断/.test(t) ? 3 : /论述|计算|应用/.test(t) ? 6 : 4),
+    });
+  }
+  if (!questions.length) return res.status(502).json({ error: 'AI 返回解析失败' });
+
+  const cost = COSTS.practice;
+  const charged = await charge(req.teacherId, cost);
+  db.run(
+    `INSERT INTO ai_history (teacher_id, type, grade, difficulty, count, keyword, questions, cost)
+     VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8)`,
+    [req.teacherId, 'practice', String(grade || ''), 'medium', questions.length,
+     `${String(subject).trim()}·${String(topic).trim()}`,
+     JSON.stringify(questions), cost]
+  ).catch(err => console.warn('[ai] history save failed:', err.message));
+  res.json({ questions, cost, credits: charged.credits, requested: total, usage: result.usage });
 }));
 
 /* ===== POST /api/ai/regenerate  单题重出：按改进提示词重新命制 1 题替换（扣 1 算力） ===== */

@@ -72,8 +72,10 @@ export const ai = {
   history: (type, limit = 20) => api.get(`/ai/history?type=${encodeURIComponent(type)}&limit=${limit}`),
   /** 举一反三：基于单题生成同类型变式题（默认 3 道，扣 2 算力） */
   similar: (type, question, count = 3) => api.post('/ai/similar', { type, question, count }),
-  /** 综合测试：仿中考题型的语/数/英综合卷（subjects=[{subject,count}]，扣 5 算力） */
+  /** 综合测试：分科独立生成（subjects=[{subject,count,qtypes?}]，扣 2 算力/次） */
   exam: (params) => api.post('/ai/exam', params),
+  /** 课堂练习：全科目（subject+topic+knowledge+items 题型清单+prompt 确认后的描述词，扣 2 算力） */
+  practice: (params) => api.post('/ai/practice', params),
   /** 单题重出：按改进提示词重新命制 1 题替换（扣 1 算力） */
   regenerate: (type, question, feedback) => api.post('/ai/regenerate', { type, question, feedback }),
   /** 班主任文案：comment 期末评语（批量）/ notice 家长通知 / weekly 班级周报 / summary 学期总结 */
