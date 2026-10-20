@@ -20,6 +20,7 @@ const COST = Number(process.env.AI_COST_PER_CALL || 5);
 /* 分级计费：按功能实际消耗定价（轻量操作低价，重活高价），余额不足统一 402 */
 const COSTS = {
   generate: COST,   // AI 出题（批量生成）
+  exam: 2,          // 综合测试（分科独立生成：单次只出一科，三科分开调用共 6，与整卷一次 5 基本持平）
   grade: 1,         // AI 批改（单题，轻量）
   extract: 2,       // 聊天记录解析（提取待办/加减分/整理纪要）
   similar: 2,       // 举一反三（基于单题生成同型变式）
@@ -27,7 +28,7 @@ const COSTS = {
   write: {
     comment: 10,    // AI 期末评语（一次全班）
     notice: 2,      // 家长通知
-    weekly: 3,      // 班级周报
+    weekly: 3,     // 班级周报
     summary: 8,     // 学期总结（长文）
   },
 };
@@ -625,7 +626,7 @@ router.post('/exam', ah(async (req, res) => {
   }
   if (!questions.length) return res.status(502).json({ error: 'AI 返回解析失败' });
 
-  const cost = COSTS.generate;
+  const cost = COSTS.exam;
   const charged = await charge(req.teacherId, cost);
   db.run(
     `INSERT INTO ai_history (teacher_id, type, grade, difficulty, count, keyword, questions, cost)

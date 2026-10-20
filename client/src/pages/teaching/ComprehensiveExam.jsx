@@ -78,13 +78,14 @@ export default function ComprehensiveExam() {
   /* ---- 配置 ---- */
   const [cfg, setCfg] = useState({
     grade: '9', difficulty: 'medium', trend: true, keyword: '',
-    subjects: { chinese: 5, math: 5, english: 5 },
+    subjects: { chinese: 4, math: 4, english: 4 },
   });
-  /* ---- 试卷 ---- */
+  /* ---- 试卷（三科题目累积，按科独立管理） ---- */
   const [questions, setQuestions] = useState([]);
   const [sel, setSel] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState('');
+  /* 三科独立生成状态：loading / err / done（该科当前题目数） */
+  const [subjState, setSubjState] = useState(() =>
+    Object.fromEntries(SUBJECTS.map(s => [s.key, { loading: false, err: '', done: 0 }])));
   const [generated, setGenerated] = useState(false);
   /* ---- 单题交互 ---- */
   const [expanded, setExpanded] = useState({});
@@ -96,7 +97,7 @@ export default function ComprehensiveExam() {
   /* 屏幕端学科页签：一科一个页面，切换查看，互不混杂 */
   const [activeSubj, setActiveSubj] = useState('chinese');
 
-  const totalPlanned = Object.values(cfg.subjects).reduce((s, n) => s + n, 0);
+  const anyLoading = SUBJECTS.some(s => subjState[s.key].loading);
   const gradeLabel = GRADES.find(g => g.v === cfg.grade)?.l || '';
   const title = `${gradeLabel}综合测试卷`;
 
@@ -115,31 +116,34 @@ export default function ComprehensiveExam() {
     el.textContent = '@page { size: A4 portrait; margin: 14mm 16mm; }';
   }, []);
 
-  /* ---------- 生成整卷 ---------- */
-  const generate = async () => {
-    if (loading) return;
-    if (!totalPlanned) { setErr('请至少选择一个学科并设置题量'); return; }
-    setLoading(true); setErr('');
+  /* ---------- 分科生成（每科独立请求：题量小生成快，不再整卷超时） ---------- */
+  const genSubject = async (key) => {
+    const count = cfg.subjects[key];
+    if (!count || subjState[key].loading) return;
+    setSubjState(s => ({ ...s, [key]: { ...s[key], loading: true, err: '' } }));
     try {
-      const subjects = SUBJECTS.filter(s => cfg.subjects[s.key] > 0)
-        .map(s => ({ subject: s.key, count: cfg.subjects[s.key] }));
       const d = await ai.exam({
         grade: cfg.grade, difficulty: cfg.difficulty, trend: cfg.trend,
-        keyword: cfg.keyword, subjects,
+        keyword: cfg.keyword, subjects: [{ subject: key, count }],
       });
       const qs = d.questions || [];
-      setQuestions(qs);
-      setSel(qs.map(q => q.id));
+      /* 替换该科题目，保留其它科；其它科的勾选也保留，新题默认全选 */
+      const otherIds = new Set(questions.filter(q => q.subject !== key).map(q => q.id));
+      setQuestions(list => [...list.filter(q => q.subject !== key), ...qs]);
+      setSel(prev => [...new Set([...prev.filter(id => otherIds.has(id)), ...qs.map(q => q.id)])]);
       setExpanded({});
       setRegenFor(null);
       setGenerated(true);
-      /* 自动定位到第一个有题的学科页 */
-      const firstSubj = SUBJECTS.find(s => qs.some(q => q.subject === s.key));
-      if (firstSubj) setActiveSubj(firstSubj.key);
+      /* 生成完自动切到该科页 */
+      setActiveSubj(key);
+      setSubjState(s => ({ ...s, [key]: { loading: false, err: '', done: qs.length } }));
       if (d.credits != null && auth.teacher) auth.save(auth.token, { ...auth.teacher, credits: d.credits });
     } catch (e) {
-      setErr(e.message || '生成失败');
-    } finally { setLoading(false); }
+      const msg = e.message || '生成失败';
+      const hint = /fetch|网络|Network|timeout|Failed/i.test(msg)
+        ? '（生成超时或网络中断，建议每科 3-6 题）' : '';
+      setSubjState(s => ({ ...s, [key]: { ...s[key], loading: false, err: msg + hint } }));
+    }
   };
 
   /* ---------- 单题重出（改进提示词） ---------- */
@@ -338,10 +342,10 @@ export default function ComprehensiveExam() {
 
   return (
     <div className="space-y-5 pb-32">
-      <SectionHeader title="综合测试" desc="语数英独立成部分 · 仿中考题型（含阅读理解/完形填空/作文）· 全年级覆盖 · 逐题勾选 · 单题重出 · A4 打印" />
+      <SectionHeader title="综合测试" desc="语数英逐科独立生成 · 仿中考题型（含阅读理解/完形填空/作文）· 全年级覆盖 · 逐题勾选 · 单题重出 · A4 打印" />
 
-      {/* ============ 组卷配置卡 ============ */}
-      <div className="card space-y-3.5 p-5">
+      {/* ============ 组卷配置卡：三科独立生成 ============ */}
+      <div className="card space-y-4 p-5">
         <div className="flex flex-wrap items-center gap-1.5">
           {GRADES.map(g => <Chip key={g.v} active={cfg.grade === g.v} onClick={() => setCfg(f => ({ ...f, grade: g.v }))}>{g.l}</Chip>)}
         </div>
@@ -352,73 +356,83 @@ export default function ComprehensiveExam() {
             <span className="inline-flex items-center gap-1"><TrendingUp size={13} />中考新题型 · 新风向</span>
           </Chip>
         </div>
-        {/* 科目与题量 */}
-        <div className="flex flex-wrap items-center gap-2">
-          {SUBJECTS.map(s => {
-            const n = cfg.subjects[s.key];
-            const on = n > 0;
-            return (
-              <div key={s.key} className={`flex items-center gap-2 rounded-2xl border px-3 py-2 transition ${on ? 'border-[#0071e3]/40 bg-[#0071e3]/[0.04]' : 'border-black/10 opacity-55'}`}>
-                <button onClick={() => setSubj(s.key, on ? 0 : 5)} className="text-sm font-medium">{s.label}</button>
-                <div className="flex items-center gap-1">
-                  <button disabled={!on} onClick={() => setSubj(s.key, n - 1)}
-                    className="h-6 w-6 rounded-full bg-black/[0.05] text-sm leading-none text-ink-secondary transition hover:bg-black/10 disabled:opacity-30">−</button>
-                  <span className="w-6 text-center text-sm font-semibold tabular-nums">{on ? n : '—'}</span>
-                  <button disabled={!on} onClick={() => setSubj(s.key, n + 1)}
-                    className="h-6 w-6 rounded-full bg-black/[0.05] text-sm leading-none text-ink-secondary transition hover:bg-black/10 disabled:opacity-30">＋</button>
-                </div>
-              </div>
-            );
-          })}
-          <input placeholder="主题/关键词（选填）" value={cfg.keyword}
-            onChange={e => setCfg(f => ({ ...f, keyword: e.target.value }))}
-            className="min-w-0 flex-1 rounded-lg border border-black/10 bg-white px-3 py-1.5 text-sm outline-none focus:border-[#0071e3]" />
-        </div>
         {cfg.trend && (
           <p className="rounded-xl bg-[#ff9500]/10 px-3 py-2 text-xs leading-relaxed text-[#c77700]">
             已开启新风向：每科至少 1 道新题型——真实情境化、跨学科融合、开放性设问、新材料。
           </p>
         )}
-        <div className="flex items-center gap-3">
-          <Button onClick={generate} disabled={loading || !totalPlanned}>
-            {loading ? <Loader2 size={15} className="animate-spin" /> : <Sparkles size={15} />}
-            {loading ? 'AI 命题中…' : `生成试卷（共 ${totalPlanned} 题 · 扣 5 算力）`}
-          </Button>
-          <span className="text-xs text-ink-secondary">生成后可逐题勾选入卷，不满意的题可单题重出</span>
+        {/* 三科独立生成卡：语数英彻底分开，逐科点击生成 */}
+        <div className="grid gap-3 sm:grid-cols-3">
+          {SUBJECTS.map(s => {
+            const st = subjState[s.key];
+            const n = cfg.subjects[s.key];
+            return (
+              <div key={s.key}
+                className={`rounded-2xl border p-4 transition ${
+                  st.loading ? 'border-[#0071e3]/40 bg-[#0071e3]/[0.04]'
+                  : st.done ? 'border-[#28cd41]/40 bg-[#28cd41]/[0.04]'
+                  : st.err ? 'border-[#ff3b30]/30 bg-[#ff3b30]/[0.03]'
+                  : 'border-black/10 bg-bg-light/50'
+                }`}>
+                <div className="flex items-center justify-between gap-2">
+                  <span className={`inline-flex h-7 items-center rounded-full px-2.5 text-xs font-semibold ${s.chip}`}>{s.label}</span>
+                  <div className="flex items-center gap-1.5">
+                    <button onClick={() => setSubj(s.key, n - 1)} disabled={st.loading}
+                      className="h-7 w-7 rounded-full bg-black/[0.05] text-sm leading-none text-ink-secondary transition hover:bg-black/10 active:scale-90 disabled:opacity-30">−</button>
+                    <span className="w-7 text-center text-sm font-semibold tabular-nums">{n}</span>
+                    <button onClick={() => setSubj(s.key, n + 1)} disabled={st.loading}
+                      className="h-7 w-7 rounded-full bg-black/[0.05] text-sm leading-none text-ink-secondary transition hover:bg-black/10 active:scale-90 disabled:opacity-30">＋</button>
+                  </div>
+                </div>
+                <Button className="mt-3 w-full justify-center" onClick={() => genSubject(s.key)}
+                  disabled={!n || st.loading || anyLoading}>
+                  {st.loading ? <Loader2 size={15} className="animate-spin" /> : <Sparkles size={15} />}
+                  {st.loading ? 'AI 命题中…' : st.done ? `重新生成（${n} 题）` : `生成 ${s.label}（${n} 题）`}
+                </Button>
+                <p className="mt-2 text-[11px] leading-relaxed text-ink-secondary">
+                  {st.err
+                    ? <span className="text-[#ff3b30]">{st.err}</span>
+                    : st.done
+                      ? <span className="font-medium text-[#1fa733]">✓ 已生成 {st.done} 题 · 扣 2 算力/次</span>
+                      : '独立生成 · 扣 2 算力 · 建议 3-6 题'}
+                </p>
+              </div>
+            );
+          })}
         </div>
-        {err && <p className="rounded-lg bg-[#ff3b30]/10 px-3 py-2 text-xs text-[#ff3b30]">{err}</p>}
+        <div className="flex flex-wrap items-center gap-2">
+          <input placeholder="主题/关键词（选填，三科共用）" value={cfg.keyword}
+            onChange={e => setCfg(f => ({ ...f, keyword: e.target.value }))}
+            className="min-w-0 flex-1 rounded-lg border border-black/10 bg-white px-3 py-1.5 text-sm outline-none focus:border-[#0071e3]" />
+        </div>
+        <p className="text-xs leading-relaxed text-ink-secondary">
+          语数英彻底分开：逐科独立生成、独立勾选、独立重出，最后跨科汇总导出 A4 整卷——分开出题更快更稳，不再整卷超时。
+        </p>
       </div>
 
       {/* ============ 空状态 ============ */}
-      {!generated && !loading && (
+      {!generated && !anyLoading && (
         <div className="card flex flex-col items-center gap-3 p-12 text-center">
           <div className="brand-gradient flex h-14 w-14 items-center justify-center rounded-3xl text-white shadow-lg shadow-blue-500/25">
             <GraduationCap size={26} />
           </div>
-          <h2 className="text-xl font-semibold tracking-tight">配置上方参数，生成综合测试卷</h2>
-          <p className="max-w-md text-sm text-ink-secondary">
-            语数英各自独立成部分，题型完整仿中考（选择 / 填空 / 解答 / 阅读理解 / 完形填空 / 作文，数学不含画图题）；支持逐题勾选、单题重出与 A4 打印
+          <h2 className="text-xl font-semibold tracking-tight">逐科生成，组建你的综合测试卷</h2>
+          <p className="max-w-md text-sm leading-relaxed text-ink-secondary">
+            语文 / 数学 / 英语分开出题、分开管理：题型完整仿中考（选择 / 填空 / 解答 / 阅读理解 / 完形填空 / 作文，数学不含画图题）；
+            三科就绪后逐题勾选，一键导出 A4 整卷（每科独立成部分 + 独立答案页）
           </p>
-        </div>
-      )}
-      {loading && (
-        <div className="card flex flex-col items-center gap-3 p-12 text-center">
-          <div className="brand-gradient flex h-14 w-14 items-center justify-center rounded-3xl text-white shadow-lg shadow-blue-500/25">
-            <Loader2 size={26} className="animate-spin" />
-          </div>
-          <h2 className="text-xl font-semibold tracking-tight">AI 命题中…</h2>
-          <p className="max-w-md text-sm text-ink-secondary">整卷一次生成，含阅读理解与作文，题量较大时需要 1-3 分钟，请勿离开页面</p>
         </div>
       )}
 
       {/* ============ 试卷预览：一科一个页面（Tab 切换），可勾选 ============ */}
-      {generated && !loading && questions.length > 0 && (
+      {questions.length > 0 && (
         <div className="space-y-4">
-          {/* 学科页签：每科显示 已选/总数 */}
+          {/* 学科页签：每科显示 已选/总数，生成中的科显示转圈 */}
           <div className="card sticky top-20 z-10 flex flex-wrap items-center gap-1.5 p-2">
             {SUBJECTS.map(s => {
               const qs = questions.filter(q => q.subject === s.key);
-              if (!qs.length) return null;
+              const st = subjState[s.key];
+              if (!qs.length && !st.loading) return null;
               const pickedN = qs.filter(q => sel.includes(q.id)).length;
               const active = activeSubj === s.key;
               return (
@@ -426,22 +440,34 @@ export default function ComprehensiveExam() {
                   className={`btn-pill flex items-center gap-1.5 px-4 py-2 text-sm font-medium transition active:scale-95 ${
                     active ? `${s.chip} shadow-sm` : 'text-ink-secondary hover:bg-black/[0.04] hover:text-ink'
                   }`}>
+                  {st.loading && <Loader2 size={13} className="animate-spin" />}
                   {s.label}
-                  <span className={`text-xs tabular-nums ${active ? 'text-white/80' : 'text-ink-secondary/60'}`}>
-                    {pickedN}/{qs.length}
-                  </span>
+                  {qs.length
+                    ? <span className={`text-xs tabular-nums ${active ? 'text-white/80' : 'text-ink-secondary/60'}`}>{pickedN}/{qs.length}</span>
+                    : <span className={`text-xs ${active ? 'text-white/80' : 'text-ink-secondary/60'}`}>命题中…</span>}
                 </button>
               );
             })}
           </div>
 
-          {/* 当前学科页：部分标题 + 题目 */}
+          {/* 当前学科页：部分标题 + 题目（该科生成中且暂无题目时显示占位） */}
           {(() => {
             const si = SUBJECTS.findIndex(s => s.key === activeSubj);
             if (si < 0) return null;
             const s = SUBJECTS[si];
             const qs = questions.filter(q => q.subject === s.key);
-            if (!qs.length) return null;
+            if (!qs.length) {
+              if (subjState[s.key].loading) return (
+                <div className="card flex flex-col items-center gap-3 p-12 text-center">
+                  <div className="brand-gradient flex h-14 w-14 items-center justify-center rounded-3xl text-white shadow-lg shadow-blue-500/25">
+                    <Loader2 size={26} className="animate-spin" />
+                  </div>
+                  <h3 className="text-lg font-semibold tracking-tight">{s.label} · AI 命题中…</h3>
+                  <p className="max-w-sm text-sm text-ink-secondary">单科生成约 30-60 秒，完成后自动展示；期间可切换其它学科页查看已生成的题目</p>
+                </div>
+              );
+              return null;
+            }
             const pickedN = qs.filter(q => sel.includes(q.id)).length;
             const pts = qs.reduce((sum, q) => sum + (Number(q.points) || 0), 0);
             return (
