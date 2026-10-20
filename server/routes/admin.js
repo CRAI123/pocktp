@@ -109,7 +109,9 @@ router.get('/teachers', ah(async (req, res) => {
     SELECT t.id, t.name, t.phone, t.activated, t.is_admin, t.credits, t.membership_expires_at, t.activated_at, t.created_at,
       (SELECT COUNT(*) FROM classes c WHERE c.teacher_id = t.id) AS classes,
       (SELECT COUNT(*) FROM students s JOIN classes c ON c.id = s.class_id WHERE c.teacher_id = t.id) AS students,
-      (SELECT code FROM activation_codes ac WHERE ac.used_by = t.id) AS used_code
+      (SELECT COUNT(*) FROM activation_codes ac WHERE ac.used_by = t.id) AS used_count,
+      (SELECT ac.code FROM activation_codes ac WHERE ac.used_by = t.id
+         ORDER BY ac.used_at DESC NULLS LAST, ac.id DESC LIMIT 1) AS used_code
     FROM teachers t ORDER BY t.id DESC LIMIT 500
   `);
   res.json(list.map(t => ({ ...t, activated: !!t.activated, is_admin: !!t.is_admin })));

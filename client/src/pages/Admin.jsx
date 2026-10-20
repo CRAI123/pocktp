@@ -394,7 +394,14 @@ export default function Admin() {
                       </span>
                     </td>
                     <td className="px-5 py-3">{t.classes} 班 / {t.students} 人</td>
-                    <td className="px-5 py-3 font-mono text-[13px]">{t.used_code ? fmtCode(t.used_code) : <span className="text-ink-secondary/50">—</span>}</td>
+                    <td className="px-5 py-3 font-mono text-[13px]">
+                      {t.used_code ? (
+                        <span className="inline-flex flex-col">
+                          <span>{fmtCode(t.used_code)}</span>
+                          {t.used_count > 1 && <span className="text-[11px] font-sans text-ink-secondary">共兑换 {t.used_count} 张</span>}
+                        </span>
+                      ) : <span className="text-ink-secondary/50">—</span>}
+                    </td>
                     <td className="px-5 py-3 text-ink-secondary">{t.created_at}</td>
                   </tr>
                 ))}
