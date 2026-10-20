@@ -1,6 +1,6 @@
 /** 课堂练习：全科目 · 课题/知识点 + 题型清单 → 自动生成描述词 → 确认（可修改）→ 生成练习 */
 import { useState } from 'react';
-import { Sparkles, Loader2, Printer, Trash2, Plus, BookOpenCheck, CheckSquare, Eye, EyeOff, RotateCcw } from 'lucide-react';
+import { Sparkles, Loader2, Printer, Trash2, Plus, BookOpenCheck, CheckSquare, Eye, EyeOff, RotateCcw, TrendingUp } from 'lucide-react';
 import { SectionHeader, Button, Badge, Empty } from '../../components/ui.jsx';
 import { ai, auth } from '../../api.js';
 
@@ -16,14 +16,37 @@ const LETTERS = ['A', 'B', 'C', 'D'];
 /* 非选择/判断题在打印端给答题横线 */
 const linesOf = (t) => /论述|写作/.test(t) ? 4 : /简答|应用/.test(t) ? 3 : /计算|作图/.test(t) ? 5 : /翻译/.test(t) ? 4 : 2;
 
+/* 题型耗时权重（秒，与综合测试同源校准）：按权重分批，每批 ≤45s 预算，稳过 Vercel 60s */
+const QTYPES_W = { '选择题': 9, '填空题': 10, '判断题': 9, '简答题': 13, '论述题': 14, '计算题': 14, '应用题': 13, '排序题': 11, '连线题': 11, '阅读理解': 16, '完形填空': 15, '材料分析题': 16, '作图题': 14, '翻译题': 13, '写作题': 24, '作文题': 27 };
+const wOf = (t) => QTYPES_W[t] || (/材料|阅读|综/.test(t) ? 16 : /论|写|作/.test(t) ? 20 : 12);
+/* 把题型清单展开成单题序列，按权重切成批次，再聚合回 [{qtype, count}] 形式 */
+function splitBatches(items, cap = 45) {
+  const seq = [];
+  items.filter(i => i.qtype && i.count > 0).forEach(i => { for (let k = 0; k < i.count; k++) seq.push(i.qtype); });
+  const batches = [[]];
+  let w = 0;
+  for (const t of seq) {
+    if (w + wOf(t) > cap && batches[batches.length - 1].length) { batches.push([]); w = 0; }
+    batches[batches.length - 1].push(t);
+    w += wOf(t);
+  }
+  return batches.filter(b => b.length).map(b => {
+    const tally = {};
+    b.forEach(t => { tally[t] = (tally[t] || 0) + 1; });
+    return Object.entries(tally).map(([qtype, count]) => ({ qtype, count }));
+  });
+}
+
 export default function ClassroomPractice() {
   /* ---- 表单 ---- */
   const [form, setForm] = useState({ subject: '语文', grade: '7', topic: '', knowledge: '' });
+  const [trend, setTrend] = useState(true);
   const [items, setItems] = useState([{ qtype: '选择题', count: 2 }, { qtype: '填空题', count: 3 }]);
   /* ---- 描述词（自动生成后可编辑） ---- */
   const [draft, setDraft] = useState('');
   /* ---- 生成结果 ---- */
   const [loading, setLoading] = useState(false);
+  const [prog, setProg] = useState(null);   /* { cur, total, done } 分批进度 */
   const [err, setErr] = useState('');
   const [warn, setWarn] = useState('');
   const [questions, setQuestions] = useState([]);
@@ -43,7 +66,7 @@ export default function ClassroomPractice() {
     return `请为《${form.topic}》命制一份${gradeLabel}${form.subject}课堂练习。
 本节课知识点：${form.knowledge || '本节课核心内容'}。
 题型与数量：${list}。
-要求：紧扣本节课知识点，难度适中，适合课堂 5-10 分钟即时检测；题干表述清晰规范，选择题提供四个选项，所有题目附答案与简要解析。`;
+要求：紧扣本节课知识点，难度适中，适合课堂即时检测；题干表述清晰规范，选择题提供四个选项，所有题目附答案与简要解析。${trend ? '\n命题风向：融入中考新风向——真实情境化、跨学科融合、开放性设问，题量允许时至少 1 道新风向题。' : ''}`;
   };
 
   const genDraft = () => {
@@ -53,30 +76,42 @@ export default function ClassroomPractice() {
     setDraft(buildPrompt());
   };
 
-  /* ---------- 确认描述词并生成 ---------- */
+  /* ---------- 确认描述词并生成（题量大自动分批：每批 ≤45s 预算稳过 60s，逐批追加显示） ---------- */
   const generate = async () => {
     if (loading) return;
     if (!form.topic.trim()) { setErr('请先填写本节课课题'); return; }
     if (!total) { setErr('请至少设置一种题型与数量'); return; }
+    const batches = splitBatches(items);
     setLoading(true); setErr(''); setWarn('');
+    let done = 0, curBatch = 0;
     try {
-      const d = await ai.practice({
-        subject: form.subject.trim(), grade: form.grade, topic: form.topic.trim(),
-        knowledge: form.knowledge.trim(), prompt: draft.trim(),
-        items: items.filter(i => i.qtype && i.count > 0).map(i => ({ qtype: i.qtype.trim(), count: i.count })),
-      });
-      const qs = d.questions || [];
-      setQuestions(qs);
-      setSel(qs.map(q => q.id));
+      for (let i = 0; i < batches.length; i++) {
+        curBatch = i + 1;
+        setProg({ cur: curBatch, total: batches.length, done });
+        const d = await ai.practice({
+          subject: form.subject.trim(), grade: form.grade, topic: form.topic.trim(),
+          knowledge: form.knowledge.trim(), prompt: draft.trim(), trend,
+          items: batches[i],
+        });
+        const qs = d.questions || [];
+        setQuestions(list => (i === 0 ? qs : [...list, ...qs]));
+        setSel(prev => [...new Set([...prev, ...qs.map(q => q.id)])]);
+        done += qs.length;
+        setProg({ cur: curBatch, total: batches.length, done });
+        if (d.requested && qs.length < d.requested) {
+          setWarn(`第 ${curBatch} 批请求 ${d.requested} 题、实际生成 ${qs.length} 题，如需补齐可重新生成`);
+        }
+        if (d.credits != null && auth.teacher) auth.save(auth.token, { ...auth.teacher, credits: d.credits });
+      }
       setShowAns({});
       setDone(true);
-      if (d.requested && qs.length < d.requested) {
-        setWarn(`本次实际生成 ${qs.length} 题（请求 ${d.requested} 题），如需补齐可重新生成`);
-      }
-      if (d.credits != null && auth.teacher) auth.save(auth.token, { ...auth.teacher, credits: d.credits });
     } catch (e) {
-      setErr(e.message || '生成失败');
-    } finally { setLoading(false); }
+      const msg = e.message || '生成失败';
+      setErr(msg + (done > 0 ? `（第 ${curBatch}/${batches.length} 批中断，已生成 ${done} 题，可重新生成）` : ''));
+      if (done > 0) setDone(true);
+    } finally {
+      setLoading(false); setProg(null);
+    }
   };
 
   const reset = () => {
@@ -85,7 +120,7 @@ export default function ClassroomPractice() {
 
   return (
     <div className="space-y-6">
-      <SectionHeader title="课堂练习" desc="全科目 · 输入课题与知识点，选择题型数量，确认描述词后 AI 命题 · 扣 2 算力/次" />
+      <SectionHeader title="课堂练习" desc="全科目 · 输入课题与知识点，选择题型数量，确认描述词后 AI 命题 · 按题扣算力（1 算力/题）" />
 
       {/* ============ 配置卡 ============ */}
       <div className="card space-y-4 p-5">
@@ -99,13 +134,20 @@ export default function ClassroomPractice() {
           </label>
           <div>
             <span className="mb-1.5 block text-sm font-medium text-ink-secondary">年级</span>
-            <div className="flex flex-wrap gap-1">
+            <div className="flex flex-wrap items-center gap-1">
               {GRADES.map(g => (
                 <button key={g.v} onClick={() => setForm(f => ({ ...f, grade: g.v }))}
                   className={`rounded-full px-3 py-1.5 text-xs font-medium transition active:scale-95 ${
                     form.grade === g.v ? 'bg-[#0071e3] text-white' : 'bg-black/[0.05] text-ink-secondary hover:bg-black/10'
                   }`}>{g.l}</button>
               ))}
+              <span className="mx-1 h-4 w-px bg-black/10" />
+              <button onClick={() => setTrend(t => !t)} title="融入真实情境化、跨学科融合、开放性设问"
+                className={`inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-medium transition active:scale-95 ${
+                  trend ? 'bg-[#ff9500] text-white' : 'bg-black/[0.05] text-ink-secondary hover:bg-black/10'
+                }`}>
+                <TrendingUp size={13} />中考新风向
+              </button>
             </div>
           </div>
         </div>
@@ -126,7 +168,7 @@ export default function ClassroomPractice() {
         </div>
         {/* 题型清单构造器 */}
         <div>
-          <span className="mb-1.5 block text-sm font-medium text-ink-secondary">题型与数量（共 {total} 题，上限 10 题）</span>
+          <span className="mb-1.5 block text-sm font-medium text-ink-secondary">题型与数量（共 {total} 题，题量大自动分批生成）</span>
           <div className="space-y-2">
             {items.map((it, i) => (
               <div key={i} className="flex items-center gap-2">
@@ -138,7 +180,7 @@ export default function ClassroomPractice() {
                   <button onClick={() => setItem(i, { count: Math.max(0, it.count - 1) })}
                     className="h-8 w-8 rounded-full bg-black/[0.05] text-sm leading-none text-ink-secondary transition hover:bg-black/10 active:scale-90">−</button>
                   <span className="w-6 text-center text-sm font-semibold tabular-nums">{it.count}</span>
-                  <button onClick={() => setItem(i, { count: Math.min(10, it.count + 1) })}
+                  <button onClick={() => setItem(i, { count: Math.min(50, it.count + 1) })}
                     className="h-8 w-8 rounded-full bg-black/[0.05] text-sm leading-none text-ink-secondary transition hover:bg-black/10 active:scale-90">＋</button>
                 </div>
                 <button title="删除该题型" onClick={() => setItems(list => list.filter((_, j) => j !== i))}
@@ -171,9 +213,9 @@ export default function ClassroomPractice() {
             <div className="mt-3 flex flex-wrap items-center gap-3">
               <Button onClick={generate} disabled={loading || !total}>
                 {loading ? <Loader2 size={15} className="animate-spin" /> : <Sparkles size={15} />}
-                {loading ? 'AI 命题中…' : '确认描述词并生成练习（扣 2 算力）'}
+                {loading ? `命题中 ${prog ? `${prog.cur}/${prog.total} · 已得 ${prog.done} 题` : '…'}` : `确认描述词并生成练习（约 ${total} 算力）`}
               </Button>
-              <span className="text-xs text-ink-secondary">描述词会作为命题依据交给 AI，改得越具体题目越贴合课堂</span>
+              <span className="text-xs text-ink-secondary">按题扣费 1 算力/题 · 题量大时自动分批、逐批到账</span>
             </div>
           </div>
         ) : (
@@ -194,8 +236,8 @@ export default function ClassroomPractice() {
           <div className="brand-gradient flex h-14 w-14 items-center justify-center rounded-3xl text-white shadow-lg shadow-blue-500/25">
             <Loader2 size={26} className="animate-spin" />
           </div>
-          <h2 className="text-xl font-semibold tracking-tight">AI 命题中…</h2>
-          <p className="max-w-md text-sm text-ink-secondary">正在按确认的描述词命制《{form.topic}》课堂练习，约 30-60 秒</p>
+          <h2 className="text-xl font-semibold tracking-tight">AI 命题中{prog ? ` · 第 ${prog.cur}/${prog.total} 批 · 已得 ${prog.done} 题` : '…'}</h2>
+          <p className="max-w-md text-sm text-ink-secondary">正在按确认的描述词命制《{form.topic}》课堂练习，每批约 30-60 秒、逐批到账</p>
         </div>
       )}
 

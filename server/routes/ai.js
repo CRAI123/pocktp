@@ -31,7 +31,7 @@ const COSTS = {
     weekly: 3,     // 班级周报
     summary: 8,     // 学期总结（长文）
   },
-  practice: 2,      // 课堂练习（全科目，按题型数量出题）
+  practice: 1,       // 课堂练习（全科目，按题扣费：每题 1 算力）
 };
 
 /* 通用 Chat Completions 调用：主模型失败 fallback 备模型（每次独立超时） */
@@ -664,28 +664,28 @@ router.post('/exam', ah(async (req, res) => {
   res.json({ questions, cost, credits: charged.credits, usage: result.usage });
 }));
 
-/* ===== POST /api/ai/practice  课堂练习（全科目：科目+课题+知识点+题型清单，扣 2 算力） ===== */
+/* ===== POST /api/ai/practice  课堂练习（全科目：科目+课题+知识点+题型清单，按题扣费 1 算力/题） ===== */
 router.post('/practice', ah(async (req, res) => {
-  const { subject, grade, topic, knowledge = '', prompt = '' } = req.body || {};
-  /* items: [{ qtype, count }] —— 题型自由（选择/填空/判断/简答/论述/计算…），非语数英白名单 */
+  const { subject, grade, topic, knowledge = '', prompt = '', trend = true } = req.body || {};
+  /* items: [{ qtype, count }] —— 题型自由（选择/填空/判断/简答/论述/计算…），非语数英白名单；题数不限，前端自动分批 */
   const rawItems = Array.isArray(req.body?.items) ? req.body.items : [];
   const items = rawItems
-    .map(i => ({ qtype: String(i?.qtype || '').trim().slice(0, 12), count: Math.max(0, Math.min(10, Number(i?.count) || 0)) }))
+    .map(i => ({ qtype: String(i?.qtype || '').trim().slice(0, 12), count: Math.max(0, Math.min(50, Number(i?.count) || 0)) }))
     .filter(i => i.qtype && i.count > 0);
   const total = items.reduce((s, i) => s + i.count, 0);
   if (!String(subject || '').trim()) return res.status(400).json({ error: '请选择科目' });
   if (!String(topic || '').trim()) return res.status(400).json({ error: '请填写本节课课题' });
   if (!items.length) return res.status(400).json({ error: '请至少设置一种题型与数量' });
-  if (total > 10) return res.status(400).json({ error: '课堂练习最多 10 题，适合 5-10 分钟课堂检测' });
 
-  const sys = `你是${String(subject).trim()}资深教师与命题专家，深谙${GRADE_DESC(String(grade || '7'))}课程标准与课堂教学节奏。请为课堂练习命题：紧扣课题与知识点、题干表述规范、难度适合课堂 5-10 分钟即时检测；选择题给 4 个选项；论述/简答题答案给评分要点；每题附简要解析。`;
+  const trendPrompt = trend ? '\n【命题风向】融入中考新风向：真实情境化、跨学科融合、开放性设问——若本批题量 ≥3，至少 1 道新风向题。' : '';
+  const sys = `你是${String(subject).trim()}资深教师与命题专家，深谙${GRADE_DESC(String(grade || '7'))}课程标准与课堂教学节奏。请为课堂练习命题：紧扣课题与知识点、题干表述规范、难度适合课堂即时检测；选择题给 4 个选项；论述/简答题答案给评分要点；每题附简要解析。`;
   const user = `【课题】《${String(topic).trim()}》
 【科目】${String(subject).trim()}
 【年级】${GRADE_DESC(String(grade || '7'))}
 【知识点】${String(knowledge || '本节课核心内容')}
 【题型与数量】${items.map(i => `${i.qtype}×${i.count}`).join('、')}（不得增减题型与数量）
 【老师确认的命题描述词】
-${String(prompt || '').trim() || '（无补充要求）'}
+${String(prompt || '').trim() || '（无补充要求）'}${trendPrompt}
 
 请严格按题型与数量命制，返回 JSON（不要 markdown 包装，字符串内引用一律用「」）：
 {"questions": [{"qtype":"题型","stem":"题干","choices":["选项A","选项B","选项C","选项D"],"answer":"答案（选择题为字母，论述/简答为评分要点）","explanation":"简要解析","points":分值}]}`;
@@ -722,7 +722,8 @@ ${String(prompt || '').trim() || '（无补充要求）'}
   }
   if (!questions.length) return res.status(502).json({ error: 'AI 返回解析失败' });
 
-  const cost = COSTS.practice;
+  /* 按题扣费：每题 1 算力，按实际生成题数计 */
+  const cost = questions.length * COSTS.practice;
   const charged = await charge(req.teacherId, cost);
   db.run(
     `INSERT INTO ai_history (teacher_id, type, grade, difficulty, count, keyword, questions, cost)
