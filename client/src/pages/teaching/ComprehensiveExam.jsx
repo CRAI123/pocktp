@@ -36,6 +36,41 @@ const SUBJ_META = Object.fromEntries(SUBJECTS.map(s => [s.key, s]));
 const CN_NUM = ['一', '二', '三', '四', '五'];
 const LETTERS = ['A', 'B', 'C', 'D'];
 
+/* ===== 出题模式（每科可选） =====
+ * lean  = 精练：同类型只保留一题，全题型覆盖
+ * full  = 整卷：仿中考结构 23 题（全题型 + 真实题量配比）
+ * custom = 自定义：手动题量（>5 题自动分批）
+ */
+const fillT = (t, n) => Array(n).fill(t);
+const LEAN_QTYPES = {
+  chinese: ['选择题', '填空题', '简答题', '阅读理解', '作文题'],
+  math: ['选择题', '填空题', '解答题'],
+  english: ['选择题', '完形填空', '阅读理解', '作文题'],
+};
+const FULL_QTYPES = {
+  chinese: [...fillT('选择题', 10), ...fillT('填空题', 5), ...fillT('简答题', 2), ...fillT('阅读理解', 5), '作文题'],
+  math: [...fillT('选择题', 10), ...fillT('填空题', 6), ...fillT('解答题', 7)],
+  english: [...fillT('选择题', 10), ...fillT('填空题', 6), '完形填空', ...fillT('阅读理解', 5), '作文题'],
+};
+const MODES = [
+  { key: 'lean', label: '精练', desc: '同类型只留一题，全题型覆盖' },
+  { key: 'full', label: '整卷 23 题', desc: '仿中考结构，全题型真实配比' },
+  { key: 'custom', label: '自定义', desc: '手动题量，超过 4 题自动分批' },
+];
+/* 题型耗时权重（秒，按实测校准：数学3题22s/语文4题31s/数学10选择82s），
+ * 用于分批：每批总耗时预算 ≤45s，确保单次请求在 Vercel 60s 上限内完成 */
+const QTYPES_W = { '选择题': 9, '填空题': 10, '简答题': 13, '解答题': 14, '阅读理解': 16, '完形填空': 15, '作文题': 27 };
+function splitBatches(qtypes, cap = 45) {
+  const batches = [[]];
+  let w = 0;
+  for (const t of qtypes) {
+    if (w + QTYPES_W[t] > cap && batches[batches.length - 1].length) { batches.push([]); w = 0; }
+    batches[batches.length - 1].push(t);
+    w += QTYPES_W[t];
+  }
+  return batches.filter(b => b.length);
+}
+
 /* 打印分页：选择题矮、阅读/作文高，按权重装入 A4 页 */
 const qWeight = (q) => ({
   '选择题': 1, '填空题': 1.5, '阅读理解': 2.2, '完形填空': 2, '简答题': 2, '解答题': 2.4, '作文题': 4.5,
@@ -80,6 +115,8 @@ export default function ComprehensiveExam() {
     grade: '9', difficulty: 'medium', trend: true, keyword: '',
     subjects: { chinese: 4, math: 4, english: 4 },
   });
+  /* 每科出题模式：lean 精练 / full 整卷 23 题 / custom 自定义 */
+  const [subjMode, setSubjMode] = useState({ chinese: 'custom', math: 'custom', english: 'custom' });
   /* ---- 试卷（三科题目累积，按科独立管理） ---- */
   const [questions, setQuestions] = useState([]);
   const [sel, setSel] = useState([]);
@@ -116,33 +153,58 @@ export default function ComprehensiveExam() {
     el.textContent = '@page { size: A4 portrait; margin: 14mm 16mm; }';
   }, []);
 
-  /* ---------- 分科生成（每科独立请求：题量小生成快，不再整卷超时） ---------- */
+  /* ---------- 批次计划：lean/full 按题型耗时权重分批（每批 ≤45s），custom 按 ≤4 题分批 ---------- */
+  const batchesOf = (key) => {
+    const mode = subjMode[key];
+    if (mode === 'lean') return splitBatches(LEAN_QTYPES[key]).map(qt => ({ qtypes: qt }));
+    if (mode === 'full') return splitBatches(FULL_QTYPES[key]).map(qt => ({ qtypes: qt }));
+    const n = cfg.subjects[key];
+    if (!n) return [];
+    const batches = [];
+    let left = n;
+    while (left > 0) { batches.push(Math.min(4, left)); left -= 4; }
+    return batches.map(c => ({ count: c }));
+  };
+
+  /* ---------- 分科分批生成（每批一次请求，题量小稳过 60s，逐批追加显示） ---------- */
   const genSubject = async (key) => {
-    const count = cfg.subjects[key];
-    if (!count || subjState[key].loading) return;
-    setSubjState(s => ({ ...s, [key]: { ...s[key], loading: true, err: '' } }));
+    if (subjState[key].loading) return;
+    const batches = batchesOf(key);
+    if (!batches.length) return;
+    /* 生成开始时刻该科旧题（第一批替换后不再变化） */
+    const oldIds = new Set(questions.filter(q => q.subject === key).map(q => q.id));
+    setSubjState(s => ({ ...s, [key]: { loading: true, err: '', done: 0, progress: `0/${batches.length}` } }));
+    let done = 0, curBatch = 0;
     try {
-      const d = await ai.exam({
-        grade: cfg.grade, difficulty: cfg.difficulty, trend: cfg.trend,
-        keyword: cfg.keyword, subjects: [{ subject: key, count }],
-      });
-      const qs = d.questions || [];
-      /* 替换该科题目，保留其它科；其它科的勾选也保留，新题默认全选 */
-      const otherIds = new Set(questions.filter(q => q.subject !== key).map(q => q.id));
-      setQuestions(list => [...list.filter(q => q.subject !== key), ...qs]);
-      setSel(prev => [...new Set([...prev.filter(id => otherIds.has(id)), ...qs.map(q => q.id)])]);
+      for (let i = 0; i < batches.length; i++) {
+        curBatch = i + 1;
+        const b = batches[i];
+        const d = await ai.exam({
+          grade: cfg.grade, difficulty: cfg.difficulty, trend: cfg.trend,
+          keyword: cfg.keyword,
+          subjects: [{ subject: key, ...(b.qtypes ? { qtypes: b.qtypes } : { count: b.count }) }],
+        });
+        const qs = d.questions || [];
+        /* 第一批替换该科旧题，后续批追加 */
+        setQuestions(list => i === 0
+          ? [...list.filter(q => q.subject !== key), ...qs]
+          : [...list, ...qs]);
+        setSel(prev => [...new Set([...prev.filter(id => i > 0 || !oldIds.has(id)), ...qs.map(q => q.id)])]);
+        done += qs.length;
+        setSubjState(s => ({ ...s, [key]: { loading: true, err: '', done, progress: `${i + 1}/${batches.length}` } }));
+        setGenerated(true);
+        setActiveSubj(key);
+        if (d.credits != null && auth.teacher) auth.save(auth.token, { ...auth.teacher, credits: d.credits });
+      }
       setExpanded({});
       setRegenFor(null);
-      setGenerated(true);
-      /* 生成完自动切到该科页 */
-      setActiveSubj(key);
-      setSubjState(s => ({ ...s, [key]: { loading: false, err: '', done: qs.length } }));
-      if (d.credits != null && auth.teacher) auth.save(auth.token, { ...auth.teacher, credits: d.credits });
+      setSubjState(s => ({ ...s, [key]: { loading: false, err: '', done, progress: '' } }));
     } catch (e) {
       const msg = e.message || '生成失败';
-      const hint = /fetch|网络|Network|timeout|Failed/i.test(msg)
-        ? '（生成超时或网络中断，建议每科 3-6 题）' : '';
-      setSubjState(s => ({ ...s, [key]: { ...s[key], loading: false, err: msg + hint } }));
+      const suffix = done > 0
+        ? `（第 ${curBatch}/${batches.length} 批中断，已生成 ${done} 题，可重新生成）`
+        : (/fetch|网络|Network|timeout|Failed/i.test(msg) ? '（生成超时或网络中断，建议减少题量重试）' : '');
+      setSubjState(s => ({ ...s, [key]: { loading: false, err: msg + suffix, done, progress: '' } }));
     }
   };
 
@@ -164,9 +226,9 @@ export default function ComprehensiveExam() {
     } finally { setRegenBusy(null); }
   };
 
-  /* ---------- 题量步进 ---------- */
+  /* ---------- 题量步进（自定义模式，1-25 题，>4 题生成时自动分批） ---------- */
   const setSubj = (key, n) => setCfg(f => ({
-    ...f, subjects: { ...f.subjects, [key]: Math.max(0, Math.min(10, n)) },
+    ...f, subjects: { ...f.subjects, [key]: Math.max(0, Math.min(25, n)) },
   }));
 
   /* ---------- PDF：逐页截图分页合成（A4 物理尺寸） ---------- */
@@ -342,7 +404,7 @@ export default function ComprehensiveExam() {
 
   return (
     <div className="space-y-5 pb-32">
-      <SectionHeader title="综合测试" desc="语数英逐科独立生成 · 仿中考题型（含阅读理解/完形填空/作文）· 全年级覆盖 · 逐题勾选 · 单题重出 · A4 打印" />
+      <SectionHeader title="综合测试" desc="语数英逐科独立生成 · 精练 / 整卷 23 题 / 自定义三种模式 · 仿中考题型 · 逐题勾选 · 单题重出 · A4 打印" />
 
       {/* ============ 组卷配置卡：三科独立生成 ============ */}
       <div className="card space-y-4 p-5">
@@ -361,11 +423,19 @@ export default function ComprehensiveExam() {
             已开启新风向：每科至少 1 道新题型——真实情境化、跨学科融合、开放性设问、新材料。
           </p>
         )}
-        {/* 三科独立生成卡：语数英彻底分开，逐科点击生成 */}
+        {/* 三科独立生成卡：语数英彻底分开，每科可选出题模式 */}
         <div className="grid gap-3 sm:grid-cols-3">
           {SUBJECTS.map(s => {
             const st = subjState[s.key];
             const n = cfg.subjects[s.key];
+            const mode = subjMode[s.key];
+            const batches = batchesOf(s.key);
+            const cost = batches.length * 2;
+            const modeInfo = mode === 'lean'
+              ? `精练卷 · 全题型各 1 题（共 ${LEAN_QTYPES[s.key].length} 题）`
+              : mode === 'full'
+                ? `仿中考整卷 · ${FULL_QTYPES[s.key].length} 题全题型（${batches.length} 批生成）`
+                : `自定义 · ${n} 题${batches.length > 1 ? `（${batches.length} 批生成）` : ''}`;
             return (
               <div key={s.key}
                 className={`rounded-2xl border p-4 transition ${
@@ -376,25 +446,42 @@ export default function ComprehensiveExam() {
                 }`}>
                 <div className="flex items-center justify-between gap-2">
                   <span className={`inline-flex h-7 items-center rounded-full px-2.5 text-xs font-semibold ${s.chip}`}>{s.label}</span>
-                  <div className="flex items-center gap-1.5">
-                    <button onClick={() => setSubj(s.key, n - 1)} disabled={st.loading}
-                      className="h-7 w-7 rounded-full bg-black/[0.05] text-sm leading-none text-ink-secondary transition hover:bg-black/10 active:scale-90 disabled:opacity-30">−</button>
-                    <span className="w-7 text-center text-sm font-semibold tabular-nums">{n}</span>
-                    <button onClick={() => setSubj(s.key, n + 1)} disabled={st.loading}
-                      className="h-7 w-7 rounded-full bg-black/[0.05] text-sm leading-none text-ink-secondary transition hover:bg-black/10 active:scale-90 disabled:opacity-30">＋</button>
+                  {/* 出题模式 */}
+                  <div className="flex gap-1">
+                    {MODES.map(m => (
+                      <button key={m.key} title={m.desc} onClick={() => setSubjMode(f => ({ ...f, [s.key]: m.key }))} disabled={st.loading}
+                        className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition active:scale-95 disabled:opacity-40 ${
+                          mode === m.key ? 'bg-[#0071e3] text-white' : 'bg-black/[0.05] text-ink-secondary hover:bg-black/10'
+                        }`}>{m.label}</button>
+                    ))}
                   </div>
                 </div>
+                {/* 模式说明 / 自定义步进 */}
+                <div className="mt-3 flex min-h-9 items-center justify-between gap-2">
+                  <span className="text-xs leading-relaxed text-ink-secondary">{modeInfo}</span>
+                  {mode === 'custom' && (
+                    <div className="flex shrink-0 items-center gap-1">
+                      <button onClick={() => setSubj(s.key, n - 1)} disabled={st.loading}
+                        className="h-7 w-7 rounded-full bg-black/[0.05] text-sm leading-none text-ink-secondary transition hover:bg-black/10 active:scale-90 disabled:opacity-30">−</button>
+                      <span className="w-7 text-center text-sm font-semibold tabular-nums">{n}</span>
+                      <button onClick={() => setSubj(s.key, n + 1)} disabled={st.loading}
+                        className="h-7 w-7 rounded-full bg-black/[0.05] text-sm leading-none text-ink-secondary transition hover:bg-black/10 active:scale-90 disabled:opacity-30">＋</button>
+                    </div>
+                  )}
+                </div>
                 <Button className="mt-3 w-full justify-center" onClick={() => genSubject(s.key)}
-                  disabled={!n || st.loading || anyLoading}>
+                  disabled={st.loading || anyLoading || (mode === 'custom' && !n)}>
                   {st.loading ? <Loader2 size={15} className="animate-spin" /> : <Sparkles size={15} />}
-                  {st.loading ? 'AI 命题中…' : st.done ? `重新生成（${n} 题）` : `生成 ${s.label}（${n} 题）`}
+                  {st.loading
+                    ? `命题中 ${st.progress} · 已得 ${st.done} 题`
+                    : st.done ? `重新生成（${st.done} 题）` : `生成${s.label}`}
                 </Button>
                 <p className="mt-2 text-[11px] leading-relaxed text-ink-secondary">
                   {st.err
                     ? <span className="text-[#ff3b30]">{st.err}</span>
                     : st.done
-                      ? <span className="font-medium text-[#1fa733]">✓ 已生成 {st.done} 题 · 扣 2 算力/次</span>
-                      : '独立生成 · 扣 2 算力 · 建议 3-6 题'}
+                      ? <span className="font-medium text-[#1fa733]">✓ 已生成 {st.done} 题 · 扣 2 算力/批</span>
+                      : `本次约扣 ${cost} 算力（${batches.length} 批 × 2）`}
                 </p>
               </div>
             );
@@ -406,7 +493,10 @@ export default function ComprehensiveExam() {
             className="min-w-0 flex-1 rounded-lg border border-black/10 bg-white px-3 py-1.5 text-sm outline-none focus:border-[#0071e3]" />
         </div>
         <p className="text-xs leading-relaxed text-ink-secondary">
-          语数英彻底分开：逐科独立生成、独立勾选、独立重出，最后跨科汇总导出 A4 整卷——分开出题更快更稳，不再整卷超时。
+          三种出题模式：<span className="font-medium text-ink">精练</span> 同类型只留一题、全题型覆盖；
+          <span className="font-medium text-ink">整卷 23 题</span> 仿中考结构全题型真实配比；
+          <span className="font-medium text-ink">自定义</span> 手动 1-25 题。
+          题量大时自动分批生成、逐批到账（每批扣 2 算力，稳过平台时限）；三科独立管理，跨科勾选汇总导出 A4 整卷。
         </p>
       </div>
 
@@ -416,10 +506,10 @@ export default function ComprehensiveExam() {
           <div className="brand-gradient flex h-14 w-14 items-center justify-center rounded-3xl text-white shadow-lg shadow-blue-500/25">
             <GraduationCap size={26} />
           </div>
-          <h2 className="text-xl font-semibold tracking-tight">逐科生成，组建你的综合测试卷</h2>
+          <h2 className="text-xl font-semibold tracking-tight">选好模式，逐科生成综合测试卷</h2>
           <p className="max-w-md text-sm leading-relaxed text-ink-secondary">
-            语文 / 数学 / 英语分开出题、分开管理：题型完整仿中考（选择 / 填空 / 解答 / 阅读理解 / 完形填空 / 作文，数学不含画图题）；
-            三科就绪后逐题勾选，一键导出 A4 整卷（每科独立成部分 + 独立答案页）
+            每科三种模式：精练（同类型只留一题）、整卷 23 题（仿中考全题型）、自定义题量；
+            数学不含画图题，语文含阅读理解与作文，英语含完形填空与书面表达——三科就绪后逐题勾选，一键导出 A4 整卷
           </p>
         </div>
       )}

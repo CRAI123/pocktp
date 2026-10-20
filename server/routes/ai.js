@@ -509,7 +509,14 @@ const EXAM_POINTS = { '选择题': 3, '填空题': 3, '解答题': 6, '简答题
 
 const SYSTEM_EXAM = (grade, difficulty, parts, trend, keyword) => `你是${GRADE_DESC(grade)}资深中考命题专家，深谙历年中考真题的题型结构、难度梯度与评分标准，请命制一份仿中考题型结构的综合测试卷。
 包含以下部分（语文、数学、英语各自独立成一个部分，按顺序命题）：
-${parts.map(p => `- ${EXAM_SUBJECT_DESC[p.subject]}，共 ${p.count} 题`).join('\n')}
+${parts.map(p => {
+  if (p.qtypes.length) {
+    const tally = {};
+    p.qtypes.forEach(t => { tally[t] = (tally[t] || 0) + 1; });
+    return `- ${EXAM_SUBJECT_DESC[p.subject]}，共 ${p.qtypes.length} 题，题型与数量严格为：${Object.entries(tally).map(([t, n]) => `${t}×${n}`).join('、')}，不得增减题型`;
+  }
+  return `- ${EXAM_SUBJECT_DESC[p.subject]}，共 ${p.count} 题`;
+}).join('\n')}
 命题总要求：
 - 题型结构完整仿中考：语文=积累运用选择/古诗文默写/现代文阅读理解/名著阅读/作文；数学=选择/填空/解答；英语=单选/完形填空/阅读理解/书面表达
 - 难度：${difficulty}（easy=基础、medium=中等、hard=拔高）；${grade === 'zk' || Number(grade) >= 7 ? '选材、设问方式与难度梯度贴合中考真题风格' : '知识与难度严格符合该年级课标，仅题型结构仿中考'}
@@ -571,18 +578,25 @@ function parseJsonLoose(text) {
   return null;
 }
 
-/* ===== POST /api/ai/exam  生成综合测试卷（整卷一次生成，扣 5 算力） ===== */
+/* ===== POST /api/ai/exam  生成综合测试卷（分科调用，每科可带 qtypes 题型约束，扣 2 算力/次） ===== */
 router.post('/exam', ah(async (req, res) => {
   const { grade = '9', difficulty = 'medium', keyword = '', trend = true } = req.body || {};
-  /* subjects: [{ subject: 'chinese'|'math'|'english', count }] —— 按科题量 */
+  /* subjects: [{ subject: 'chinese'|'math'|'english', count, qtypes? }]
+   * qtypes = 题型约束数组（每个元素一题，同题型重复出现表示多题，如 ['选择题','选择题','填空题']），
+   * 用于精练模式（同类型只留一题）与整卷模式（仿中考题型结构）的精确控制 */
   const raw = Array.isArray(req.body?.subjects) ? req.body.subjects : [];
   const parts = raw
     .filter(p => p && EXAM_SUBJECT_DESC[p.subject])
-    .map(p => ({ subject: p.subject, count: Math.max(0, Math.min(15, Number(p.count) || 0)) }))
+    .map(p => ({
+      subject: p.subject,
+      count: Math.max(0, Math.min(25, Number(p.count) || 0)),
+      qtypes: Array.isArray(p.qtypes) ? p.qtypes.filter(t => EXAM_QTYPES.includes(t)).slice(0, 25) : [],
+    }))
+    .map(p => ({ ...p, count: p.qtypes.length ? p.qtypes.length : p.count }))
     .filter(p => p.count > 0);
   const total = parts.reduce((s, p) => s + p.count, 0);
   if (!parts.length) return res.status(400).json({ error: '请至少选择一个学科并设置题量' });
-  if (total > 30) return res.status(400).json({ error: '整卷最多 30 题，请减少题量' });
+  if (total > 25) return res.status(400).json({ error: '单次生成最多 25 题，更多题量会自动分批' });
 
   const result = await chat([
     { role: 'system', content: SYSTEM_EXAM(grade, difficulty, parts, !!trend, keyword) },
@@ -596,33 +610,44 @@ router.post('/exam', ah(async (req, res) => {
     return res.status(502).json({ error: 'AI 返回解析失败' });
   }
 
-  /* 归一化：学科映射回 key、按科限量、题型/字段清洗、注入元信息 */
+  /* 归一化：学科映射回 key、按科限量（qtypes 模式按题型配额取题）、注入元信息 */
   const byKey = { chinese: [], math: [], english: [] };
   rawQs.forEach(q => {
     if (!q || typeof q !== 'object' || !String(q.stem || '').trim()) return;
     const k = EXAM_SUBJ_KEY[q.subject] || parts[0].subject;
     byKey[k].push(q);
   });
+  const norm = (q, subject) => {
+    const choices = Array.isArray(q.choices) ? q.choices.map(c => String(c).trim()).filter(Boolean).slice(0, 4) : [];
+    const qtype = EXAM_QTYPES.includes(q.qtype) ? q.qtype : (choices.length >= 2 ? '选择题' : '填空题');
+    const passage = String(q.passage || '').trim();
+    const pts = Number(q.points);
+    const maxPts = qtype === '作文题' ? 60 : 20;
+    return {
+      id: `ai-exam-${Date.now()}-${questions.length}`,
+      grade, difficulty, topic: keyword || '综合测试',
+      subject,
+      qtype,
+      stem: String(q.stem).trim(),
+      ...(passage ? { passage } : {}),
+      ...(qtype === '选择题' ? { choices, answer: String(q.answer || 'A').trim().toUpperCase().slice(0, 1) } : { answer: String(q.answer ?? '').trim() }),
+      explanation: String(q.explanation || '').trim(),
+      points: pts > 0 ? Math.min(maxPts, pts) : (EXAM_POINTS[qtype] || 3),
+    };
+  };
   const questions = [];
   for (const p of parts) {
-    byKey[p.subject].slice(0, p.count).forEach(q => {
-      const choices = Array.isArray(q.choices) ? q.choices.map(c => String(c).trim()).filter(Boolean).slice(0, 4) : [];
-      const qtype = EXAM_QTYPES.includes(q.qtype) ? q.qtype : (choices.length >= 2 ? '选择题' : '填空题');
-      const passage = String(q.passage || '').trim();
-      const pts = Number(q.points);
-      const maxPts = qtype === '作文题' ? 60 : 20;
-      questions.push({
-        id: `ai-exam-${Date.now()}-${questions.length}`,
-        grade, difficulty, topic: keyword || '综合测试',
-        subject: p.subject,
-        qtype,
-        stem: String(q.stem).trim(),
-        ...(passage ? { passage } : {}),
-        ...(qtype === '选择题' ? { choices, answer: String(q.answer || 'A').trim().toUpperCase().slice(0, 1) } : { answer: String(q.answer ?? '').trim() }),
-        explanation: String(q.explanation || '').trim(),
-        points: pts > 0 ? Math.min(maxPts, pts) : (EXAM_POINTS[qtype] || 3),
-      });
-    });
+    if (p.qtypes.length) {
+      /* qtypes 模式：按题型配额取题（AI 超出配额的多余题丢弃、不足则有多少取多少） */
+      const need = {};
+      p.qtypes.forEach(t => { need[t] = (need[t] || 0) + 1; });
+      for (const [t, n] of Object.entries(need)) {
+        byKey[p.subject].filter(q => (EXAM_QTYPES.includes(q.qtype) ? q.qtype : '填空题') === t).slice(0, n)
+          .forEach(q => questions.push(norm(q, p.subject)));
+      }
+    } else {
+      byKey[p.subject].slice(0, p.count).forEach(q => questions.push(norm(q, p.subject)));
+    }
   }
   if (!questions.length) return res.status(502).json({ error: 'AI 返回解析失败' });
 
