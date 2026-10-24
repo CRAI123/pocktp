@@ -1,5 +1,5 @@
 /** 课堂练习：全科目 · 课题/知识点 + 题型清单 → 自动生成描述词 → 确认（可修改）→ 生成练习 */
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Sparkles, Loader2, Printer, Trash2, Plus, BookOpenCheck, CheckSquare, Eye, EyeOff, RotateCcw, TrendingUp } from 'lucide-react';
 import { SectionHeader, Button, Badge, Empty } from '../../components/ui.jsx';
 import { ai, auth } from '../../api.js';
@@ -67,15 +67,6 @@ export default function ClassroomPractice() {
   const total = items.reduce((s, i) => s + (i.qtype ? i.count : 0), 0);
   const gradeLabel = GRADES.find(g => g.v === form.grade)?.l || '';
   const picked = questions.filter(q => sel.includes(q.id));
-
-  /* A4 @page 规则（与综合测试一致）：浏览器打印/导出 PDF 时按 A4 纵向 + 均匀页边距 */
-  useEffect(() => {
-    document.documentElement.dataset.paper = 'a4';
-    const id = 'paper-style';
-    let el = document.getElementById(id);
-    if (!el) { el = document.createElement('style'); el.id = id; document.head.appendChild(el); }
-    el.textContent = '@page { size: A4 portrait; margin: 14mm 16mm; }';
-  }, []);
 
   const setItem = (i, patch) => setItems(list => list.map((it, j) => j === i ? { ...it, ...patch } : it));
 
