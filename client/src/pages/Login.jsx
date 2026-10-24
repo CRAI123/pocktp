@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Phone, Lock, User, LogIn } from 'lucide-react';
+import { Phone, Lock, User, LogIn, MonitorDown } from 'lucide-react';
 import { api, auth, isMembershipActive } from '../api.js';
 import { Button, Field, inputCls, BrandFooter } from '../components/ui.jsx';
+import { isDesktopApp } from '../components/Layout.jsx';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -96,6 +97,15 @@ export default function Login() {
           <p className="mt-4 text-center text-xs leading-relaxed text-ink-secondary">
             手机号未注册将自动创建账号；新账号需使用激活码解锁完整功能
           </p>
+
+          {!isDesktopApp() && (
+            <a
+              href="/desktop/teacher-workbench-setup.exe" download="教师工作台-安装包.exe"
+              className="mt-3 flex items-center justify-center gap-1.5 text-xs font-medium text-[#0071e3] transition hover:underline"
+            >
+              <MonitorDown size={14} /> 下载 Windows 桌面版
+            </a>
+          )}
         </div>
       </div>
 

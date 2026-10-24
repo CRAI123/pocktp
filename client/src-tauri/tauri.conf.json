@@ -12,7 +12,7 @@
     "windows": [
       {
         "title": "教师工作台",
-        "url": "https://teach.rayzo.cn",
+        "url": "https://teach.rayzo.cn/?desktop=1",
         "width": 1280,
         "height": 800,
         "minWidth": 960,

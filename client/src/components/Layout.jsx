@@ -2,10 +2,22 @@ import { NavLink, Link, Outlet, useLocation, useNavigate } from 'react-router-do
 import {
   LayoutDashboard, BookOpen, FolderOpen, ClipboardList, LineChart, Sparkles,
   Users, CalendarCheck, MessageSquare, ListTodo, Menu, LogOut, ShieldCheck, Zap,
-  MonitorPlay, PenLine, Wand2, BookText,
+  MonitorPlay, PenLine, Wand2, BookText, MonitorDown,
 } from 'lucide-react';
 import { useState } from 'react';
 import { auth, isMembershipActive } from '../api.js';
+
+/* 桌面端识别：壳加载 /?desktop=1，持久化到 localStorage；桌面端隐藏「下载桌面版」入口 */
+export function isDesktopApp() {
+  try {
+    if (new URLSearchParams(window.location.search).get('desktop') === '1') {
+      localStorage.setItem('tw_desktop', '1');
+    }
+    return localStorage.getItem('tw_desktop') === '1';
+  } catch {
+    return false;
+  }
+}
 
 const NAV = [
   { group: '教学功能' },
@@ -117,6 +129,16 @@ export default function Layout() {
         <span className="brand-gradient-text font-semibold">教学·班务一体化</span>
         <br />面向一线教师的日常工作平台
       </div>
+
+      {/* 桌面版下载入口：桌面端内自动隐藏 */}
+      {!isDesktopApp() && (
+        <a
+          href="/desktop/teacher-workbench-setup.exe" download="教师工作台-安装包.exe"
+          className="mx-4 mb-6 flex items-center justify-center gap-2 rounded-2xl border border-[#0071e3]/25 bg-[#0071e3]/5 px-4 py-3 text-[13px] font-medium text-[#0071e3] transition hover:bg-[#0071e3]/10"
+        >
+          <MonitorDown size={16} /> 下载桌面版（Windows）
+        </a>
+      )}
     </div>
   );
 
