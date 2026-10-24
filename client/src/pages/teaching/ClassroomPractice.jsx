@@ -16,11 +16,11 @@ const LETTERS = ['A', 'B', 'C', 'D'];
 /* 非选择/判断题在打印端给答题横线 */
 const linesOf = (t) => /论述|写作/.test(t) ? 4 : /简答|应用/.test(t) ? 3 : /计算|作图/.test(t) ? 5 : /翻译/.test(t) ? 4 : 2;
 
-/* 题型耗时权重（秒，与综合测试同源校准）：按权重分批，每批 ≤45s 预算，稳过 Vercel 60s */
+/* 题型耗时权重（秒，与综合测试同源校准）：按权重分批，每批 ≤38s 预算（服务端 AI 调用总预算 55s，留足估算误差余量稳过 Vercel 60s） */
 const QTYPES_W = { '选择题': 9, '填空题': 10, '判断题': 9, '简答题': 13, '论述题': 14, '计算题': 14, '应用题': 13, '排序题': 11, '连线题': 11, '阅读理解': 16, '完形填空': 15, '材料分析题': 16, '作图题': 14, '翻译题': 13, '写作题': 24, '作文题': 27 };
 const wOf = (t) => QTYPES_W[t] || (/材料|阅读|综/.test(t) ? 16 : /论|写|作/.test(t) ? 20 : 12);
 /* 把题型清单展开成单题序列，按权重切成批次，再聚合回 [{qtype, count}] 形式 */
-function splitBatches(items, cap = 45) {
+function splitBatches(items, cap = 38) {
   const seq = [];
   items.filter(i => i.qtype && i.count > 0).forEach(i => { for (let k = 0; k < i.count; k++) seq.push(i.qtype); });
   const batches = [[]];

@@ -58,9 +58,9 @@ const MODES = [
   { key: 'custom', label: '自定义', desc: '手动题量，超过 4 题自动分批' },
 ];
 /* 题型耗时权重（秒，按实测校准：数学3题22s/语文4题31s/数学10选择82s），
- * 用于分批：每批总耗时预算 ≤45s，确保单次请求在 Vercel 60s 上限内完成 */
+ * 用于分批：每批总耗时预算 ≤38s（服务端 AI 调用总预算 55s，留估算误差余量，确保单次请求在 Vercel 60s 上限内完成） */
 const QTYPES_W = { '选择题': 9, '填空题': 10, '简答题': 13, '解答题': 14, '阅读理解': 16, '完形填空': 15, '作文题': 27 };
-function splitBatches(qtypes, cap = 45) {
+function splitBatches(qtypes, cap = 38) {
   const batches = [[]];
   let w = 0;
   for (const t of qtypes) {
