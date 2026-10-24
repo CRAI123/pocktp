@@ -23,7 +23,10 @@
       }
     ],
     "security": {
-      "csp": null
+      "csp": null,
+      "dangerousRemoteDomainIpc": [
+        { "scheme": "https", "domain": "teach.rayzo.cn", "enableTauriAPI": true, "windows": ["main"] }
+      ]
     }
   },
   "bundle": {
