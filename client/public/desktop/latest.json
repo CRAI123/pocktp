@@ -1,11 +1,11 @@
 {
     "platforms":  {
                       "windows-x86_64":  {
-                                             "signature":  "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSaTlYdy8vcTFzV2RZdTk0NmM5ZFhJYkg5cWxkTVNvcE85QWFBRWl4azdNYlk2eFJQYm9yVjN3TDVCbEtmN1NUNkVVRUFFMGtHVjBwbFVuSlFqWHJPYWtBYmtiNTU2ckFvPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyODU4OTgwCWZpbGU65pWZ5biI5bel5L2c5Y+wXzEuMC42X3g2NC1zZXR1cC5leGUJdmVyc2lvbjoxLjAuNgpXNHVNcGNyZGVlM0RlZWJlcGRYN2tBT2VNRGszTFhZY1pqNFREcHFDSENMZHVDMTh0K1ZoWU5KVGlxVjFKM3d4dWNiZG1XcTVzaGM2WHRsdm81bVRDUT09Cg==",
+                                             "signature":  "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSaTlYdy8vcTFzV2VWZEVsSk4vSEp6NG9WcTdOSEtxL3VvTUZiMDlHUWRNNG1nRjIwakZ5ZlVRRmx6V1plaUtUUUZuVm03SkpIRHEwck10TDlQQmd1aXpZS0ZSdEYrR1FnPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyODYwMzU2CWZpbGU65pWZ5biI5bel5L2c5Y+wXzEuMC43X3g2NC1zZXR1cC5leGUJdmVyc2lvbjoxLjAuNwp4Y0g3dVU0RmNOZjQzbnFlVEVGd3pmL2NveURqTTdDOGxyQ2g5eHlaMTFmSjFiQTdCNlpwTXZDQzgrcXpza1FYWm4vWCtmY1JxQlhiUEg4VE9UendCQT09Cg==",
                                              "url":  "https://teach.rayzo.cn/desktop/teacher-workbench-setup.exe"
                                          }
                   },
-    "pub_date":  "2026-10-24T16:29:35Z",
-    "version":  "1.0.6",
-    "notes":  "行为更纯净：更新需确认后才安装，不再静默下载安装；安装包信息补全主体 Rayzo"
+    "pub_date":  "2026-10-24T16:51:50Z",
+    "version":  "1.0.7",
+    "notes":  "桌面端适配增强：Ctrl+/- 界面缩放、Ctrl+R 刷新、F11 全屏；更新需确认后安装"
 }
