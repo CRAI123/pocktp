@@ -320,6 +320,35 @@ body::after {
   color: #888;
 }
 
+/* ===========================================================
+ * 大题留白模式（.print-roomy）：综合测试 / 课堂练习打印卷
+ *  - 阅读理解、完形、数学解答、作文等大题之间加大间距与行高
+ *  - 答题横线加高，阅读材料区块留白更足，卷面不拥挤
+ * =========================================================== */
+.print-roomy.print-sheet { line-height: 1.8; }
+.print-roomy .print-list { gap: 22pt; }
+.print-roomy .print-head { margin-bottom: 7pt; line-height: 1.7; }
+.print-roomy .print-no { min-width: 20pt; }
+.print-roomy .print-prompt { line-height: 1.8; }
+.print-roomy .exam-sec { margin: 18pt 0 12pt 0; padding-bottom: 5pt; }
+.print-roomy .exam-choices {
+  gap: 8pt 24pt;
+  padding-left: 24pt;
+  margin-top: 7pt;
+  line-height: 1.7;
+}
+.print-roomy .exam-passage {
+  margin: 8pt 0 10pt 20pt;
+  padding: 10pt 14pt;
+  line-height: 1.85;
+}
+.print-roomy .print-answers-area { margin-top: 9pt; }
+.print-roomy .print-lines { gap: 11pt; margin-top: 10pt; }
+.print-roomy .print-line { height: 26pt; }
+.print-roomy .essay-grid { margin-top: 12pt; }
+.print-roomy .print-explain { margin-top: 5pt; line-height: 1.7; }
+.print-roomy .print-footer { margin-top: 30pt; }
+
 @media print {
   /* 隐藏非打印元素与氛围背景 */
   body { background: #fff !important; }

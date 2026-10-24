@@ -298,7 +298,7 @@ export default function ClassroomPractice() {
 
       {/* ============ 打印卷（题目卷 + 独立答案页） ============ */}
       <div className="print-only">
-        <div className="print-sheet">
+        <div className="print-sheet print-roomy">
           <div className="print-header"><h1>{form.topic} · 课堂练习</h1></div>
           <div className="print-sub">{form.subject} · {gradeLabel} · 共 {picked.length} 题 · 满分 {picked.reduce((s, q) => s + (q.points || 0), 0)} 分</div>
           <div className="print-meta">
