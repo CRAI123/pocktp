@@ -1,5 +1,5 @@
 /** 课堂练习：全科目 · 课题/知识点 + 题型清单 → 自动生成描述词 → 确认（可修改）→ 生成练习 */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Sparkles, Loader2, Printer, Trash2, Plus, BookOpenCheck, CheckSquare, Eye, EyeOff, RotateCcw, TrendingUp } from 'lucide-react';
 import { SectionHeader, Button, Badge, Empty } from '../../components/ui.jsx';
 import { ai, auth } from '../../api.js';
@@ -68,6 +68,15 @@ export default function ClassroomPractice() {
   const gradeLabel = GRADES.find(g => g.v === form.grade)?.l || '';
   const picked = questions.filter(q => sel.includes(q.id));
 
+  /* A4 @page 规则（与综合测试一致）：浏览器打印/导出 PDF 时按 A4 纵向 + 均匀页边距 */
+  useEffect(() => {
+    document.documentElement.dataset.paper = 'a4';
+    const id = 'paper-style';
+    let el = document.getElementById(id);
+    if (!el) { el = document.createElement('style'); el.id = id; document.head.appendChild(el); }
+    el.textContent = '@page { size: A4 portrait; margin: 14mm 16mm; }';
+  }, []);
+
   const setItem = (i, patch) => setItems(list => list.map((it, j) => j === i ? { ...it, ...patch } : it));
 
   /* ---------- 自动生成描述词（模板拼装，直接可编辑） ---------- */
@@ -130,6 +139,8 @@ export default function ClassroomPractice() {
 
   return (
     <div className="space-y-6">
+      {/* 屏幕端内容整体 no-print：打印/导出 PDF 时只输出下方 print-only 卷面，不混入配置卡与题目列表 */}
+      <div className="no-print space-y-6">
       <SectionHeader title="课堂练习" desc="全科目 · 输入课题与知识点，选择题型数量，确认描述词后 AI 命题 · 按题扣算力（1 算力/题）" />
 
       {/* ============ 配置卡 ============ */}
@@ -308,6 +319,7 @@ export default function ClassroomPractice() {
           <Empty text="取消勾选的题目不会进入打印卷" />
         </div>
       )}
+      </div>{/* /no-print 屏幕端内容 */}
 
       {/* ============ 打印卷（题目卷 + 独立答案页） ============ */}
       <div className="print-only">
