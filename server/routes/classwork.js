@@ -15,6 +15,17 @@ router.get('/classes', ah(async (req, res) => {
   res.json(rows);
 }));
 
+/* 创建班级：{ name, grade?, description? } */
+router.post('/classes', ah(async (req, res) => {
+  const { name, grade, description } = req.body || {};
+  if (!name || !String(name).trim()) return res.status(400).json({ error: '班级名称必填' });
+  const info = await db.run(
+    'INSERT INTO classes (teacher_id, name, grade, description) VALUES (?,?,?,?)',
+    [req.teacherId, String(name).trim(), String(grade || '').trim(), String(description || '').trim()]
+  );
+  res.status(201).json({ id: info.lastInsertRowid });
+}));
+
 router.get('/students', ah(async (req, res) => {
   const { class_id } = req.query;
   const sql = `

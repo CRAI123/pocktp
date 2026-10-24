@@ -22,6 +22,7 @@ import ComprehensiveExam from './pages/teaching/ComprehensiveExam.jsx';
 import ClassroomPractice from './pages/teaching/ClassroomPractice.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import ClassDetail from './pages/ClassDetail.jsx';
+import Classes from './pages/Classes.jsx';
 import Courses from './pages/Courses.jsx';
 import Materials from './pages/Materials.jsx';
 import Assignments from './pages/Assignments.jsx';
@@ -85,6 +86,8 @@ export default function App() {
           <Route path="teaching/exam" element={<ComprehensiveExam />} />
           <Route path="teaching/classroom-practice" element={<ClassroomPractice />} />
           <Route path="students" element={<Students />} />
+          <Route path="classes" element={<Classes />} />
+          <Route path="classes/new" element={<Classes />} />
           <Route path="classes/:id" element={<ClassDetail />} />
           <Route path="attendance" element={<Attendance />} />
           <Route path="notifications" element={<Notifications />} />
