@@ -1,4 +1,5 @@
-use tauri::Manager;
+use tauri::{Emitter, Manager};
+use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 use tauri_plugin_updater::UpdaterExt;
 
 #[derive(serde::Serialize)]
@@ -41,6 +42,15 @@ async fn install_update(app: tauri::AppHandle) -> Result<(), String> {
 pub fn run() {
   tauri::Builder::default()
     .plugin(tauri_plugin_updater::Builder::new().build())
+    .plugin(
+      tauri_plugin_global_shortcut::Builder::new()
+        .with_handler(|app, _shortcut, event| {
+          if event.state() == ShortcutState::Pressed {
+            let _ = app.emit_to("main", "tw-update-check", ());
+          }
+        })
+        .build(),
+    )
     .invoke_handler(tauri::generate_handler![check_update, install_update])
     .setup(|app| {
       if cfg!(debug_assertions) {
@@ -49,6 +59,22 @@ pub fn run() {
             .level(log::LevelFilter::Info)
             .build(),
         )?;
+      }
+
+      /* F5 由系统热键接管（WebView2 会自己吃掉 F5 做刷新），
+       * 仅窗口聚焦时注册，失焦注销；按下后通知网页弹出应用内更新弹窗 */
+      if let Some(win) = app.get_webview_window("main") {
+        let handle = app.handle().clone();
+        let _ = handle.global_shortcut().register("F5");
+        win.on_window_event(move |event| match event {
+          tauri::WindowEvent::Focused(true) => {
+            let _ = handle.global_shortcut().register("F5");
+          }
+          tauri::WindowEvent::Focused(false) => {
+            let _ = handle.global_shortcut().unregister("F5");
+          }
+          _ => {}
+        });
       }
 
       /* 启动时静默自动更新：后台检查并下载安装，全程无弹窗、不重启，

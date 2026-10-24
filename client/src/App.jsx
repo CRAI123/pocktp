@@ -59,9 +59,15 @@ function RequireAdmin() {
 export default function App() {
   const [updateOpen, setUpdateOpen] = useState(false);
 
-  /* 桌面端按 F5 = 检查更新（应用内自绘弹窗）；网页端保持浏览器默认刷新 */
+  /* 桌面端检查更新：壳内 F5 热键 → 事件通知 → 打开应用内弹窗；
+   * 网页端不注册，保持浏览器默认刷新 */
   useEffect(() => {
     if (!isDesktopApp()) return;
+    let unlisten;
+    window.__TAURI__?.event
+      ?.listen?.('tw-update-check', () => setUpdateOpen(true))
+      .then((u) => { unlisten = u; })
+      .catch(() => {});
     const onKey = (e) => {
       if (e.key === 'F5') {
         e.preventDefault();
@@ -69,7 +75,10 @@ export default function App() {
       }
     };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      unlisten?.();
+    };
   }, []);
 
   return (
