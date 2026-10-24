@@ -82,6 +82,34 @@ export default function App() {
     };
   }, []);
 
+  /* 桌面端快捷键适配：Ctrl+R 刷新；Ctrl +/-/0 界面缩放（持久化，教室大屏友好）；
+   * F11 全屏切换（课堂小助手投屏用）。网页端一律不注册，保持浏览器原生行为 */
+  useEffect(() => {
+    if (!isDesktopApp()) return;
+    const ZK = 'tw_zoom';
+    const cur = () => parseFloat(localStorage.getItem(ZK) || '1') || 1;
+    const applyZoom = (z) => {
+      const c = Math.min(1.5, Math.max(0.7, Math.round(z * 100) / 100));
+      document.documentElement.style.zoom = String(c);
+      localStorage.setItem(ZK, String(c));
+    };
+    const saved = cur();
+    if (saved !== 1) document.documentElement.style.zoom = String(saved);
+    const onKey = (e) => {
+      if (e.ctrlKey && (e.key === '=' || e.key === '+')) { e.preventDefault(); applyZoom(cur() + 0.1); }
+      else if (e.ctrlKey && e.key === '-') { e.preventDefault(); applyZoom(cur() - 0.1); }
+      else if (e.ctrlKey && e.key === '0') { e.preventDefault(); applyZoom(1); }
+      else if (e.ctrlKey && (e.key === 'r' || e.key === 'R')) { e.preventDefault(); window.location.reload(); }
+      else if (e.key === 'F11') {
+        e.preventDefault();
+        const w = window.__TAURI__?.window?.getCurrentWindow?.();
+        w?.isFullscreen?.().then((f) => w.setFullscreen(!f)).catch(() => {});
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
   return (
     <>
       {/* 桌面端自绘标题栏（无边框窗口）；网页端不渲染 */}

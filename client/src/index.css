@@ -351,6 +351,8 @@ body::after {
 .print-roomy .print-footer { margin-top: 30pt; }
 
 @media print {
+  /* 桌面端界面缩放（zoom）不影响打印卷：打印时强制复位 */
+  html { zoom: 1 !important; }
   /* 隐藏非打印元素与氛围背景 */
   body { background: #fff !important; }
   body::before, body::after { display: none !important; }

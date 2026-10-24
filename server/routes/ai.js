@@ -151,26 +151,14 @@ router.post('/generate', ah(async (req, res) => {
   const { type, grade = '3', difficulty = 'medium', count = 10, keyword = '', trend = false } = req.body || {};
   if (!type || !TYPE_PROMPT[type]) return res.status(400).json({ error: 'type 不合法' });
   const n = Math.max(1, Math.min(30, Number(count) || 10));
-  const result = await chat([
+  const out0 = await chatJson([
     { role: 'system', content: SYSTEM_GENERATE(type, grade, difficulty, n, keyword, !!trend) },
     { role: 'user', content: `请生成 ${n} 道题。` },
   ], { maxTokens: 4096 });
-  const text = result.choices?.[0]?.message?.content || '';
-  /* 兼容模型偶发加 ```json 包装：剥离 + 容错解析 */
-  const clean = text.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
-  let parsed;
-  try { parsed = JSON.parse(clean); } catch (e1) {
-    /* fallback：从文本中抓第一个 { 到最后一个 } */
-    const first = clean.indexOf('{');
-    const last = clean.lastIndexOf('}');
-    if (first >= 0 && last > first) {
-      try { parsed = JSON.parse(clean.slice(first, last + 1)); } catch (e2) {
-        console.error('[ai/generate] JSON 解析失败', { raw: clean.slice(0, 500), e1: e1.message, e2: e2.message });
-        return res.status(502).json({ error: 'AI 返回解析失败', raw: clean.slice(0, 500) });
-      }
-    } else {
-      return res.status(502).json({ error: 'AI 返回解析失败', raw: clean.slice(0, 500) });
-    }
+  const parsed = out0?.parsed;
+  const result = out0?.result || {};
+  if (!parsed || typeof parsed !== 'object') {
+    return res.status(502).json({ error: 'AI 返回解析失败，请重试' });
   }
   /* 注入元信息 + 生成新 id 避免与静态题冲突
    * reading 类型特殊处理：AI 返回 { passages: [{ passage, questions: [...] }] }
@@ -201,7 +189,7 @@ router.post('/generate', ah(async (req, res) => {
       ...q,
     }));
   }
-  if (!questions.length) return res.status(502).json({ error: 'AI 返回解析失败', raw: clean.slice(0, 500) });
+  if (!questions.length) return res.status(502).json({ error: 'AI 返回解析失败，请重试' });
   const cost = COSTS.generate;
   const charged = await charge(req.teacherId, cost);
   /* 写入历史记录（异步，不阻塞响应） */
@@ -319,31 +307,24 @@ router.post('/write', ah(async (req, res) => {
   }
   const cost = COSTS.write[type] ?? COSTS.generate;
   const spec = builder(payload);
-  const result = await chat([
-    { role: 'system', content: spec.system },
-    { role: 'user', content: spec.user },
-  ], { maxTokens: spec.maxTokens });
-  const text = result.choices?.[0]?.message?.content || '';
-  let out;
+  let out, result;
   if (spec.json) {
-    /* 剥离 ```json 包装 + 容错截取解析 */
-    const clean = text.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
-    let parsed;
-    try { parsed = JSON.parse(clean); } catch (e1) {
-      const first = clean.indexOf('{');
-      const last = clean.lastIndexOf('}');
-      if (first >= 0 && last > first) {
-        try { parsed = JSON.parse(clean.slice(first, last + 1)); } catch (e2) {
-          return res.status(502).json({ error: 'AI 返回解析失败', raw: clean.slice(0, 500) });
-        }
-      } else {
-        return res.status(502).json({ error: 'AI 返回解析失败', raw: clean.slice(0, 500) });
-      }
-    }
-    const items = Array.isArray(parsed.items) ? parsed.items.filter(it => it && it.text) : [];
-    if (!items.length) return res.status(502).json({ error: 'AI 返回解析失败', raw: clean.slice(0, 500) });
+    /* JSON 类（评语）：chatJson 容错解析 + 失败重试一次 */
+    const o = await chatJson([
+      { role: 'system', content: spec.system },
+      { role: 'user', content: spec.user },
+    ], { maxTokens: spec.maxTokens });
+    result = o?.result || {};
+    const items = Array.isArray(o?.parsed?.items) ? o.parsed.items.filter(it => it && it.text) : [];
+    if (!items.length) return res.status(502).json({ error: 'AI 返回解析失败，请重试' });
     out = { items };
   } else {
+    /* 纯文本类（通知/周报/总结）：直接返回文本 */
+    result = await chat([
+      { role: 'system', content: spec.system },
+      { role: 'user', content: spec.user },
+    ], { maxTokens: spec.maxTokens });
+    const text = result.choices?.[0]?.message?.content || '';
     if (!text.trim()) return res.status(502).json({ error: 'AI 返回为空' });
     out = { text: text.trim() };
   }
@@ -420,30 +401,24 @@ router.post('/extract', ah(async (req, res) => {
       ? builder(Array.isArray(names) ? names.slice(0, 80) : [])
       : builder();
   const user = `记录内容：\n${raw}`;
-  const result = await chat([
-    { role: 'system', content: spec.system },
-    { role: 'user', content: user },
-  ], { maxTokens: scene === 'todos' || scene === 'moral' ? 1500 : 1600 });
-
-  const textOut = result.choices?.[0]?.message?.content || '';
   const cost = COSTS.extract;
-  let out;
+  let out, result;
   if (spec.json) {
-    const clean = textOut.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
-    let parsed;
-    try { parsed = JSON.parse(clean); } catch (e1) {
-      const first = clean.indexOf('{');
-      const last = clean.lastIndexOf('}');
-      if (first >= 0 && last > first) {
-        try { parsed = JSON.parse(clean.slice(first, last + 1)); } catch (e2) {
-          return res.status(502).json({ error: 'AI 返回解析失败', raw: clean.slice(0, 500) });
-        }
-      } else {
-        return res.status(502).json({ error: 'AI 返回解析失败', raw: clean.slice(0, 500) });
-      }
-    }
-    out = { items: Array.isArray(parsed.items) ? parsed.items.filter(it => it && (it.title || it.student_name)) : [] };
+    /* JSON 类（待办/加减分）：chatJson 容错解析 + 失败重试一次 */
+    const o = await chatJson([
+      { role: 'system', content: spec.system },
+      { role: 'user', content: user },
+    ], { maxTokens: scene === 'todos' || scene === 'moral' ? 1500 : 1600 });
+    result = o?.result || {};
+    out = { items: Array.isArray(o?.parsed?.items) ? o.parsed.items.filter(it => it && (it.title || it.student_name)) : [] };
+    if (!o?.parsed) return res.status(502).json({ error: 'AI 返回解析失败，请重试' });
   } else {
+    /* 纯文本类（会议纪要/周记整理） */
+    result = await chat([
+      { role: 'system', content: spec.system },
+      { role: 'user', content: user },
+    ], { maxTokens: 1600 });
+    const textOut = result.choices?.[0]?.message?.content || '';
     if (!textOut.trim()) return res.status(502).json({ error: 'AI 返回为空' });
     out = { text: textOut.trim() };
   }
@@ -472,17 +447,9 @@ ${JSON.stringify(original, null, 2)}
 
 请"举一反三"：生成 ${n} 道与原题同类型、同结构、同考点的变式题——考查知识点一致，但素材/词语/情境/数据不同，难度相当，可直接用于替换练习。字段结构与原题保持一致（原题有的字段都要给）。严格返回 JSON，不要 markdown 包装：
 {"questions": [ {…与原题同结构…} ]}`;
-  const result = await chat([{ role: 'user', content: prompt }], { maxTokens: 2500 });
-  const text = result.choices?.[0]?.message?.content || '';
-  const clean = text.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
-  let parsed;
-  try { parsed = JSON.parse(clean); } catch (e1) {
-    const first = clean.indexOf('{');
-    const last = clean.lastIndexOf('}');
-    if (first >= 0 && last > first) {
-      try { parsed = JSON.parse(clean.slice(first, last + 1)); } catch { /* fallthrough */ }
-    }
-  }
+  const out0 = await chatJson([{ role: 'user', content: prompt }], { maxTokens: 2500 });
+  const parsed = out0?.parsed;
+  const result = out0?.result || {};
   let questions = Array.isArray(parsed?.questions) ? parsed.questions : (Array.isArray(parsed?.items) ? parsed.items : []);
   questions = questions.filter(q2 => q2 && typeof q2 === 'object').slice(0, n).map((q2, i) => ({
     id: `ai-similar-${Date.now()}-${i}`,
@@ -490,7 +457,7 @@ ${JSON.stringify(original, null, 2)}
     topic: `举一反三${question.topic ? ` · ${question.topic}` : ''}`,
     ...q2,
   }));
-  if (!questions.length) return res.status(502).json({ error: 'AI 返回解析失败', raw: clean.slice(0, 500) });
+  if (!questions.length) return res.status(502).json({ error: 'AI 返回解析失败，请重试' });
   const cost = COSTS.similar;
   const charged = await charge(req.teacherId, cost);
   const preview = String(question.sentence || question.word || question.pinyin || question.stem || question.chinese || question.passage || '').slice(0, 150);
@@ -802,8 +769,9 @@ ${JSON.stringify(original, null, 2)}
 
 请按改进要求重新命制 1 道题替换原题——保持学科、题型、字段结构、年级与难度不变，仅按改进要求调整素材/情境/考点/表述。严格返回 JSON，不要 markdown 包装：
 {"question": {…与原题同结构…}}`;
-  const result = await chat([{ role: 'user', content: prompt }], { maxTokens: 2500 });
-  const parsed = parseJsonLoose(result.choices?.[0]?.message?.content);
+  const out0 = await chatJson([{ role: 'user', content: prompt }], { maxTokens: 2500 });
+  const parsed = out0?.parsed;
+  const result = out0?.result || {};
   const q = parsed?.question;
   if (!q || typeof q !== 'object') return res.status(502).json({ error: 'AI 返回解析失败' });
 
