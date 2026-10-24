@@ -282,7 +282,10 @@ export default function ClassroomPractice() {
                       {showAns[q.id] ? <><EyeOff size={13} />收起答案</> : <><Eye size={13} />查看答案</>}
                     </button>
                   </div>
-                  <p className="text-sm leading-relaxed">{q.stem}</p>
+                  {q.passage && (
+                    <div className="mb-2 rounded-xl border-l-2 border-black/10 bg-bg-light px-3.5 py-2.5 text-[13px] leading-relaxed text-ink-secondary whitespace-pre-wrap">{q.passage}</div>
+                  )}
+                  <p className="whitespace-pre-wrap text-sm leading-relaxed">{q.stem}</p>
                   {q.choices?.length ? (
                     <div className="mt-2 grid gap-1 sm:grid-cols-2">
                       {q.choices.map((c, j) => (
@@ -322,6 +325,7 @@ export default function ClassroomPractice() {
                   <span className="print-no">{i + 1}.</span>
                   <span className="print-prompt">{q.stem}（{q.points} 分）</span>
                 </div>
+                {q.passage && <div className="exam-passage">{q.passage}</div>}
                 {q.choices?.length ? (
                   <div className="exam-choices">
                     {q.choices.map((c, j) => <span key={j}>{LETTERS[j]}. {c}</span>)}

@@ -686,7 +686,8 @@ router.post('/practice', ah(async (req, res) => {
   if (!items.length) return res.status(400).json({ error: '请至少设置一种题型与数量' });
 
   const trendPrompt = trend ? '\n【命题风向】融入中考新风向：真实情境化、跨学科融合、开放性设问——若本批题量 ≥3，至少 1 道新风向题。' : '';
-  const sys = `你是${String(subject).trim()}资深教师与命题专家，深谙${GRADE_DESC(String(grade || '7'))}课程标准与课堂教学节奏。请为课堂练习命题：紧扣课题与知识点、题干表述规范、难度适合课堂即时检测；选择题给 4 个选项；论述/简答题答案给评分要点；每题附简要解析。`;
+  const sys = `你是${String(subject).trim()}资深教师与命题专家，深谙${GRADE_DESC(String(grade || '7'))}课程标准与课堂教学节奏。请为课堂练习命题：紧扣课题与知识点、题干表述规范、难度适合课堂即时检测；选择题给 4 个选项；论述/简答题答案给评分要点；每题附简要解析。
+【排版硬要求】阅读/材料/语段类题目：材料正文必须单独放入 passage 字段（200-400 字、连续成段），不得塞进 stem；stem 只写设问，一道大题含多个小题时，每个小题必须独立成行（用 \\n 换行，如 "（1）…\\n（2）…\\n（3）…"），禁止把所有小题连成一段；其它题型的 stem 需要分点时同样用 \\n 换行。`;
   const user = `【课题】《${String(topic).trim()}》
 【科目】${String(subject).trim()}
 【年级】${GRADE_DESC(String(grade || '7'))}
@@ -696,7 +697,7 @@ router.post('/practice', ah(async (req, res) => {
 ${String(prompt || '').trim() || '（无补充要求）'}${trendPrompt}
 
 请严格按题型与数量命制，返回 JSON（不要 markdown 包装，字符串内引用一律用「」）：
-{"questions": [{"qtype":"题型","stem":"题干","choices":["选项A","选项B","选项C","选项D"],"answer":"答案（选择题为字母，论述/简答为评分要点）","explanation":"简要解析","points":分值}]}`;
+{"questions": [{"qtype":"题型","passage":"材料正文（仅阅读/材料类题目填写，其它题型省略此字段）","stem":"题干（多个小题用 \\n 逐小题换行）","choices":["选项A","选项B","选项C","选项D"],"answer":"答案（选择题为字母，论述/简答为评分要点）","explanation":"简要解析","points":分值}]}`;
 
   const result = await chat([
     { role: 'system', content: sys },
@@ -716,12 +717,14 @@ ${String(prompt || '').trim() || '（无补充要求）'}${trendPrompt}
     if (tally[t] <= 0) continue;
     tally[t]--;
     const choices = Array.isArray(q.choices) ? q.choices.map(c => String(c).trim()).filter(Boolean).slice(0, 4) : [];
+    const passage = String(q.passage || '').trim();
     const pts = Number(q.points);
     questions.push({
       id: `ai-practice-${Date.now()}-${questions.length}`,
       grade: String(grade || ''), subject: String(subject).trim(),
       topic: String(topic).trim(), qtype: t,
       stem: String(q.stem).trim(),
+      ...(passage ? { passage } : {}),
       ...(choices.length ? { choices } : {}),
       answer: String(q.answer ?? '').trim(),
       explanation: String(q.explanation || '').trim(),
