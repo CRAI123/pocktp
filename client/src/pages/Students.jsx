@@ -1,5 +1,5 @@
 ﻿﻿import { useEffect, useRef, useState } from 'react';
-import { Plus, Trash2, Pencil, Phone, MessageCircle, Download, Upload, Keyboard, CheckCircle2, Users } from 'lucide-react';
+import { Plus, Trash2, Pencil, Phone, MessageCircle, Download, Upload, Keyboard, CheckCircle2, Users, ClipboardPaste } from 'lucide-react';
 import { api } from '../api.js';
 import { SectionHeader, Button, Modal, Field, inputCls, Badge, Empty, SkeletonList } from '../components/ui.jsx';
 
@@ -24,6 +24,11 @@ export default function Students() {
   const [saving, setSaving] = useState(false);
   const [quickError, setQuickError] = useState('');
   const [addedCount, setAddedCount] = useState(0);
+  /* 粘贴名单模式：single=逐人录入 / batch=整批粘贴（每行一个姓名） */
+  const [addMode, setAddMode] = useState('single');
+  const [batchText, setBatchText] = useState('');
+  const [batchGender, setBatchGender] = useState('男');
+  const [batchResult, setBatchResult] = useState(null);
   const quickRefs = useRef([]);
   const classRef = useRef(null);
 
@@ -83,11 +88,14 @@ export default function Students() {
     setOpen(true);
   };
 
-  /** 打开添加弹窗：默认带入当前选中的班级，重置连续计数 */
+  /** 打开添加弹窗：默认带入当前选中的班级，重置连续计数与批量状态 */
   const openCreate = () => {
     setEditingId(null);
     setQuickError('');
     setAddedCount(0);
+    setAddMode('single');
+    setBatchText('');
+    setBatchResult(null);
     setForm({ ...EMPTY_FORM, class_id: filter || '' });
     setOpen(true);
   };
@@ -96,6 +104,9 @@ export default function Students() {
     setOpen(false);
     setEditingId(null);
     setQuickError('');
+    setAddMode('single');
+    setBatchText('');
+    setBatchResult(null);
     setForm(EMPTY_FORM);
   };
 
@@ -145,6 +156,43 @@ export default function Students() {
     }
   };
 
+  /**
+   * 解析粘贴名单：每行一个姓名；行内可用空格/逗号/顿号/制表符附带性别（如「李四 女」「王五，女」），
+   * 未标注性别的行使用 defGender
+   */
+  const parseBatch = (text, defGender) =>
+    text.split(/\r?\n/).map(l => l.trim()).filter(Boolean).map(line => {
+      const parts = line.split(/[\s,，、\t]+/).filter(Boolean);
+      const name = parts.find(p => p !== '男' && p !== '女') || '';
+      const g = parts.find(p => p === '男' || p === '女');
+      return { name, gender: g || defGender };
+    }).filter(p => p.name);
+
+  const batchItems = parseBatch(batchText, batchGender);
+
+  /** 批量添加：顺序 POST（与 CSV 导入同一约定），全部成功则清空名单框便于再粘下一批 */
+  const saveBatch = async () => {
+    if (saving) return;
+    if (!form.class_id) { setQuickError('请先选择班级'); classRef.current?.focus(); return; }
+    if (!batchItems.length) { setQuickError('请先粘贴名单，每行一个姓名'); return; }
+    setSaving(true);
+    setQuickError('');
+    setBatchResult(null);
+    let ok = 0, fail = 0;
+    for (const it of batchItems) {
+      try {
+        await api.post('/students', { class_id: form.class_id, name: it.name, gender: it.gender });
+        ok++;
+      } catch { fail++; }
+    }
+    setSaving(false);
+    setBatchResult({ ok, fail });
+    setAddedCount(n => n + ok);
+    load();
+    api.get('/classes').then(setClasses);
+    if (!fail) setBatchText('');
+  };
+
   return (
     <div>
       <SectionHeader
@@ -185,7 +233,7 @@ export default function Students() {
           icon={Users}
           text="该班级暂无学生"
           desc="添加学生后即可进行考勤、成绩与德育管理"
-          action={<Button onClick={() => setOpen(true)}><Plus size={16} />添加学生</Button>}
+          action={<Button onClick={openCreate}><Plus size={16} />添加学生</Button>}
         />
       ) : (
         <div className="card overflow-hidden">
@@ -235,6 +283,22 @@ export default function Students() {
       )}
 
       <Modal open={open} onClose={closeModal} title={editingId ? '编辑学生' : '快速添加学生'}>
+        {/* 录入方式切换（仅添加模式） */}
+        {!editingId && (
+          <div className="mb-4 flex gap-1 rounded-xl bg-black/[0.04] p-1">
+            {[{ k: 'single', label: '逐人录入', icon: Keyboard }, { k: 'batch', label: '粘贴名单', icon: ClipboardPaste }].map(m => (
+              <button key={m.k} type="button"
+                onClick={() => { setAddMode(m.k); setQuickError(''); setBatchResult(null); }}
+                className={`btn-pill flex flex-1 items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium transition ${
+                  addMode === m.k ? 'brand-gradient text-white shadow-md shadow-blue-500/25' : 'text-ink-secondary hover:bg-black/[0.05]'
+                }`}>
+                <m.icon size={15} />{m.label}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {editingId || addMode === 'single' ? (
         <form onSubmit={e => { e.preventDefault(); saveOne(true); }} className="space-y-4">
           {/* 键位操作提示（仅添加模式） */}
           {!editingId && (
@@ -333,6 +397,81 @@ export default function Students() {
             </div>
           </div>
         </form>
+        ) : (
+        /* ---- 粘贴名单模式：每行一个姓名，可选行内标注性别 ---- */
+        <div className="space-y-4">
+          <div className="flex items-start gap-2 rounded-xl bg-[#0071e3]/[0.06] px-3.5 py-2.5 text-xs leading-relaxed text-[#0a66c2]">
+            <ClipboardPaste size={14} className="mt-0.5 shrink-0" />
+            <span>
+              从 Excel、微信或记事本复制名单直接粘贴，<b>每行一个姓名</b>；需要标注性别时在姓名后加空格或逗号（如「李四 女」），未标注的按下方默认性别。
+            </span>
+          </div>
+
+          <Field label={<span>班级<Star /></span>}>
+            <select
+              ref={classRef} className={inputCls}
+              value={form.class_id}
+              onChange={e => setForm({ ...form, class_id: e.target.value })}
+            >
+              <option value="">请选择</option>
+              {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </Field>
+
+          <Field label="默认性别（名单里未标注时使用）">
+            <div className="flex gap-1.5">
+              {['男', '女'].map(g => (
+                <button key={g} type="button" onClick={() => setBatchGender(g)}
+                  className={`btn-pill px-4 py-2 text-sm font-medium transition ${
+                    batchGender === g ? 'brand-gradient text-white' : 'bg-black/[0.04] text-ink-secondary hover:bg-black/[0.07]'
+                  }`}>{g}</button>
+              ))}
+            </div>
+          </Field>
+
+          <Field label={<span>名单<Star />（每行一个姓名）</span>}>
+            <textarea
+              autoFocus rows={8} value={batchText}
+              onChange={e => { setBatchText(e.target.value); setBatchResult(null); }}
+              placeholder={'张三\n李四 女\n王五，男'}
+              className={`${inputCls} resize-y`}
+            />
+          </Field>
+
+          {batchItems.length > 0 && (
+            <div className="text-xs text-ink-secondary">
+              已识别 <b className="text-ink">{batchItems.length}</b> 人，将统一加入所选班级
+              {batchItems.some(i => i.gender !== batchGender) ? '（含行内标注性别）' : ''}
+            </div>
+          )}
+
+          {batchResult && (
+            <div className={`rounded-xl px-4 py-2.5 text-sm ${batchResult.fail ? 'bg-[#ff9500]/10 text-[#c93400]' : 'bg-[#28cd41]/10 text-[#1fa733]'}`}>
+              成功添加 {batchResult.ok} 人{batchResult.fail ? `，失败 ${batchResult.fail} 人（名单保留，可重试）` : ''}
+            </div>
+          )}
+
+          {quickError && (
+            <div className="rounded-xl bg-[#ff3b30]/8 px-4 py-2.5 text-sm text-[#ff3b30]">{quickError}</div>
+          )}
+
+          <div className="flex items-center justify-between gap-3 pt-2">
+            <div className="min-h-[28px]">
+              {addedCount > 0 && (
+                <Badge tone="green">
+                  <CheckCircle2 size={12} />本次已添加 {addedCount} 人
+                </Badge>
+              )}
+            </div>
+            <div className="flex shrink-0 gap-3">
+              <Button type="button" variant="secondary" onClick={closeModal}>关闭</Button>
+              <Button type="button" disabled={saving || !batchItems.length} onClick={saveBatch}>
+                {saving ? '添加中…' : `批量添加${batchItems.length ? ` ${batchItems.length} 人` : ''}`}
+              </Button>
+            </div>
+          </div>
+        </div>
+        )}
       </Modal>
     </div>
   );
