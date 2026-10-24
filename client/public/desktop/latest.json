@@ -1,11 +1,11 @@
 {
     "platforms":  {
                       "windows-x86_64":  {
-                                             "signature":  "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSaTlYdy8vcTFzV1FTeXB6VXdSZldjWFhzRXZKdHBRT0t6dGM0MnVDTk1LaEwxTHphOU45Zm9TQTlEdk9BREN0djh3Nnd5RzFGVjBTY1NmcFAwZTVhYjBPTTVMdVVkVXdVPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyODMwODQ4CWZpbGU65pWZ5biI5bel5L2c5Y+wXzEuMC4wX3g2NC1zZXR1cC5leGUJdmVyc2lvbjoxLjAuMApNNlJmeDIyY0NlUy9YRW12Wnc1cTY0UWs5b3RBclhqdzJ1UFJaa1FUN21pbFNyaUcvYUw4RU5nM05kc1hWVFJrdmM5OTViOWZLcVpIVVk0b3puRndBUT09Cg==",
+                                             "signature":  "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSaTlYdy8vcTFzV1VTSE5DZmZaVjlxZldzYzBmbitCNkVLdXlFYS9TNnh2SlpsakFtWGZLaDJvUzQ1cXkzRndqUjVMTGN5NElCRkMxV1Vta2dkZHhKSlowWUk2ZjlGVXdZPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyODM0MDgyCWZpbGU65pWZ5biI5bel5L2c5Y+wXzEuMC4wX3g2NC1zZXR1cC5leGUJdmVyc2lvbjoxLjAuMApyRmxHK01hZUU1dWMvakFaS2Z2ejlOazRXSUlVdU9qVkVwcjR2SU0vaFdQY292YjFwUnBCZHhKUm1zdjVGaVh6YUNSTUpvYjYwSmxRL2RsUGRDdGpBQT09Cg==",
                                              "url":  "https://teach.rayzo.cn/desktop/teacher-workbench-setup.exe"
                                          }
                   },
-    "pub_date":  "2026-10-24T08:34:09Z",
+    "pub_date":  "2026-10-24T09:29:28Z",
     "version":  "1.0.0",
     "notes":  "首个支持自动更新的桌面版"
 }
