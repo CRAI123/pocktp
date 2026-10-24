@@ -3,31 +3,34 @@ import { X, ShieldCheck, Inbox } from 'lucide-react';
 /** 统计卡片 */
 export function StatCard({ icon: Icon, label, value, hint, tone = 'blue' }) {
   const tones = {
-    blue: 'from-[#0071e3] to-[#00c6ff]',
-    green: 'from-[#28cd41] to-[#34d058]',
-    orange: 'from-[#ff9500] to-[#ffcc00]',
-    purple: 'from-[#af52de] to-[#d783ff]',
+    blue: 'from-[#0071e3] to-[#00c6ff] shadow-[#0071e3]/30',
+    green: 'from-[#28cd41] to-[#34d058] shadow-[#28cd41]/30',
+    orange: 'from-[#ff9500] to-[#ffcc00] shadow-[#ff9500]/30',
+    purple: 'from-[#af52de] to-[#d783ff] shadow-[#af52de]/30',
   };
   return (
-    <div className="card card-hover flex items-center gap-3 p-4 sm:gap-4 sm:p-5">
-      <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br text-white shadow-md sm:h-12 sm:w-12 ${tones[tone]}`}>
+    <div className="card card-hover group flex items-center gap-3 p-4 sm:gap-4 sm:p-5">
+      <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br text-white shadow-lg transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-3 sm:h-12 sm:w-12 ${tones[tone]}`}>
         <Icon size={20} />
       </div>
       <div className="min-w-0">
-        <div className="text-xl font-semibold tracking-tight sm:text-2xl">{value}</div>
+        <div className="text-xl font-bold tracking-tight tabular-nums sm:text-[26px] sm:leading-8">{value}</div>
         <div className="truncate text-xs text-ink-secondary sm:text-sm">{label}{hint ? ` · ${hint}` : ''}</div>
       </div>
     </div>
   );
 }
 
-/** 区块标题 */
+/** 区块标题：渐变强调条 + 大标题 */
 export function SectionHeader({ title, desc, action }) {
   return (
-    <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-      <div>
-        <h2 className="text-xl font-semibold tracking-tight">{title}</h2>
-        {desc && <p className="mt-1 text-sm text-ink-secondary">{desc}</p>}
+    <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+      <div className="flex items-start gap-3">
+        <span className="brand-gradient mt-1.5 h-7 w-1.5 shrink-0 rounded-full sm:mt-2 sm:h-8" />
+        <div>
+          <h2 className="text-[22px] font-bold tracking-tight sm:text-[26px]">{title}</h2>
+          {desc && <p className="mt-0.5 text-sm text-ink-secondary">{desc}</p>}
+        </div>
       </div>
       {action}
     </div>
@@ -37,7 +40,7 @@ export function SectionHeader({ title, desc, action }) {
 /** 主按钮 / 次按钮 */
 export function Button({ children, variant = 'primary', className = '', ...props }) {
   const styles = {
-    primary: 'brand-gradient text-white shadow-md shadow-blue-500/25 hover:opacity-90',
+    primary: 'brand-gradient text-white shadow-lg shadow-[#0071e3]/25 hover:shadow-xl hover:shadow-[#0071e3]/30 hover:brightness-105',
     secondary: 'bg-black/[0.05] text-ink hover:bg-black/[0.08]',
     danger: 'bg-[#ff3b30]/10 text-[#ff3b30] hover:bg-[#ff3b30]/15',
   };
@@ -61,15 +64,15 @@ export function Badge({ children, tone = 'gray' }) {
   return <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${tones[tone]}`}>{children}</span>;
 }
 
-/** 弹窗 */
+/** 弹窗：遮罩淡入 + 面板缩放上浮 */
 export function Modal({ open, onClose, title, children, width = 'max-w-lg' }) {
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={onClose} />
-      <div className={`card relative w-full ${width} max-h-[85vh] overflow-y-auto p-6`}>
+      <div className="fade-in absolute inset-0 bg-[#1d1d1f]/35 backdrop-blur-md" onClick={onClose} />
+      <div className={`modal-in card relative w-full ${width} max-h-[85vh] overflow-y-auto p-6`}>
         <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-lg font-semibold tracking-tight">{title}</h3>
+          <h3 className="text-lg font-bold tracking-tight">{title}</h3>
           <button onClick={onClose} className="btn-pill p-1.5 text-ink-secondary hover:bg-black/5"><X size={18} /></button>
         </div>
         {children}

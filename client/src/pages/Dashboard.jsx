@@ -97,10 +97,31 @@ export default function Dashboard() {
 
   const attTotal = data.todayAttendance.reduce((s, r) => s + r.n, 0);
 
+  /* 问候语：按时段变化 */
+  const hour = new Date().getHours();
+  const greet = hour < 6 ? '夜深了' : hour < 9 ? '早上好' : hour < 12 ? '上午好' : hour < 14 ? '中午好' : hour < 18 ? '下午好' : '晚上好';
+  const dateStr = new Date().toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'long' });
+
   return (
     <div className="space-y-6">
+      {/* 欢迎横幅：品牌渐变氛围 */}
+      <div className="relative overflow-hidden rounded-3xl p-6 text-white sm:p-8">
+        <div className="brand-gradient absolute inset-0" />
+        <div className="absolute -right-10 -top-16 h-48 w-48 rounded-full bg-white/15 blur-2xl" />
+        <div className="absolute -bottom-20 right-24 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
+        <div className="relative">
+          <div className="text-xs font-medium text-white/80">{dateStr}</div>
+          <h2 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">{greet}，{teacher?.name || '老师'}</h2>
+          <p className="mt-1.5 text-sm text-white/85">
+            {data.pendingTodos + data.pendingGrading > 0
+              ? <>今天还有 <b className="tabular-nums">{data.pendingTodos + data.pendingGrading}</b> 件事待处理，加油</>
+              : '今天的事情都处理完了，喝口茶吧'}
+          </p>
+        </div>
+      </div>
+
       {/* 顶部精简：3 卡（不显示算力/课程，避免信息过载；算力在顶栏已显示） */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="stagger grid grid-cols-3 gap-3">
         <StatCard icon={GraduationCap} label="班级" value={data.classes} tone="blue" />
         <StatCard icon={Users} label="学生" value={data.students} tone="green" />
         <StatCard icon={ListTodo} label="待办" value={data.pendingTodos + data.pendingGrading} tone="orange" />
@@ -113,7 +134,7 @@ export default function Dashboard() {
           <Link to="/classes" className="text-xs text-[#0071e3] hover:underline">查看全部 →</Link>
         </div>
         {data.classList?.length ? (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="stagger grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {data.classList.map(cls => <ClassCard key={cls.id} cls={cls} />)}
           </div>
         ) : (

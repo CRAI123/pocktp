@@ -22,6 +22,34 @@ body {
   color: var(--color-ink);
 }
 
+/* 全站环境氛围背景：极淡的品牌色极光 + 细网格，固定于视口（打印时自动隐藏） */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(900px 420px at 12% -8%, rgba(0, 113, 227, 0.07), transparent 60%),
+    radial-gradient(760px 380px at 88% 6%, rgba(40, 205, 65, 0.06), transparent 55%),
+    radial-gradient(820px 460px at 50% 112%, rgba(175, 82, 222, 0.05), transparent 60%),
+    var(--color-bg-light);
+}
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: radial-gradient(rgba(0, 0, 0, 0.035) 1px, transparent 1px);
+  background-size: 26px 26px;
+  mask-image: radial-gradient(1200px 600px at 50% 0%, rgba(0,0,0,.5), transparent 75%);
+  -webkit-mask-image: radial-gradient(1200px 600px at 50% 0%, rgba(0,0,0,.5), transparent 75%);
+}
+
+/* 文本选中色：品牌蓝 */
+::selection { background: rgba(0, 113, 227, 0.18); }
+
 /* 玻璃拟态（主站导航同款） */
 .glass {
   background: rgba(255, 255, 255, 0.72);
@@ -59,22 +87,50 @@ body {
   color: transparent;
 }
 
-/* 卡片（主站大圆角 + 细腻阴影） */
+/* 卡片：悬浮感白卡（细描边 + 分层阴影），hover 微浮起 */
 .card {
-  background: #fff;
-  border-radius: 1.25rem;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 8px 24px rgba(0, 0, 0, 0.05);
-  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  background: rgba(255, 255, 255, 0.86);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  border-radius: 1.4rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03), 0 10px 30px rgba(0, 0, 0, 0.045);
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
 }
 .card-hover:hover {
   transform: translateY(-3px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05), 0 16px 40px rgba(0, 0, 0, 0.08);
+  border-color: rgba(0, 113, 227, 0.14);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.04), 0 20px 44px rgba(0, 113, 227, 0.10);
 }
 
-/* 药丸按钮 */
+/* 药丸按钮：按下回弹 */
 .btn-pill {
   border-radius: 9999px;
   transition: all 0.2s ease;
+}
+.btn-pill:active { transform: scale(0.96); }
+
+/* 弹窗进场：上浮 + 缩放 */
+@keyframes modal-in {
+  from { opacity: 0; transform: translateY(14px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.modal-in { animation: modal-in 0.28s cubic-bezier(0.22, 1, 0.36, 1) both; }
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+.fade-in { animation: fade-in 0.22s ease both; }
+
+/* 列表逐项上浮入场（容器加 .stagger，前 10 个子项依次出现） */
+.stagger > * { animation: page-enter 0.4s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.stagger > *:nth-child(2) { animation-delay: 0.05s; }
+.stagger > *:nth-child(3) { animation-delay: 0.10s; }
+.stagger > *:nth-child(4) { animation-delay: 0.15s; }
+.stagger > *:nth-child(5) { animation-delay: 0.20s; }
+.stagger > *:nth-child(6) { animation-delay: 0.25s; }
+.stagger > *:nth-child(7) { animation-delay: 0.30s; }
+.stagger > *:nth-child(8) { animation-delay: 0.35s; }
+.stagger > *:nth-child(n+9) { animation-delay: 0.40s; }
+@media (prefers-reduced-motion: reduce) {
+  .stagger > *, .modal-in, .fade-in { animation: none; }
 }
 
 /* 页面切换过渡：路由变化时主内容区淡入上浮（Apple 风格缓动） */
@@ -265,8 +321,10 @@ body {
 }
 
 @media print {
-  /* 隐藏非打印元素 */
+  /* 隐藏非打印元素与氛围背景 */
   body { background: #fff !important; }
+  body::before, body::after { display: none !important; }
+  .card { background: #fff; backdrop-filter: none; }
   .no-print { display: none !important; }
   .print-only { display: block !important; }
 

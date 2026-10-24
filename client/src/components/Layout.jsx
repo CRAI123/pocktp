@@ -122,8 +122,8 @@ export default function Layout() {
 
   return (
     <div className="flex min-h-screen">
-      {/* 桌面侧边栏 */}
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 border-r border-black/5 bg-white lg:block">
+      {/* 桌面侧边栏：玻璃质感，透出氛围背景 */}
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 border-r border-black/5 bg-white/70 backdrop-blur-2xl lg:block">
         {sidebar}
       </aside>
 
@@ -216,27 +216,27 @@ export default function Layout() {
         </footer>
       </div>
 
-      {/* 移动端底部标签栏（lg 以上隐藏，由侧边栏接管） */}
+      {/* 移动端底部悬浮 Dock（lg 以上由侧边栏接管） */}
       <nav
-        className="glass fixed inset-x-0 bottom-0 z-30 flex border-t border-black/5 lg:hidden"
-        style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+        className="fixed inset-x-3 bottom-3 z-30 flex items-center rounded-full border border-black/[0.06] bg-white/80 p-1.5 shadow-[0_8px_32px_rgba(0,0,0,0.12)] backdrop-blur-2xl lg:hidden"
+        style={{ marginBottom: 'env(safe-area-inset-bottom)' }}
       >
         {TABS.map(t => (
           <NavLink
             key={t.to} to={t.to} end={t.exact}
-            className={({ isActive }) => `flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] font-medium transition ${
-              isActive ? 'text-[#0071e3]' : 'text-ink-secondary'
+            className={({ isActive }) => `flex flex-1 flex-col items-center gap-0.5 rounded-full py-1.5 text-[10px] font-medium transition-all ${
+              isActive ? 'brand-gradient text-white shadow-md shadow-[#0071e3]/30' : 'text-ink-secondary'
             }`}
           >
-            <t.icon size={21} />
+            <t.icon size={20} />
             {t.label}
           </NavLink>
         ))}
         <button
           onClick={() => setOpen(true)}
-          className="flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] font-medium text-ink-secondary transition"
+          className="flex flex-1 flex-col items-center gap-0.5 rounded-full py-1.5 text-[10px] font-medium text-ink-secondary transition"
         >
-          <Menu size={21} />
+          <Menu size={20} />
           更多
         </button>
       </nav>
@@ -247,7 +247,7 @@ export default function Layout() {
 function linkCls(isActive) {
   return `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all ${
     isActive
-      ? 'brand-gradient text-white shadow-md shadow-blue-500/25'
-      : 'text-ink-secondary hover:bg-black/[0.04] hover:text-ink'
+      ? 'brand-gradient text-white shadow-lg shadow-[#0071e3]/25 scale-[1.02]'
+      : 'text-ink-secondary hover:bg-black/[0.04] hover:text-ink hover:translate-x-0.5'
   }`;
 }
