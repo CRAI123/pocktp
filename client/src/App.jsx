@@ -1,7 +1,6 @@
 import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
-import { useEffect } from 'react';
 import { auth, isMembershipActive } from './api.js';
-import Layout, { isDesktopApp } from './components/Layout.jsx';
+import Layout from './components/Layout.jsx';
 import Login from './pages/Login.jsx';
 import Activate from './pages/Activate.jsx';
 import Renew from './pages/Renew.jsx';
@@ -56,20 +55,6 @@ function RequireAdmin() {
 }
 
 export default function App() {
-  /* 桌面端内按 F5 = 手动检查更新（壳侧原生弹窗，有更新才提示）；
-   * 挂在 App 根组件上，登录页同样生效；网页端按 F5 保持浏览器默认刷新 */
-  useEffect(() => {
-    if (!isDesktopApp()) return;
-    const inv = window.__TAURI__?.core?.invoke;
-    if (inv) inv('manual_update_check').catch((err) => alert('IPC错误: ' + String(err).slice(0, 120)));
-    else alert('未注入 Tauri API');
-    const onKey = (e) => {
-      if (e.key === 'F5') e.preventDefault();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, []);
-
   return (
     <>
       {/* Cookie / 隐私提示条：全站首访出现，同意状态仅存本地 */}
