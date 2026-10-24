@@ -30,6 +30,15 @@
     "active": true,
     "targets": "nsis",
     "createUpdaterArtifacts": true,
+    "windows": {
+      "nsis": {
+        "languages": ["SimpChinese"],
+        "headerImage": "nsis/header.bmp",
+        "sidebarImage": "nsis/sidebar.bmp",
+        "installerIcon": "icons/icon.ico",
+        "installMode": "currentUser"
+      }
+    },
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
