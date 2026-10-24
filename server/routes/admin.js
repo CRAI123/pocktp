@@ -117,4 +117,28 @@ router.get('/teachers', ah(async (req, res) => {
   res.json(list.map(t => ({ ...t, activated: !!t.activated, is_admin: !!t.is_admin })));
 }));
 
+/* 本地日期工具（与 activation.js 同语义：YYYY-MM-DD 本地时区） */
+const localDate = (d = new Date()) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const datePlus = (base, n) => { const d = new Date(`${base}T00:00:00`); d.setDate(d.getDate() + n); return localDate(d); };
+
+/* 给用户延长会员时长：{ days } —— days>0 从 max(今天, 现到期日) 叠加（同兑换续费语义）；days=0 置为永久。
+ * 顺带激活未激活账号，并清激活状态缓存让下一次请求立即生效 */
+router.post('/teachers/:id/extend', ah(async (req, res) => {
+  const t = await db.get('SELECT id, is_admin, membership_expires_at FROM teachers WHERE id = ?', [req.params.id]);
+  if (!t) return res.status(404).json({ error: '用户不存在' });
+  if (t.is_admin) return res.status(400).json({ error: '管理员账号无需延期' });
+  const days = Math.min(Math.max(parseInt(req.body?.days, 10) || 0, 0), 3650);
+  const today = localDate();
+  const newExpiry = days > 0
+    ? datePlus(t.membership_expires_at && t.membership_expires_at >= today ? t.membership_expires_at : today, days)
+    : null;
+  await db.run(
+    'UPDATE teachers SET activated = 1, activated_at = COALESCE(activated_at, ?), membership_expires_at = ? WHERE id = ?',
+    [`${today} ${new Date().toTimeString().slice(0, 8)}`, newExpiry, t.id]
+  );
+  try { require('../auth').invalidateActivation(t.id); } catch (_) {}
+  res.json({ ok: true, days, membership_expires_at: newExpiry || '' });
+}));
+
 module.exports = router;

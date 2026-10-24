@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
-  Ticket, TicketCheck, TicketX, Users, Plus, Copy, Ban, Check, ShieldCheck, Link2, Zap, Sparkles,
+  Ticket, TicketCheck, TicketX, Users, Plus, Copy, Ban, Check, ShieldCheck, Link2, Zap, Sparkles, CalendarPlus,
 } from 'lucide-react';
 import { api, todayStr } from '../api.js';
 import { BASE_URL } from '../config.js';
@@ -77,6 +77,29 @@ export default function Admin() {
   }, [statusFilter, batchFilter]);
 
   const loadTeachers = useCallback(async () => setTeachers(await api.get('/admin/teachers')), []);
+
+  /* 给用户延长会员时长 */
+  const [extendFor, setExtendFor] = useState(null); // 目标教师对象
+  const [extendDays, setExtendDays] = useState(30);
+  const [extendBusy, setExtendBusy] = useState(false);
+  const [extendErr, setExtendErr] = useState('');
+
+  const openExtend = (t) => { setExtendFor(t); setExtendDays(30); setExtendErr(''); };
+
+  const submitExtend = async () => {
+    if (!extendFor || extendBusy) return;
+    setExtendBusy(true);
+    setExtendErr('');
+    try {
+      await api.post(`/admin/teachers/${extendFor.id}/extend`, { days: Number(extendDays) });
+      setExtendFor(null);
+      await loadTeachers();
+    } catch (e) {
+      setExtendErr(e.message || '操作失败，请重试');
+    } finally {
+      setExtendBusy(false);
+    }
+  };
 
   useEffect(() => { loadCodes().catch(e => setError(e.message)); }, [loadCodes]);
   useEffect(() => { loadTeachers().catch(() => {}); }, [loadTeachers]);
@@ -343,7 +366,7 @@ export default function Admin() {
         /* 教师用户列表 */
         teachers.length === 0 ? <Empty text="暂无教师用户" /> : (
           <div className="card overflow-x-auto">
-            <table className="w-full min-w-[840px] text-sm">
+            <table className="w-full min-w-[920px] text-sm">
               <thead>
                 <tr className="border-b border-black/5 text-left text-xs text-ink-secondary">
                   <th className="px-5 py-3 font-medium">教师</th>
@@ -354,6 +377,7 @@ export default function Admin() {
                   <th className="px-5 py-3 font-medium">班级 / 学生</th>
                   <th className="px-5 py-3 font-medium">使用的激活码</th>
                   <th className="px-5 py-3 font-medium">注册时间</th>
+                  <th className="px-5 py-3 font-medium text-right">操作</th>
                 </tr>
               </thead>
               <tbody>
@@ -403,6 +427,17 @@ export default function Admin() {
                       ) : <span className="text-ink-secondary/50">—</span>}
                     </td>
                     <td className="px-5 py-3 text-ink-secondary">{t.created_at}</td>
+                    <td className="px-5 py-3 text-right">
+                      {!t.is_admin && (
+                        <button
+                          onClick={() => openExtend(t)}
+                          title="延长会员时长"
+                          className="btn-pill inline-flex items-center gap-1 bg-[#0071e3]/10 px-3 py-1.5 text-xs font-medium text-[#0071e3] transition hover:bg-[#0071e3]/15"
+                        >
+                          <CalendarPlus size={13} />延期
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -451,6 +486,52 @@ export default function Admin() {
         <p className="mt-3 text-xs leading-relaxed text-ink-secondary">
           推荐直接把「网址+激活码」设置到闲鱼自动发货：每行一条，格式为「兑换网址：xxx 激活码：xxx」，买家打开链接登录/注册即可自动激活并到账算力（每个码仅可使用一次）。关闭弹窗前请确认已保存。
         </p>
+      </Modal>
+
+      {/* 延长会员时长弹窗 */}
+      <Modal open={!!extendFor} onClose={() => setExtendFor(null)} title={`延长会员时长${extendFor ? ` · ${extendFor.name}` : ''}`} width="max-w-md">
+        <div className="space-y-4">
+          <div className="rounded-xl bg-bg-light px-4 py-3 text-sm text-ink-secondary">
+            当前到期：
+            <b className="text-ink">
+              {extendFor?.membership_expires_at
+                ? `${extendFor.membership_expires_at}${extendFor.membership_expires_at < todayStr() ? '（已到期）' : ''}`
+                : '永久'}
+            </b>
+            <span className="ml-2 text-xs">延期按「今天与现到期日取较晚者」起叠加，未激活账号将同时激活</span>
+          </div>
+
+          <Field label="选择时长">
+            <div className="flex flex-wrap gap-1.5">
+              {[{ d: 7, l: '+7 天' }, { d: 14, l: '+14 天' }, { d: 30, l: '+30 天' }, { d: 90, l: '+90 天' }, { d: 365, l: '+365 天' }, { d: 0, l: '永久' }].map(o => (
+                <button key={o.d} type="button"
+                  onClick={() => setExtendDays(o.d)}
+                  className={`btn-pill px-3.5 py-2 text-sm font-medium transition ${
+                    Number(extendDays) === o.d ? 'brand-gradient text-white shadow-md shadow-blue-500/25' : 'bg-black/[0.04] text-ink-secondary hover:bg-black/[0.07]'
+                  }`}>
+                  {o.l}
+                </button>
+              ))}
+            </div>
+          </Field>
+
+          <Field label="自定义天数（0 = 永久，最长 3650 天）">
+            <input
+              type="number" min="0" max="3650" className={inputCls}
+              value={extendDays}
+              onChange={e => setExtendDays(e.target.value)}
+            />
+          </Field>
+
+          {extendErr && <div className="rounded-xl bg-[#ff3b30]/8 px-4 py-2.5 text-sm text-[#ff3b30]">{extendErr}</div>}
+
+          <div className="flex justify-end gap-3 pt-1">
+            <Button type="button" variant="secondary" onClick={() => setExtendFor(null)}>取消</Button>
+            <Button type="button" disabled={extendBusy} onClick={submitExtend}>
+              {extendBusy ? '处理中…' : Number(extendDays) === 0 ? '设为永久' : `延长 ${extendDays} 天`}
+            </Button>
+          </div>
+        </div>
       </Modal>
     </div>
   );
