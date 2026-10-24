@@ -574,15 +574,49 @@ function repairInnerQuotes(s) {
   return out;
 }
 
-/* AI 返回文本的容错 JSON 解析：剥离 ```json 包装 → 截取首个 { 到末个 } → 内层引号修复 */
+/* AI 返回文本的容错 JSON 解析：剥离 ```json 包装 → 截取首个 { 到末个 } → 逐级修复
+ * 修复层级：原样 → 内层引号转义 → 尾逗号移除（模型偶发输出 ["a",] 这类非法数组）→ 组合修复 */
 function parseJsonLoose(text) {
   const clean = String(text || '').replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
   const first = clean.indexOf('{');
   const last = clean.lastIndexOf('}');
   const sliced = first >= 0 && last > first ? clean.slice(first, last + 1) : clean;
-  try { return JSON.parse(sliced); } catch { /* fallthrough */ }
-  try { return JSON.parse(repairInnerQuotes(sliced)); } catch (e) {
-    console.warn('[parseJsonLoose] 修复后仍失败:', e.message);
+  const stripTrail = (s) => s.replace(/,\s*([}\]])/g, '$1');
+  /* 字符串内的原始控制字符（模型把 \n 输出成真实换行）转义：仅在引号内替换 */
+  const fixCtrl = (s) => {
+    let out = '', inStr = false;
+    for (let i = 0; i < s.length; i++) {
+      const ch = s[i];
+      if (ch === '\\' && inStr) { out += ch + (s[i + 1] || ''); i++; continue; }
+      if (ch === '"') { inStr = !inStr; out += ch; continue; }
+      if (inStr && (ch === '\n' || ch === '\r' || ch === '\t')) { out += ch === '\t' ? '\\t' : '\\n'; continue; }
+      out += ch;
+    }
+    return out;
+  };
+  const attempts = [
+    s => JSON.parse(s),
+    s => JSON.parse(repairInnerQuotes(s)),
+    s => JSON.parse(stripTrail(s)),
+    s => JSON.parse(fixCtrl(s)),
+    s => JSON.parse(fixCtrl(stripTrail(repairInnerQuotes(s)))),
+  ];
+  for (const fn of attempts) { try { return fn(sliced); } catch { /* 下一级修复 */ } }
+  console.warn('[parseJsonLoose] 全部修复层级失败，原文片段:', sliced.slice(0, 600).replace(/\n/g, '⏎'));
+  return null;
+}
+
+/* chat + JSON 容错解析：模型偶发输出非法 JSON，解析失败时在总预算内自动重试一次
+ * （重试共享同一 55s 预算截止点，剩余 <8s 不再重试，确保赶在 Vercel 60s 强杀前返回） */
+async function chatJson(messages, opts = {}) {
+  const deadline = Date.now() + (opts.budgetMs ?? 55_000);
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const remaining = deadline - Date.now();
+    if (remaining < 8_000) break;
+    const result = await chat(messages, { ...opts, budgetMs: remaining });
+    const parsed = parseJsonLoose(result.choices?.[0]?.message?.content);
+    if (parsed) return { parsed, result };
+    console.warn('[chatJson] 第 %d 次 JSON 解析失败，%s', attempt + 1, attempt === 0 ? '重试中' : '放弃');
   }
   return null;
 }
@@ -607,11 +641,12 @@ router.post('/exam', ah(async (req, res) => {
   if (!parts.length) return res.status(400).json({ error: '请至少选择一个学科并设置题量' });
   if (total > 25) return res.status(400).json({ error: '单次生成最多 25 题，更多题量会自动分批' });
 
-  const result = await chat([
+  const out = await chatJson([
     { role: 'system', content: SYSTEM_EXAM(grade, difficulty, parts, !!trend, keyword) },
     { role: 'user', content: `请生成综合测试卷，共 ${total} 道题。` },
   ], { maxTokens: 8000 });
-  const parsed = parseJsonLoose(result.choices?.[0]?.message?.content);
+  const parsed = out?.parsed;
+  const result = out?.result || {};
   const rawQs = Array.isArray(parsed?.questions) ? parsed.questions : [];
   if (!rawQs.length) {
     console.error('[ai/exam] 解析失败 len=%d finish=%s',
@@ -699,11 +734,12 @@ ${String(prompt || '').trim() || '（无补充要求）'}${trendPrompt}
 请严格按题型与数量命制，返回 JSON（不要 markdown 包装，字符串内引用一律用「」）：
 {"questions": [{"qtype":"题型","passage":"材料正文（仅阅读/材料类题目填写，其它题型省略此字段）","stem":"题干（多个小题用 \\n 逐小题换行）","choices":["选项A","选项B","选项C","选项D"],"answer":"答案（选择题为字母，论述/简答为评分要点）","explanation":"简要解析","points":分值}]}`;
 
-  const result = await chat([
+  const out = await chatJson([
     { role: 'system', content: sys },
     { role: 'user', content: user },
   ], { maxTokens: 6000 });
-  const parsed = parseJsonLoose(result.choices?.[0]?.message?.content);
+  const parsed = out?.parsed;
+  const result = out?.result || {};
   const rawQs = Array.isArray(parsed?.questions) ? parsed.questions : [];
 
   /* 归一化（qtype 保留用户/模型原值，不套语数英白名单；按题型配额限量） */
