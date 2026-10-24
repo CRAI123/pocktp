@@ -60,10 +60,19 @@ const MODES = [
 /* 题型耗时权重（秒，按实测校准：数学3题22s/语文4题31s/数学10选择82s），
  * 用于分批：每批总耗时预算 ≤38s（服务端 AI 调用总预算 55s，留估算误差余量，确保单次请求在 Vercel 60s 上限内完成） */
 const QTYPES_W = { '选择题': 9, '填空题': 10, '简答题': 13, '解答题': 14, '阅读理解': 16, '完形填空': 15, '作文题': 27 };
+/* 带材料/长文的大题耗时波动大（一篇短文+题目实测 25-40s，与其它题混批必超 60s），强制单独成批：一篇阅读理解 = 一批 */
+const SOLO_QTYPES = new Set(['阅读理解', '完形填空', '作文题']);
 function splitBatches(qtypes, cap = 38) {
   const batches = [[]];
   let w = 0;
   for (const t of qtypes) {
+    if (SOLO_QTYPES.has(t)) {
+      if (batches[batches.length - 1].length) batches.push([]);
+      batches[batches.length - 1].push(t);
+      batches.push([]);
+      w = 0;
+      continue;
+    }
     if (w + QTYPES_W[t] > cap && batches[batches.length - 1].length) { batches.push([]); w = 0; }
     batches[batches.length - 1].push(t);
     w += QTYPES_W[t];
