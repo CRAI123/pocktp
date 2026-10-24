@@ -206,6 +206,31 @@ router.post('/grades', ah(async (req, res) => {
   res.status(201).json({ id: info.lastInsertRowid });
 }));
 
+/* 表格批量导入成绩：{ course_id, exam_date, items:[{student_id, exam_name, score}] }
+ * 单条多值 INSERT（Serverless 往返昂贵，严禁逐条插）；非法学生/非数值行服务端再过滤一次 */
+router.post('/grades/batch', ah(async (req, res) => {
+  const { course_id, exam_date } = req.body;
+  const items = Array.isArray(req.body?.items) ? req.body.items.slice(0, 3000) : [];
+  if (!course_id || !items.length) return res.status(400).json({ error: 'course_id 与 items 必填' });
+  if (!(await own.course(req.teacherId, course_id))) return res.status(403).json({ error: '无权使用该课程' });
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(exam_date || '') ? exam_date : new Date().toISOString().slice(0, 10);
+  const ownStudents = await db.all(`
+    SELECT s.id FROM students s JOIN classes c ON c.id = s.class_id
+    WHERE c.teacher_id = ? AND s.id = ANY(?)`, [req.teacherId, items.map(i => +i.student_id || 0)]);
+  const okIds = new Set(ownStudents.map(s => s.id));
+  const rows = items.filter(i => okIds.has(+i.student_id) && String(i.exam_name || '').trim() && Number.isFinite(+i.score));
+  if (!rows.length) return res.status(400).json({ error: '没有有效成绩行（姓名未匹配或分数为空）' });
+  let inserted = 0;
+  for (let i = 0; i < rows.length; i += 500) {
+    const part = rows.slice(i, i + 500);
+    const ph = part.map(() => '(?,?,?,?,?)').join(',');
+    const params = part.flatMap(g => [+g.student_id, course_id, String(g.exam_name).trim().slice(0, 50), +g.score, date]);
+    const r = await db.run(`INSERT INTO grades (student_id, course_id, exam_name, score, exam_date) VALUES ${ph}`, params);
+    inserted += r.changes || part.length;
+  }
+  res.json({ ok: inserted, skipped: items.length - rows.length });
+}));
+
 /**
  * 成绩分析：班级均分曲线 + 个人曲线 + 提升要点（简单启发式规则生成）
  */

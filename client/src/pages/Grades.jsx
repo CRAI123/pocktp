@@ -67,38 +67,80 @@ export default function Grades() {
   const toggleStudent = (name) =>
     setShowStudents(prev => prev.includes(name) ? prev.filter(n => n !== name) : [...prev, name]);
 
-  /* ---- CSV 批量导入：列 姓名,得分（考试名称/日期在弹窗内统一填写） ---- */
+  /* ---- 表格批量导入：上传 xlsx/csv → 点击表头选「姓名列」→ 其右侧列均为分数列（表头即考试名） ---- */
   const fileRef = useRef(null);
   const [impOpen, setImpOpen] = useState(false);
-  const [impForm, setImpForm] = useState({ exam_name: '', exam_date: new Date().toISOString().slice(0, 10) });
+  const [sheet, setSheet] = useState(null); // { header, rows, fileName }
+  const [nameCol, setNameCol] = useState(0);
+  const [impDate, setImpDate] = useState(new Date().toISOString().slice(0, 10));
   const [importing, setImporting] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
 
-  const importCsv = async (file) => {
+  const openImport = () => {
+    setSheet(null); setNameCol(0); setDragOver(false);
+    setImpDate(new Date().toISOString().slice(0, 10));
+    if (fileRef.current) fileRef.current.value = '';
+    setImpOpen(true);
+  };
+
+  /** 解析表格为二维数组（首行视为表头）；xlsx 动态加载 SheetJS，避免拖累首屏 */
+  const parseSheet = async (file) => {
     if (!file) return;
-    if (!impForm.exam_name.trim()) { alert('请先填写考试名称'); return; }
+    try {
+      const ext = (file.name.match(/\.([a-z0-9]+)$/i)?.[1] || '').toLowerCase();
+      let rows = [];
+      if (ext === 'csv' || ext === 'txt') {
+        const text = (await file.text()).replace(/^\uFEFF/, '');
+        rows = text.split(/\r?\n/).filter(l => l.trim()).map(l => l.split(/[,\t]/).map(c => c.trim().replace(/^"|"$/g, '')));
+      } else if (['xlsx', 'xls'].includes(ext)) {
+        const XLSX = await import('xlsx');
+        const wb = XLSX.read(await file.arrayBuffer());
+        rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, raw: true, defval: '' });
+      } else {
+        alert('仅支持 .xlsx / .xls / .csv 文件'); return;
+      }
+      rows = rows.filter(r => r.some(c => String(c).trim() !== ''));
+      if (rows.length < 2) { alert('表格为空或只有表头'); return; }
+      const header = rows[0].map(h => String(h ?? '').trim());
+      const ni = header.findIndex(h => /姓名|名字|name/i.test(h));
+      setSheet({ header, rows: rows.slice(1), fileName: file.name });
+      setNameCol(ni >= 0 ? ni : 0);
+    } catch (e) {
+      alert(`解析失败：${e.message || '文件格式不支持'}`);
+    }
+  };
+
+  /* 姓名列右侧的列 = 分数列 */
+  const scoreCols = sheet ? sheet.header.map((_, i) => i).filter(i => i > nameCol) : [];
+
+  /** 组装成绩行并批量入库 */
+  const runImport = async () => {
+    if (!sheet || importing) return;
+    const byName = Object.fromEntries(students.map(s => [s.name, s]));
+    const items = []; const miss = new Set(); let skipped = 0;
+    for (const r of sheet.rows) {
+      const name = String(r[nameCol] ?? '').trim();
+      if (!name) continue;
+      const stu = byName[name];
+      if (!stu) { miss.add(name); continue; }
+      for (const ci of scoreCols) {
+        const v = r[ci];
+        const num = typeof v === 'number' ? v : Number(String(v).trim());
+        if (v === '' || v == null || Number.isNaN(num)) { if (v !== '' && v != null) skipped++; continue; }
+        items.push({ student_id: stu.id, exam_name: sheet.header[ci] || `第${ci + 1}列`, score: num });
+      }
+    }
+    if (!items.length) { alert('没有可导入的成绩：请确认已点选「姓名」表头，且其右侧为分数列'); return; }
     setImporting(true);
     try {
-      const text = (await file.text()).replace(/^﻿/, '');
-      const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-      if (lines.length && lines[0].includes('姓名')) lines.shift();
-      const byName = Object.fromEntries(students.map(s => [s.name, s]));
-      let ok = 0, fail = 0; const miss = [];
-      for (const line of lines) {
-        const [name, score] = line.split(',').map(s => (s || '').trim());
-        const stu = byName[name];
-        const num = Number(score);
-        if (!stu || !name || score === '' || Number.isNaN(num)) { fail++; if (!stu && name) miss.push(name); continue; }
-        try {
-          await api.post('/grades', { student_id: stu.id, course_id: courseId, exam_name: impForm.exam_name.trim(), exam_date: impForm.exam_date, score: num });
-          ok++;
-        } catch { fail++; }
-      }
-      alert(`导入完成：成功 ${ok} 条${fail ? `，失败 ${fail} 条` : ''}${miss.length ? `\n未匹配学生：${miss.join('、')}` : ''}`);
+      const res = await api.post('/grades/batch', { course_id: courseId, exam_date: impDate, items });
+      alert(`导入完成：写入 ${res.ok} 条成绩${skipped ? `，跳过非数值 ${skipped} 格` : ''}${miss.size ? `\n未匹配学生（未导入）：${[...miss].join('、')}` : ''}`);
       setImpOpen(false);
       load();
+    } catch (e) {
+      alert(e.message || '导入失败，请重试');
     } finally {
       setImporting(false);
-      if (fileRef.current) fileRef.current.value = '';
     }
   };
 
@@ -109,7 +151,7 @@ export default function Grades() {
         desc="班级均分走势、学生个体曲线与分层提升要点"
         action={mode === 'course' && (
           <div className="flex gap-2">
-            <Button variant="secondary" onClick={() => setImpOpen(true)} disabled={!courseId}><Upload size={15} />CSV 导入</Button>
+            <Button variant="secondary" onClick={openImport} disabled={!courseId}><Upload size={15} />表格导入</Button>
             <Button onClick={() => setOpen(true)} disabled={!courseId}><Plus size={16} />录入成绩</Button>
           </div>
         )}
@@ -227,27 +269,88 @@ export default function Grades() {
       </>
       )}
 
-      {/* CSV 批量导入 */}
-      <Modal open={impOpen} onClose={() => setImpOpen(false)} title="CSV 批量导入成绩">
+      {/* 表格批量导入 */}
+      <Modal open={impOpen} onClose={() => !importing && setImpOpen(false)} title="表格导入成绩" width="max-w-3xl">
         <div className="space-y-4">
-          <p className="rounded-xl bg-bg-light p-3 text-xs leading-relaxed text-ink-secondary">
-            CSV 每行格式：<b className="text-ink">姓名,得分</b>（首行表头可省略）<br />
-            例：<code>张三,92</code>。学生按姓名匹配当前课程所在班级。
-          </p>
-          <div className="grid grid-cols-2 gap-4">
-            <Field label="考试名称">
-              <input className={inputCls} value={impForm.exam_name} onChange={e => setImpForm({ ...impForm, exam_name: e.target.value })} placeholder="如：第3次单元测" />
-            </Field>
-            <Field label="考试日期">
-              <input type="date" className={inputCls} value={impForm.exam_date} onChange={e => setImpForm({ ...impForm, exam_date: e.target.value })} />
-            </Field>
-          </div>
+          {/* 文件选择/拖拽区 */}
+          <label
+            onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={e => { e.preventDefault(); setDragOver(false); parseSheet(e.dataTransfer?.files?.[0]); }}
+            className={`flex w-full cursor-pointer items-center gap-3 rounded-2xl border-2 border-dashed px-4 py-4 transition ${
+              dragOver ? 'border-[#0071e3] bg-[#0071e3]/[0.06]' : sheet ? 'border-[#28cd41]/40 bg-[#28cd41]/[0.05]' : 'border-black/15 hover:border-[#0071e3]/40 hover:bg-[#0071e3]/[0.03]'
+            }`}
+          >
+            <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv,.txt" className="sr-only" onChange={e => parseSheet(e.target.files?.[0])} />
+            <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-white ${sheet ? 'bg-[#28cd41]' : 'brand-gradient'}`}>
+              <Upload size={18} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-sm font-medium">{sheet ? sheet.fileName : dragOver ? '松开鼠标，放入表格' : '点击选择或拖入成绩表格'}</div>
+              <div className="text-xs text-ink-secondary">
+                {sheet ? `${sheet.rows.length} 行数据 × ${sheet.header.length} 列` : '支持 .xlsx / .xls / .csv，首行为表头'}
+              </div>
+            </div>
+            {sheet && <Badge tone="green">已解析</Badge>}
+          </label>
+
+          {sheet && (
+            <>
+              <div className="rounded-xl bg-bg-light p-3 text-xs leading-relaxed text-ink-secondary">
+                <b className="text-ink">点击表头单元格</b>指定「姓名」所在列；其<b className="text-ink">右侧的所有列</b>自动作为分数列，<b className="text-ink">列表头即考试名称</b>。
+                当前：姓名列 = <b className="text-[#0071e3]">{sheet.header[nameCol] || `第${nameCol + 1}列`}</b>，分数列 {scoreCols.length} 列（{scoreCols.map(i => sheet.header[i] || `第${i + 1}列`).slice(0, 6).join('、')}{scoreCols.length > 6 ? '…' : ''}）
+              </div>
+
+              {/* 表格预览：表头可点选 */}
+              <div className="max-h-64 overflow-auto rounded-xl border border-black/10">
+                <table className="w-full text-xs">
+                  <thead className="sticky top-0">
+                    <tr>
+                      {sheet.header.map((h, i) => (
+                        <th
+                          key={i}
+                          onClick={() => setNameCol(i)}
+                          title={i === nameCol ? '当前为姓名列' : i > nameCol ? '分数列（点击改为姓名列）' : '点击设为姓名列'}
+                          className={`cursor-pointer whitespace-nowrap border-b border-black/10 px-3 py-2 text-left font-semibold transition ${
+                            i === nameCol ? 'bg-[#0071e3] text-white' : i > nameCol ? 'bg-[#28cd41]/15 text-[#1fa733] hover:bg-[#28cd41]/25' : 'bg-bg-light text-ink-secondary hover:bg-black/[0.06]'
+                          }`}
+                        >
+                          {h || `第${i + 1}列`}{i === nameCol ? ' · 姓名' : i > nameCol ? ' · 分数' : ''}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-black/5">
+                    {sheet.rows.slice(0, 8).map((r, ri) => (
+                      <tr key={ri}>
+                        {sheet.header.map((_, ci) => (
+                          <td key={ci} className={`whitespace-nowrap px-3 py-1.5 ${ci === nameCol ? 'font-medium text-[#0071e3]' : ci > nameCol ? 'text-ink' : 'text-ink-secondary/60'}`}>
+                            {String(r[ci] ?? '')}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {sheet.rows.length > 8 && <div className="bg-bg-light px-3 py-1.5 text-center text-[11px] text-ink-secondary">… 共 {sheet.rows.length} 行，此处仅预览前 8 行</div>}
+              </div>
+
+              <div className="flex flex-wrap items-end gap-3">
+                <div className="min-w-[180px] flex-1">
+                  <Field label="考试日期（统一应用）">
+                    <input type="date" className={inputCls} value={impDate} onChange={e => setImpDate(e.target.value)} />
+                  </Field>
+                </div>
+                <div className="text-xs text-ink-secondary">成绩将计入当前课程；姓名按当前课程班级名单精确匹配</div>
+              </div>
+            </>
+          )}
+
           <div className="flex justify-end gap-3 pt-2">
-            <Button variant="secondary" onClick={() => setImpOpen(false)}>取消</Button>
-            <Button onClick={() => fileRef.current?.click()} disabled={importing || !impForm.exam_name.trim()}>
-              <Upload size={15} />{importing ? '导入中…' : '选择 CSV 文件'}
+            <Button variant="secondary" onClick={() => setImpOpen(false)} disabled={importing}>取消</Button>
+            <Button onClick={runImport} disabled={!sheet || importing || !scoreCols.length}>
+              {importing ? '导入中…' : sheet ? `导入 ${sheet.rows.length} 行 × ${scoreCols.length} 列` : '请先选择表格'}
             </Button>
-            <input ref={fileRef} type="file" accept=".csv,text/csv" className="hidden" onChange={e => importCsv(e.target.files?.[0])} />
           </div>
         </div>
       </Modal>
