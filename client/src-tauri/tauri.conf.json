@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "教师工作台",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "identifier": "cn.rayzo.teach",
   "build": {
     "frontendDist": "../dist",
@@ -9,6 +9,7 @@
     "beforeBuildCommand": "npm run build"
   },
   "app": {
+    "withGlobalTauri": true,
     "windows": [
       {
         "title": "教师工作台",
@@ -19,7 +20,8 @@
         "minHeight": 640,
         "resizable": true,
         "fullscreen": false,
-        "center": true
+        "center": true,
+        "decorations": false
       }
     ],
     "security": {
