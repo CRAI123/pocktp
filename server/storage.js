@@ -18,6 +18,9 @@ const headers = () => ({
 });
 
 let bucketReady = null;
+
+/* 新版 Storage API 返回的相对路径不带 /storage/v1 前缀（如 /object/upload/sign/...），旧版带，统一补齐 */
+const abs = (p) => `${URL()}${p.startsWith('/storage/v1') ? '' : '/storage/v1'}${p.startsWith('/') ? p : `/${p}`}`;
 /** 幂等建桶（已存在视为成功）；只执行一次 */
 function ensureBucket() {
   if (!enabled()) return Promise.reject(new Error('云存储未配置'));
@@ -45,7 +48,7 @@ async function signedUploadUrl(path) {
   });
   const d = await r.json().catch(() => ({}));
   if (!r.ok || !d.url) throw new Error(d.error || d.message || `申请上传地址失败（${r.status}）`);
-  return `${URL()}${d.url}`;
+  return abs(d.url);
 }
 
 /** 申请签名下载地址（默认 10 分钟有效） */
@@ -55,7 +58,7 @@ async function signedDownloadUrl(path, expiresIn = 600) {
   });
   const d = await r.json().catch(() => ({}));
   if (!r.ok || !d.signedURL) throw new Error(d.error || d.message || `申请下载地址失败（${r.status}）`);
-  return `${URL()}${d.signedURL}`;
+  return abs(d.signedURL);
 }
 
 /** 删除对象（忽略失败，避免影响主流程） */
