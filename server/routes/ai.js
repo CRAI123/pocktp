@@ -34,11 +34,17 @@ const COSTS = {
   practice: 1,       // 课堂练习（全科目，按题扣费：每题 1 算力）
 };
 
-/* 通用 Chat Completions 调用：主模型失败 fallback 备模型（每次独立超时） */
-async function chat(messages, { model = MODEL, maxTokens = 2048, timeoutMs = 90_000 } = {}) {
+/* 通用 Chat Completions 调用：主模型失败 fallback 备模型
+ *  - timeoutMs：单次尝试超时；budgetMs：整次调用总预算（含 fallback）
+ *  - Vercel 函数上限 60s，预算默认 55s：超时必须赶在平台强杀前返回 JSON 错误，
+ *    否则浏览器只会收到 ERR_CONNECTION_CLOSED，前端无法提示且已生成题目状态不明 */
+async function chat(messages, { model = MODEL, maxTokens = 2048, timeoutMs = 50_000, budgetMs = 55_000 } = {}) {
   if (!KEY) throw Object.assign(new Error('AI_KEY 未配置'), { status: 503 });
+  const deadline = Date.now() + budgetMs;
 
-  const tryOnce = async (m, ms) => {
+  const tryOnce = async (m) => {
+    const ms = Math.min(timeoutMs, deadline - Date.now());
+    if (ms <= 0) throw Object.assign(new Error('AI 响应超时'), { status: 504 });
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), ms);
     try {
@@ -58,12 +64,14 @@ async function chat(messages, { model = MODEL, maxTokens = 2048, timeoutMs = 90_
   };
 
   try {
-    return await tryOnce(model, timeoutMs);
+    return await tryOnce(model);
   } catch (e) {
     /* 4xx（除超时 408 / 限流 429）直接抛，不 fallback */
     if (e.status >= 400 && e.status < 500 && e.status !== 408 && e.status !== 429) throw e;
+    /* 剩余预算不足 fallback 时直接抛原错误（二次尝试必定被平台强杀，不如返回可读错误） */
+    if (deadline - Date.now() < 12_000) throw e;
     /* 超时 / 5xx / 网络错误 → 用新 controller 重试备模型 */
-    return await tryOnce(MODEL_BACKUP, timeoutMs);
+    return await tryOnce(MODEL_BACKUP);
   }
 }
 
