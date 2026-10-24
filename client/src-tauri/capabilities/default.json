@@ -1,11 +1,21 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "enables the default permissions",
+  "description": "允许壳内远程页面（teach.rayzo.cn）使用自绘标题栏的最小窗口能力",
   "windows": [
     "main"
   ],
+  "remote": {
+    "urls": [
+      "https://teach.rayzo.cn",
+      "https://teach.rayzo.cn/*"
+    ]
+  },
   "permissions": [
-    "core:default"
+    "core:default",
+    "core:window:allow-start-dragging",
+    "core:window:allow-minimize",
+    "core:window:allow-toggle-maximize",
+    "core:window:allow-close"
   ]
 }

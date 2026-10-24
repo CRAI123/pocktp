@@ -1,6 +1,6 @@
 import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { auth, isMembershipActive } from './api.js';
-import Layout from './components/Layout.jsx';
+import Layout, { isDesktopApp, DesktopTitlebar } from './components/Layout.jsx';
 import Login from './pages/Login.jsx';
 import Activate from './pages/Activate.jsx';
 import Renew from './pages/Renew.jsx';
@@ -57,6 +57,9 @@ function RequireAdmin() {
 export default function App() {
   return (
     <>
+      {/* 桌面端自绘标题栏（无边框窗口）；网页端不渲染 */}
+      <DesktopTitlebar />
+      <div className={isDesktopApp() ? 'pt-9' : ''}>
       {/* Cookie / 隐私提示条：全站首访出现，同意状态仅存本地 */}
       <PrivacyNotice />
       <Routes>
@@ -102,6 +105,7 @@ export default function App() {
       {/* 品牌 404：任何未匹配路径（含未登录）均展示 */}
       <Route path="*" element={<NotFound />} />
       </Routes>
+      </div>
     </>
   );
 }

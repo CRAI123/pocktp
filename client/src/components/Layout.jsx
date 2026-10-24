@@ -2,7 +2,7 @@ import { NavLink, Link, Outlet, useLocation, useNavigate } from 'react-router-do
 import {
   LayoutDashboard, BookOpen, FolderOpen, ClipboardList, LineChart, Sparkles,
   Users, CalendarCheck, MessageSquare, ListTodo, Menu, LogOut, ShieldCheck, Zap,
-  MonitorPlay, PenLine, Wand2, BookText, MonitorDown,
+  MonitorPlay, PenLine, Wand2, BookText, MonitorDown, Minus, Square, X,
 } from 'lucide-react';
 import { useState } from 'react';
 import { auth, isMembershipActive } from '../api.js';
@@ -17,6 +17,38 @@ export function isDesktopApp() {
   } catch {
     return false;
   }
+}
+
+/* 桌面端自绘标题栏：无边框窗口，白色底，右侧最小化/最大化/关闭；
+ * 整条为拖拽区（data-tauri-drag-region），仅桌面端渲染 */
+export function DesktopTitlebar() {
+  if (!isDesktopApp()) return null;
+  const act = (method) => (e) => {
+    e.stopPropagation();
+    window.__TAURI__?.window?.getCurrentWindow?.()?.[method]?.();
+  };
+  return (
+    <div
+      data-tauri-drag-region
+      className="fixed inset-x-0 top-0 z-[70] flex h-9 select-none items-center justify-between border-b border-black/5 bg-white pl-3"
+    >
+      <div data-tauri-drag-region className="flex items-center gap-2">
+        <img src="/rayzo-logo.png" alt="" className="h-5 w-5 rounded object-cover" />
+        <span className="text-xs font-medium text-[#6e6e73]">教师工作台</span>
+      </div>
+      <div className="flex h-full items-center">
+        <button aria-label="最小化" title="最小化" onClick={act('minimize')} className="grid h-full w-11 place-items-center text-[#6e6e73] transition hover:bg-black/5">
+          <Minus size={14} />
+        </button>
+        <button aria-label="最大化" title="最大化" onClick={act('toggleMaximize')} className="grid h-full w-11 place-items-center text-[#6e6e73] transition hover:bg-black/5">
+          <Square size={12} />
+        </button>
+        <button aria-label="关闭" title="关闭" onClick={act('close')} className="grid h-full w-11 place-items-center text-[#6e6e73] transition hover:bg-[#ff3b30] hover:text-white">
+          <X size={14} />
+        </button>
+      </div>
+    </div>
+  );
 }
 
 const NAV = [
@@ -159,7 +191,7 @@ export default function Layout() {
 
       {/* 主区域 */}
       <div className="flex min-h-screen flex-1 flex-col lg:pl-60">
-        <header className="glass sticky top-0 z-20 flex h-16 items-center gap-3 px-4 sm:px-8">
+        <header className={`glass sticky ${isDesktopApp() ? 'top-9' : 'top-0'} z-20 flex h-16 items-center gap-3 px-4 sm:px-8`}>
           {/* 官网 LOGO + 品牌名 + slogan（窄屏仅显示 LOGO） */}
           <Link to="/" className="flex items-center gap-2.5" title="教师工作台 · 连接创意与未来教育">
             <img src="/rayzo-logo.png" alt="教师工作台 LOGO" className="brand-logo h-10 w-10 rounded-full" />
