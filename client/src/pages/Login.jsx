@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Phone, Lock, User, LogIn, MonitorDown } from 'lucide-react';
 import { api, auth, isMembershipActive } from '../api.js';
 import { Button, Field, inputCls, BrandFooter } from '../components/ui.jsx';
@@ -99,12 +99,12 @@ export default function Login() {
           </p>
 
           {!isDesktopApp() && (
-            <a
-              href="/desktop/teacher-workbench-setup.exe" download="教师工作台-安装包.exe"
-              className="mt-3 flex items-center justify-center gap-1.5 text-xs font-medium text-[#0071e3] transition hover:underline"
+            <Link
+              to="/download"
+              className="mt-4 flex items-center justify-center gap-1.5 rounded-full bg-gradient-to-r from-[#0071e3]/10 to-[#28cd41]/10 px-4 py-2.5 text-xs font-semibold text-[#0071e3] transition hover:from-[#0071e3]/15 hover:to-[#28cd41]/15"
             >
-              <MonitorDown size={14} /> 下载 Windows 桌面版
-            </a>
+              <MonitorDown size={14} /> 推荐下载 Windows 桌面版 · 双击即开，上课更专注
+            </Link>
           )}
         </div>
       </div>

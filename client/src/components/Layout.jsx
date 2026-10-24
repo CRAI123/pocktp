@@ -162,14 +162,20 @@ export default function Layout() {
         <br />面向一线教师的日常工作平台
       </div>
 
-      {/* 桌面版下载入口：桌面端内自动隐藏 */}
+      {/* 桌面版推荐入口：跳转下载页看优势对比；桌面端内自动隐藏 */}
       {!isDesktopApp() && (
-        <a
-          href="/desktop/teacher-workbench-setup.exe" download="教师工作台-安装包.exe"
-          className="mx-4 mb-6 flex items-center justify-center gap-2 rounded-2xl border border-[#0071e3]/25 bg-[#0071e3]/5 px-4 py-3 text-[13px] font-medium text-[#0071e3] transition hover:bg-[#0071e3]/10"
+        <Link
+          to="/download"
+          className="group relative mx-4 mb-6 block overflow-hidden rounded-2xl bg-gradient-to-r from-[#0071e3] to-[#0a84ff] px-4 py-3.5 text-white shadow-[0_10px_24px_-10px_rgba(0,113,227,0.55)] transition hover:brightness-105"
         >
-          <MonitorDown size={16} /> 下载桌面版（Windows）
-        </a>
+          <span className="absolute -right-4 -top-6 h-20 w-20 rounded-full bg-white/15 blur-md transition group-hover:scale-125" />
+          <span className="relative flex items-center justify-center gap-2 text-[13px] font-semibold">
+            <MonitorDown size={16} /> 推荐下载桌面版
+          </span>
+          <span className="relative mt-0.5 block text-center text-[11px] text-white/80">
+            Windows · 双击即开 · 看软件 vs 网站对比
+          </span>
+        </Link>
       )}
     </div>
   );

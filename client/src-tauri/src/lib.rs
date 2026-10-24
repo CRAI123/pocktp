@@ -77,19 +77,26 @@ pub fn run() {
         });
       }
 
-      /* 启动时静默自动更新：后台检查并下载安装，全程无弹窗、不重启，
-       * 老师下次自行打开软件即为新版 */
+      /* 启动更新检查：只静默「检查」，发现新版本后发事件让网页弹确认框，
+       * 由老师点「立即更新」才下载安装——不做任何静默下载/静默安装 */
       let handle = app.handle().clone();
       tauri::async_runtime::spawn(async move {
+        /* 等网页加载完成并注册好事件监听再发，避免事件丢失 */
+        tauri::async_runtime::spawn(async move {
+          std::thread::sleep(std::time::Duration::from_secs(4));
+        })
+        .await
+        .ok();
         let updater = match handle.updater() {
           Ok(u) => u,
           Err(_) => return,
         };
-        let update = match updater.check().await {
-          Ok(Some(u)) => u,
-          _ => return,
-        };
-        let _ = update.download_and_install(|_, _| {}, || {}).await;
+        match updater.check().await {
+          Ok(Some(_)) => {
+            let _ = handle.emit_to("main", "tw-update-check", ());
+          }
+          _ => {}
+        }
       });
 
       /* 无边框窗口：WebView2 自带的边缘拖拽调整大小 */

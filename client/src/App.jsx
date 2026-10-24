@@ -38,6 +38,7 @@ import AiWriter from './pages/AiWriter.jsx';
 import Journals from './pages/Journals.jsx';
 import Classroom from './pages/Classroom.jsx';
 import NotFound from './pages/NotFound.jsx';
+import Download from './pages/Download.jsx';
 import PrivacyNotice from './components/PrivacyNotice.jsx';
 
 /** 路由守卫：未登录跳 /login；未激活或会员到期跳 /activate 续费 */
@@ -91,6 +92,7 @@ export default function App() {
       <PrivacyNotice />
       <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/download" element={<Download />} />
       <Route path="/redeem/:code?" element={<Redeem />} />
       <Route path="/activate" element={auth.token ? <Activate /> : <Navigate to="/login" replace />} />
       <Route path="/renew" element={auth.token ? <Renew /> : <Navigate to="/login" replace />} />
