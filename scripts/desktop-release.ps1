@@ -13,8 +13,9 @@ $dst  = "$root\client\public\desktop"
 New-Item -ItemType Directory -Force $dst | Out-Null
 
 # 安装包（用 ASCII 文件名托管，避免 URL 中文编码问题）
-$exe  = Get-ChildItem $nsis -Filter "*-setup.exe" | Select-Object -First 1
-$sig  = Get-ChildItem $nsis -Filter "*-setup.exe.sig" | Select-Object -First 1
+# 取最新一次构建的安装包与签名（目录里可能残留历史版本）
+$exe  = Get-ChildItem $nsis -Filter "*-setup.exe" | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+$sig  = Get-ChildItem $nsis -Filter "*-setup.exe.sig" | Sort-Object LastWriteTime -Descending | Select-Object -First 1
 if (-not $exe -or -not $sig) { throw "未找到安装包或签名文件，请先运行 npm run desktop" }
 
 Copy-Item $exe.FullName "$dst\teacher-workbench-setup.exe" -Force
