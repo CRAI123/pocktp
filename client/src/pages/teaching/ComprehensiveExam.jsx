@@ -71,10 +71,10 @@ function splitBatches(qtypes, cap = 45) {
   return batches.filter(b => b.length);
 }
 
-/* 打印分页：选择题矮、阅读/作文高，按权重装入 A4 页 */
+/* 打印分页：选择题矮、阅读/作文高，按权重装入 A4 页（配合 .print-roomy 加宽留白后的实际高度校准） */
 const qWeight = (q) => ({
-  '选择题': 1, '填空题': 1.5, '阅读理解': 2.2, '完形填空': 2, '简答题': 2, '解答题': 2.4, '作文题': 4.5,
-}[q.qtype] || 2);
+  '选择题': 1, '填空题': 1.5, '阅读理解': 2.8, '完形填空': 2.6, '简答题': 2.4, '解答题': 3, '作文题': 5,
+}[q.qtype] || 2.2);
 function paginate(items, weightFn, firstCap, cap) {
   const pages = [];
   let cur = [], w = 0, c = firstCap;
@@ -296,7 +296,7 @@ export default function ComprehensiveExam() {
       const qs = picked.filter(q => q.subject === s.key);
       const no = new Map(qs.map((q, i) => [q.id, i + 1]));
       const points = qs.reduce((sum, q) => sum + (Number(q.points) || 0), 0);
-      const pages = paginate(qs, qWeight, 7, 9)
+      const pages = paginate(qs, qWeight, 5, 6)
         .map((items, i) => ({ items, first: i === 0, pageNo: ++pageNo }));
       return { key: s.key, label: s.label, chip: s.chip, qs, no, points, pages };
     }).filter(b => b.qs.length);
@@ -308,7 +308,7 @@ export default function ComprehensiveExam() {
   const answerBlocks = useMemo(() => {
     const items = subjectBlocks.flatMap(b => b.qs);
     const pages = paginate(items,
-      q => q.qtype === '作文题' ? 3 : (q.qtype === '阅读理解' || q.qtype === '完形填空' ? 2 : 1), 12, 14);
+      q => q.qtype === '作文题' ? 3 : (q.qtype === '阅读理解' || q.qtype === '完形填空' ? 2 : 1), 9, 11);
     const started = new Set();
     return pages.map(itemsOnPage => {
       const groups = [];
@@ -611,7 +611,7 @@ export default function ComprehensiveExam() {
       <div className="print-only">
         {subjectBlocks.map((b, bi) =>
           b.pages.map(pg => (
-            <div key={`${b.key}-${pg.pageNo}`} className="exam-page print-sheet"
+            <div key={`${b.key}-${pg.pageNo}`} className="exam-page print-sheet print-roomy"
               style={bi === 0 && pg.first ? undefined : { pageBreakBefore: 'always' }}>
               {bi === 0 && pg.first && (
                 <div className="print-header">
@@ -656,7 +656,7 @@ export default function ComprehensiveExam() {
 
         {/* ============ 打印视图：答案页（另起页，按学科分组） ============ */}
         {answerBlocks.map((groups, pi) => (
-          <div key={`a${pi}`} className="exam-page print-sheet print-answer-page">
+          <div key={`a${pi}`} className="exam-page print-sheet print-roomy print-answer-page">
             {pi === 0 && (
               <div className="print-header">
                 <h1>{title} · 参考答案</h1>
