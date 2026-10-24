@@ -1,6 +1,8 @@
 import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import { auth, isMembershipActive } from './api.js';
 import Layout, { isDesktopApp, DesktopTitlebar } from './components/Layout.jsx';
+import UpdateDialog from './components/UpdateDialog.jsx';
 import Login from './pages/Login.jsx';
 import Activate from './pages/Activate.jsx';
 import Renew from './pages/Renew.jsx';
@@ -55,10 +57,26 @@ function RequireAdmin() {
 }
 
 export default function App() {
+  const [updateOpen, setUpdateOpen] = useState(false);
+
+  /* 桌面端按 F5 = 检查更新（应用内自绘弹窗）；网页端保持浏览器默认刷新 */
+  useEffect(() => {
+    if (!isDesktopApp()) return;
+    const onKey = (e) => {
+      if (e.key === 'F5') {
+        e.preventDefault();
+        setUpdateOpen(true);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
   return (
     <>
       {/* 桌面端自绘标题栏（无边框窗口）；网页端不渲染 */}
       <DesktopTitlebar />
+      {updateOpen && <UpdateDialog onClose={() => setUpdateOpen(false)} />}
       <div className={isDesktopApp() ? 'pt-9' : ''}>
       {/* Cookie / 隐私提示条：全站首访出现，同意状态仅存本地 */}
       <PrivacyNotice />
