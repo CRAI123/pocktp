@@ -1,7 +1,7 @@
 import { NavLink, Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, BookOpen, FolderOpen, ClipboardList, LineChart, Sparkles,
-  Users, CalendarCheck, MessageSquare, ListTodo, Menu, X, LogOut, ShieldCheck, Zap,
+  Users, CalendarCheck, MessageSquare, ListTodo, Menu, LogOut, ShieldCheck, Zap,
   MonitorPlay, PenLine, Wand2, BookText,
 } from 'lucide-react';
 import { useState } from 'react';
@@ -50,6 +50,14 @@ const TITLES = {
   '/ai-writer': 'AI 文案助手', '/journals': '班主任周记',
   '/admin': '管理后台',
 };
+
+/* 移动端底部标签栏：高频入口 + 「更多」唤起完整抽屉导航 */
+const TABS = [
+  { to: '/', label: '工作台', icon: LayoutDashboard, exact: true },
+  { to: '/courses', label: '课程', icon: BookOpen },
+  { to: '/teaching', label: '练习', icon: Sparkles },
+  { to: '/students', label: '班级', icon: Users },
+];
 
 export default function Layout() {
   const { pathname } = useLocation();
@@ -130,10 +138,6 @@ export default function Layout() {
       {/* 主区域 */}
       <div className="flex min-h-screen flex-1 flex-col lg:pl-60">
         <header className="glass sticky top-0 z-20 flex h-16 items-center gap-3 px-4 sm:px-8">
-          <button className="btn-pill p-2 hover:bg-black/5 lg:hidden" onClick={() => setOpen(!open)}>
-            {open ? <X size={20} /> : <Menu size={20} />}
-          </button>
-
           {/* 官网 LOGO + 品牌名 + slogan（窄屏仅显示 LOGO） */}
           <Link to="/" className="flex items-center gap-2.5" title="教师工作台 · 连接创意与未来教育">
             <img src="/rayzo-logo.png" alt="教师工作台 LOGO" className="brand-logo h-10 w-10 rounded-full" />
@@ -190,7 +194,7 @@ export default function Layout() {
           </div>
         </main>
 
-        <footer className="flex flex-col items-center gap-0.5 px-4 pb-6 text-center sm:px-8">
+        <footer className="flex flex-col items-center gap-0.5 px-4 pb-24 text-center sm:px-8 lg:pb-6">
           <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-xs text-ink-secondary/60">
             <span className="brand-gradient-text font-medium">连接创意与未来教育</span>
             <span className="text-ink-secondary/30">·</span>
@@ -211,6 +215,31 @@ export default function Layout() {
           </div>
         </footer>
       </div>
+
+      {/* 移动端底部标签栏（lg 以上隐藏，由侧边栏接管） */}
+      <nav
+        className="glass fixed inset-x-0 bottom-0 z-30 flex border-t border-black/5 lg:hidden"
+        style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+      >
+        {TABS.map(t => (
+          <NavLink
+            key={t.to} to={t.to} end={t.exact}
+            className={({ isActive }) => `flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] font-medium transition ${
+              isActive ? 'text-[#0071e3]' : 'text-ink-secondary'
+            }`}
+          >
+            <t.icon size={21} />
+            {t.label}
+          </NavLink>
+        ))}
+        <button
+          onClick={() => setOpen(true)}
+          className="flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] font-medium text-ink-secondary transition"
+        >
+          <Menu size={21} />
+          更多
+        </button>
+      </nav>
     </div>
   );
 }

@@ -313,6 +313,10 @@ ALTER TABLE teachers ADD COLUMN IF NOT EXISTS membership_expires_at TEXT;       
 ALTER TABLE activation_codes ADD COLUMN IF NOT EXISTS credits INTEGER NOT NULL DEFAULT 1000; -- 该码包含的算力
 ALTER TABLE activation_codes ADD COLUMN IF NOT EXISTS valid_days INTEGER NOT NULL DEFAULT 7; -- 激活后有效天数，0=永久
 ALTER TABLE seats ADD COLUMN IF NOT EXISTS disabled INTEGER NOT NULL DEFAULT 0;   -- 1=过道/非座位格（讲台边、单人单座等不规则布局）
+ALTER TABLE materials ADD COLUMN IF NOT EXISTS storage_path TEXT DEFAULT '';      -- Supabase Storage 对象路径（空=纯元数据旧记录）
+ALTER TABLE materials ADD COLUMN IF NOT EXISTS file_name TEXT DEFAULT '';         -- 原始文件名
+ALTER TABLE materials ADD COLUMN IF NOT EXISTS size_bytes BIGINT DEFAULT 0;       -- 文件字节数（展示用 file_size 由它格式化）
+ALTER TABLE materials ADD COLUMN IF NOT EXISTS mime TEXT DEFAULT '';              -- 文件 Content-Type
 CREATE UNIQUE INDEX IF NOT EXISTS idx_teachers_phone ON teachers(phone);
 `);
 

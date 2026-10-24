@@ -1,8 +1,10 @@
 /** 教学功能模块路由：课程 / 备课资料 / 作业与批改 / 成绩与分析（按教师隔离） */
+const crypto = require('crypto');
 const express = require('express');
 const db = require('../db');
 const { own } = require('../auth');
 const { ah } = require('../util');
+const storage = require('../storage');
 
 const router = express.Router();
 
@@ -30,8 +32,25 @@ router.post('/courses', ah(async (req, res) => {
   res.status(201).json({ id: info.lastInsertRowid });
 }));
 
+/* 编辑课程 */
+router.put('/courses/:id', ah(async (req, res) => {
+  if (!(await own.course(req.teacherId, req.params.id))) return res.status(404).json({ error: '课程不存在' });
+  const { name, subject, class_id, schedule, semester } = req.body;
+  if (!name || !subject) return res.status(400).json({ error: 'name 与 subject 必填' });
+  if (class_id && !(await own.class(req.teacherId, class_id))) return res.status(403).json({ error: '无权使用该班级' });
+  await db.run('UPDATE courses SET name=?, subject=?, class_id=?, schedule=?, semester=? WHERE id=?',
+    [name, subject, class_id || null, schedule || '', semester || '', req.params.id]);
+  res.json({ ok: true });
+}));
+
 router.delete('/courses/:id', ah(async (req, res) => {
   if (!(await own.course(req.teacherId, req.params.id))) return res.status(404).json({ error: '课程不存在' });
+  /* 先清云端文件再删课程（materials 行随 ON DELETE CASCADE 删除） */
+  if (storage.enabled()) {
+    const files = await db.all(`
+      SELECT m.storage_path FROM materials m WHERE m.course_id = ? AND m.storage_path != ''`, [req.params.id]);
+    await storage.removeObjects(files.map(f => f.storage_path));
+  }
   await db.run('DELETE FROM courses WHERE id = ?', [req.params.id]);
   res.json({ ok: true });
 }));
@@ -47,22 +66,65 @@ router.get('/materials', ah(async (req, res) => {
   res.json(course_id ? await db.all(sql, [req.teacherId, course_id]) : await db.all(sql, [req.teacherId]));
 }));
 
+/* 字节数 → 展示文本（12.3 MB） */
+const fmtSize = (n) => {
+  n = Number(n) || 0;
+  if (n >= 1048576) return `${(n / 1048576).toFixed(1)} MB`;
+  if (n >= 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return n ? `${n} B` : '';
+};
+
+/* 第一步：申请云端上传地址（浏览器随后 PUT 直传，不经过本服务，不受 Serverless 4.5MB 限制） */
+router.post('/materials/upload-url', ah(async (req, res) => {
+  if (!storage.enabled()) return res.status(503).json({ error: '云存储未配置，请联系管理员' });
+  const name = String(req.body?.name || '').trim();
+  const size = Number(req.body?.size) || 0;
+  if (!name) return res.status(400).json({ error: '文件名缺失' });
+  if (size <= 0) return res.status(400).json({ error: '文件为空' });
+  if (size > storage.MAX_BYTES) return res.status(413).json({ error: `文件不能超过 ${fmtSize(storage.MAX_BYTES)}` });
+  const ext = (name.match(/\.[A-Za-z0-9]{1,8}$/) || [''])[0].toLowerCase();
+  const path = `${req.teacherId}/${Date.now()}_${crypto.randomBytes(4).toString('hex')}${ext}`;
+  const uploadUrl = await storage.signedUploadUrl(path);
+  res.json({ uploadUrl, path });
+}));
+
+/* 第二步：上传完成后落库元数据（兼容旧调用：无 storage_path 时为纯元数据记录） */
 router.post('/materials', ah(async (req, res) => {
-  const { course_id, title, type, file_size, summary } = req.body;
+  const { course_id, title, type, file_size, summary, storage_path, file_name, size_bytes, mime } = req.body;
   if (!course_id || !title) return res.status(400).json({ error: 'course_id 与 title 必填' });
   if (!(await own.course(req.teacherId, course_id))) return res.status(403).json({ error: '无权使用该课程' });
-  const info = await db.run('INSERT INTO materials (course_id, title, type, file_size, summary) VALUES (?,?,?,?,?)',
-    [course_id, title, type || '课件', file_size || '', summary || '']);
+  /* 防串号：storage_path 必须位于本教师目录下 */
+  const sp = String(storage_path || '');
+  if (sp && !sp.startsWith(`${req.teacherId}/`)) return res.status(400).json({ error: '非法的文件路径' });
+  const sizeBytes = Math.max(0, Number(size_bytes) || 0);
+  const info = await db.run(
+    'INSERT INTO materials (course_id, title, type, file_size, summary, storage_path, file_name, size_bytes, mime) VALUES (?,?,?,?,?,?,?,?,?)',
+    [course_id, title, type || '课件', file_size || fmtSize(sizeBytes), summary || '', sp, String(file_name || ''), sizeBytes, String(mime || '').slice(0, 100)]
+  );
   res.status(201).json({ id: info.lastInsertRowid });
+}));
+
+/* 获取下载地址（签名 URL，10 分钟有效；前端新窗口打开） */
+router.get('/materials/:id/download', ah(async (req, res) => {
+  const r = await db.get(`
+    SELECT m.storage_path, m.file_name FROM materials m JOIN courses c ON c.id = m.course_id
+    WHERE m.id = ? AND c.teacher_id = ?
+  `, [req.params.id, req.teacherId]);
+  if (!r) return res.status(404).json({ error: '资料不存在' });
+  if (!r.storage_path) return res.status(404).json({ error: '该资料无云端文件（早期记录仅元数据）' });
+  if (!storage.enabled()) return res.status(503).json({ error: '云存储未配置，请联系管理员' });
+  const url = await storage.signedDownloadUrl(r.storage_path);
+  res.json({ url, file_name: r.file_name });
 }));
 
 router.delete('/materials/:id', ah(async (req, res) => {
   const r = await db.get(`
-    SELECT m.id FROM materials m JOIN courses c ON c.id = m.course_id
+    SELECT m.id, m.storage_path FROM materials m JOIN courses c ON c.id = m.course_id
     WHERE m.id = ? AND c.teacher_id = ?
   `, [req.params.id, req.teacherId]);
   if (!r) return res.status(404).json({ error: '资料不存在' });
   await db.run('DELETE FROM materials WHERE id = ?', [req.params.id]);
+  if (r.storage_path) await storage.removeObjects([r.storage_path]);
   res.json({ ok: true });
 }));
 
