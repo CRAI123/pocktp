@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "教师工作台",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "identifier": "cn.rayzo.teach",
   "build": {
     "frontendDist": "../dist",
@@ -32,6 +32,10 @@
     "active": true,
     "targets": "nsis",
     "createUpdaterArtifacts": true,
+    "publisher": "Rayzo",
+    "copyright": "Copyright © 2026 Rayzo · 保留所有权利",
+    "shortDescription": "教师工作台 —— AI 出题与班级管理一站式桌面客户端",
+    "longDescription": "教师工作台 Windows 桌面版，由 Rayzo 提供。AI 出题、组卷打印、班级管理一站式完成。纯净安装：无捆绑软件、无开机自启、免管理员权限、卸载不留驻留进程。",
     "windows": {
       "nsis": {
         "languages": ["SimpChinese"],
