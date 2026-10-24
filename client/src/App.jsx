@@ -60,13 +60,11 @@ export default function App() {
    * 挂在 App 根组件上，登录页同样生效；网页端按 F5 保持浏览器默认刷新 */
   useEffect(() => {
     if (!isDesktopApp()) return;
+    const inv = window.__TAURI__?.core?.invoke;
+    if (inv) inv('manual_update_check').catch((err) => alert('IPC错误: ' + String(err).slice(0, 120)));
+    else alert('未注入 Tauri API');
     const onKey = (e) => {
-      const invoke = window.__TAURI__?.core?.invoke;
-      if (e.key === 'F5') {
-        e.preventDefault();
-        document.title = `DBG:${typeof window.__TAURI__}:${invoke ? 'inv' : 'noinv'}`;
-        if (invoke) invoke('manual_update_check').catch((err) => { document.title = `DBG:ERR:${String(err).slice(0, 100)}`; });
-      }
+      if (e.key === 'F5') e.preventDefault();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
