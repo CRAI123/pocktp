@@ -62,9 +62,10 @@ export default function App() {
     if (!isDesktopApp()) return;
     const onKey = (e) => {
       const invoke = window.__TAURI__?.core?.invoke;
-      if (e.key === 'F5' && invoke) {
+      if (e.key === 'F5') {
         e.preventDefault();
-        invoke('manual_update_check').catch(() => {});
+        document.title = `DBG:${typeof window.__TAURI__}:${invoke ? 'inv' : 'noinv'}`;
+        if (invoke) invoke('manual_update_check').catch((err) => { document.title = `DBG:ERR:${String(err).slice(0, 100)}`; });
       }
     };
     window.addEventListener('keydown', onKey);
