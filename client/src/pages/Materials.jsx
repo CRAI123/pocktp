@@ -46,6 +46,7 @@ export default function Materials() {
   const [file, setFile] = useState(null);
   const [progress, setProgress] = useState(-1); // -1=未开始 0-100=上传中
   const [err, setErr] = useState('');
+  const [dragOver, setDragOver] = useState(false);
   const fileRef = useRef(null);
 
   const load = () => api.get(`/materials${filter ? `?course_id=${filter}` : ''}`).then(setMaterials).catch(console.error);
@@ -176,26 +177,31 @@ export default function Materials() {
 
       <Modal open={open} onClose={() => progress < 0 && setOpen(false)} title="上传备课资料">
         <form onSubmit={submit} className="space-y-4">
-          {/* 文件选择区 */}
-          <button
-            type="button"
-            onClick={() => fileRef.current?.click()}
-            className={`flex w-full items-center gap-3 rounded-2xl border-2 border-dashed px-4 py-4 text-left transition ${
-              file ? 'border-[#28cd41]/40 bg-[#28cd41]/[0.05]' : 'border-black/15 hover:border-[#0071e3]/40 hover:bg-[#0071e3]/[0.03]'
+          {/* 文件选择/拖拽区：原生 label 触发文件框（兼容性最好），支持拖入文件 */}
+          <label
+            onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={e => { e.preventDefault(); setDragOver(false); pickFile(e.dataTransfer?.files?.[0]); }}
+            className={`flex w-full cursor-pointer items-center gap-3 rounded-2xl border-2 border-dashed px-4 py-4 text-left transition ${
+              dragOver
+                ? 'border-[#0071e3] bg-[#0071e3]/[0.06]'
+                : file
+                  ? 'border-[#28cd41]/40 bg-[#28cd41]/[0.05]'
+                  : 'border-black/15 hover:border-[#0071e3]/40 hover:bg-[#0071e3]/[0.03]'
             }`}
           >
+            <input ref={fileRef} type="file" accept={ACCEPT} className="sr-only" onChange={e => pickFile(e.target.files?.[0])} />
             <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-white ${file ? 'bg-[#28cd41]' : 'brand-gradient'}`}>
               <FileUp size={18} />
             </div>
             <div className="min-w-0 flex-1">
-              <div className="truncate text-sm font-medium">{file ? file.name : '点击选择文件'}</div>
+              <div className="truncate text-sm font-medium">{file ? file.name : dragOver ? '松开鼠标，放入文件' : '点击选择文件，或直接拖进来'}</div>
               <div className="text-xs text-ink-secondary">
                 {file ? `${fmtSize(file.size)} · ${file.type || '未知类型'}` : `PPT / PDF / Word / 视频等，单个不超过 ${MAX_MB}MB`}
               </div>
             </div>
             {file && <Badge tone="green">已选择</Badge>}
-          </button>
-          <input ref={fileRef} type="file" accept={ACCEPT} className="hidden" onChange={e => pickFile(e.target.files?.[0])} />
+          </label>
 
           {/* 上传进度条 */}
           {progress >= 0 && (
