@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
-import { Phone, Lock, User, LogIn, MonitorDown, ExternalLink, Loader2, Copy, Check, X } from 'lucide-react';
+import { Phone, Lock, User, LogIn, MonitorDown, ExternalLink, Loader2, Copy, Check, X, ChevronDown, MonitorSmartphone } from 'lucide-react';
 import { api, auth, isMembershipActive } from '../api.js';
 import { Button, Field, inputCls, BrandFooter } from '../components/ui.jsx';
 import { isDesktopApp } from '../components/Layout.jsx';
@@ -24,6 +24,8 @@ export default function Login() {
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  /* 桌面版以快捷登录为主，密码登录折叠在下方 */
+  const [showPwd, setShowPwd] = useState(() => !isDesktopApp());
 
   /* 浏览器快捷登录：桌面版发起授权码 → 跳浏览器 → 轮询取回令牌 */
   const [deviceCode, setDeviceCode] = useState('');
@@ -76,7 +78,7 @@ export default function Login() {
     setCopied(false);
     setBrowser({ state: 'opening', url: '', error: '' });
     try {
-      const r = await api.post('/auth/device/start', { remember });
+      const r = await api.post('/auth/device/start', { remember: true });
       const url = `${location.origin}/desktop-login?code=${r.code}`;
       setDeviceCode(r.code);
       setBrowser({ state: 'waiting', url, error: '' });
@@ -152,72 +154,37 @@ export default function Login() {
           <div className="mb-6">
             <div className="eyebrow">Welcome back</div>
             <h2 className="display mt-2 text-[22px] font-semibold tracking-tight text-ink">登录 / 注册</h2>
-            <p className="mt-1.5 text-[13px] text-ink-secondary">手机号未注册将自动创建账号</p>
+            <p className="mt-1.5 text-[13px] text-ink-secondary">
+              {isDesktopApp() ? '推荐用浏览器快捷登录，免输密码直接进入' : '手机号未注册将自动创建账号'}
+            </p>
           </div>
 
-          <form onSubmit={submit} className="space-y-4">
-            <Field label="手机号">
-              <div className="relative">
-                <Phone size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-secondary/55" />
-                <input
-                  required type="tel" inputMode="numeric" maxLength={11} placeholder="请输入 11 位手机号"
-                  className={`${inputCls} pl-10`}
-                  value={form.phone}
-                  onChange={e => setForm({ ...form, phone: e.target.value.replace(/\D/g, '') })}
-                />
-              </div>
-            </Field>
-            <Field label="密码">
-              <div className="relative">
-                <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-secondary/55" />
-                <input
-                  required type="password" placeholder="至少 6 位"
-                  className={`${inputCls} pl-10`}
-                  value={form.password} onChange={e => setForm({ ...form, password: e.target.value })}
-                />
-              </div>
-            </Field>
-            <Field label="姓名（新账号首次登录自动注册时填写）">
-              <div className="relative">
-                <User size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-secondary/55" />
-                <input
-                  placeholder="如：王老师（已有账号可留空）"
-                  className={`${inputCls} pl-10`}
-                  value={form.name} onChange={e => setForm({ ...form, name: e.target.value })}
-                />
-              </div>
-            </Field>
-
-            <label className="flex cursor-pointer items-center gap-2 text-[13px] text-ink-secondary">
-              <input
-                type="checkbox" checked={remember} onChange={e => setRemember(e.target.checked)}
-                className="h-4 w-4 rounded border-black/20 accent-[#0071e3]"
-              />
-              记住登录，下次打开免密进入
-              {isDesktopApp() && <span className="rounded-full bg-[#28cd41]/10 px-1.5 py-0.5 text-[10px] font-medium text-[#1a7f2b]">桌面版推荐</span>}
-            </label>
-
-            {error && (
-              <div className="rounded-xl bg-[#ff3b30]/8 px-4 py-2.5 text-sm text-[#b3251c]">{error}</div>
-            )}
-
-            <Button type="submit" disabled={loading} className="w-full py-3">
-              <LogIn size={16} />{loading ? '登录中…' : '登录 / 注册'}
-            </Button>
-          </form>
-
-          {/* 桌面版专属：跳浏览器完成登录授权，回来自动进入，免重复输密码 */}
+          {/* 桌面版主推：浏览器快捷登录 */}
           {isDesktopApp() && (
-            <div className="mt-3">
+            <div className="mb-3">
               {browser.state === 'idle' ? (
-                <button
-                  type="button" onClick={startBrowserLogin}
-                  className="flex w-full items-center justify-center gap-2 rounded-full border border-black/[0.09] bg-white px-4 py-2.5 text-[13px] font-semibold text-ink transition hover:border-black/[0.16] hover:bg-white active:scale-[0.99]"
-                >
-                  <ExternalLink size={15} className="text-[#0071e3]" /> 用浏览器登录，免输密码
-                </button>
+                <div className="relative overflow-hidden rounded-[22px] bg-gradient-to-br from-[#0071e3] via-[#0a84ff] to-[#1aa3c8] p-5 text-white shadow-[0_18px_40px_-22px_rgba(0,113,227,0.85)]">
+                  <div className="pointer-events-none absolute -right-10 -top-12 h-40 w-40 rounded-full bg-white/15 blur-2xl" />
+                  <div className="pointer-events-none absolute -bottom-14 -left-10 h-36 w-36 rounded-full bg-[#28cd41]/25 blur-2xl" />
+                  <div className="relative">
+                    <div className="flex items-center gap-1.5 text-[10.5px] font-semibold uppercase tracking-[0.18em] text-white/70">
+                      <MonitorSmartphone size={13} /> 推荐方式
+                    </div>
+                    <div className="mt-2 text-[19px] font-semibold tracking-tight">浏览器快捷登录</div>
+                    <p className="mt-1.5 text-[12.5px] leading-relaxed text-white/80">
+                      一键调起浏览器完成授权，回到软件自动进入，不必再输密码。
+                    </p>
+                    <button
+                      type="button" onClick={startBrowserLogin}
+                      className="mt-4 flex w-full items-center justify-center gap-2 rounded-full bg-white px-4 py-2.5 text-[13px] font-semibold text-[#0071e3] shadow-[0_8px_18px_-10px_rgba(0,0,0,0.5)] transition hover:bg-white/95 active:scale-[0.985]"
+                    >
+                      <ExternalLink size={15} /> 一键登录
+                    </button>
+                    <p className="mt-2.5 text-center text-[10.5px] text-white/65">授权链接 5 分钟内有效</p>
+                  </div>
+                </div>
               ) : (
-                <div className="rounded-xl border border-[#0071e3]/15 bg-[#0071e3]/[0.05] px-3.5 py-3">
+                <div className="rounded-2xl border border-[#0071e3]/15 bg-[#0071e3]/[0.05] px-3.5 py-3">
                   <div className="flex items-start gap-2 text-[12.5px] font-medium text-ink">
                     {browser.state === 'expired' ? (
                       <X size={14} className="mt-0.5 shrink-0 text-[#b3251c]" />
@@ -265,6 +232,71 @@ export default function Login() {
                 </div>
               )}
             </div>
+          )}
+
+          {/* 桌面版：手机号密码作为次要入口，默认折叠 */}
+          {isDesktopApp() && (
+            <button
+              type="button"
+              onClick={() => setShowPwd(v => !v)}
+              className="flex w-full items-center justify-center gap-1.5 rounded-full px-4 py-2 text-[12.5px] font-medium text-ink-secondary transition hover:bg-black/[0.04]"
+            >
+              {showPwd ? '收起手机号密码登录' : '使用手机号密码登录'}
+              <ChevronDown size={14} className={`transition-transform duration-200 ${showPwd ? 'rotate-180' : ''}`} />
+            </button>
+          )}
+
+          {error && (
+            <div className="mt-3 rounded-xl bg-[#ff3b30]/8 px-4 py-2.5 text-sm text-[#b3251c]">{error}</div>
+          )}
+
+          {showPwd && (
+          <form onSubmit={submit} className={`space-y-4 ${isDesktopApp() ? 'mt-3' : ''}`}>
+            <Field label="手机号">
+              <div className="relative">
+                <Phone size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-secondary/55" />
+                <input
+                  required type="tel" inputMode="numeric" maxLength={11} placeholder="请输入 11 位手机号"
+                  className={`${inputCls} pl-10`}
+                  value={form.phone}
+                  onChange={e => setForm({ ...form, phone: e.target.value.replace(/\D/g, '') })}
+                />
+              </div>
+            </Field>
+            <Field label="密码">
+              <div className="relative">
+                <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-secondary/55" />
+                <input
+                  required type="password" placeholder="至少 6 位"
+                  className={`${inputCls} pl-10`}
+                  value={form.password} onChange={e => setForm({ ...form, password: e.target.value })}
+                />
+              </div>
+            </Field>
+            <Field label="姓名（新账号首次登录自动注册时填写）">
+              <div className="relative">
+                <User size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-secondary/55" />
+                <input
+                  placeholder="如：王老师（已有账号可留空）"
+                  className={`${inputCls} pl-10`}
+                  value={form.name} onChange={e => setForm({ ...form, name: e.target.value })}
+                />
+              </div>
+            </Field>
+
+            <label className="flex cursor-pointer items-center gap-2 text-[13px] text-ink-secondary">
+              <input
+                type="checkbox" checked={remember} onChange={e => setRemember(e.target.checked)}
+                className="h-4 w-4 rounded border-black/20 accent-[#0071e3]"
+              />
+              记住登录，下次打开免密进入
+              {isDesktopApp() && <span className="rounded-full bg-[#28cd41]/10 px-1.5 py-0.5 text-[10px] font-medium text-[#1a7f2b]">桌面版推荐</span>}
+            </label>
+
+            <Button type="submit" disabled={loading} className="w-full py-3">
+              <LogIn size={16} />{loading ? '登录中…' : '登录 / 注册'}
+            </Button>
+          </form>
           )}
 
           <div className="hairline my-5" />
