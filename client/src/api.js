@@ -82,4 +82,12 @@ export const ai = {
   write: (type, payload) => api.post('/ai/write', { type, payload }),
   /** 聊天记录解析：todos 提取待办 / moral 提取加减分 / meeting 整理班会纪要 / journal 周记草稿 */
   extract: (scene, text, names = []) => api.post('/ai/extract', { scene, text, names }),
+  /** AI 工具集：备课助手 / 作业提效 / 作文评语 / 资料库检索 */
+  lessonPlan: (params) => api.post('/ai/lesson-plan', params),
+  homework: (params) => api.post('/ai/homework', params),
+  essayComment: (params) => api.post('/ai/essay-comment', params),
+  materialSearch: (query, items) => api.post('/ai/material-search', { query, items }),
+  /** AI 开关与自选模型（只允许服务端已配置的模型） */
+  settings: () => api.get('/ai/settings'),
+  saveSettings: (params) => api.put('/ai/settings', params),
 };

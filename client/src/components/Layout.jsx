@@ -2,12 +2,14 @@ import { NavLink, Link, Outlet, useLocation, useNavigate } from 'react-router-do
 import {
   LayoutDashboard, BookOpen, FolderOpen, ClipboardList, LineChart, Sparkles,
   Users, CalendarCheck, MessageSquare, ListTodo, Menu, LogOut, ShieldCheck, Zap,
-  MonitorPlay, PenLine, Wand2, BookText, MonitorDown, Minus, Square, X, Settings,
+  MonitorPlay, PenLine, Wand2, BookText, MonitorDown, Minus, Square, X, Settings, Wallet,
+  Bot, CalendarDays,
 } from 'lucide-react';
 import { useState } from 'react';
 import { auth, isMembershipActive } from '../api.js';
 import { isDesktopApp } from '../desktop.js';
 import DesktopSettings from './DesktopSettings.jsx';
+import LessonReminders from './LessonReminders.jsx';
 
 export { isDesktopApp };
 
@@ -61,12 +63,15 @@ const NAV = [
   { group: '班务管理' },
   { to: '/students', label: '班级成员', icon: Users },
   { to: '/attendance', label: '考勤记录', icon: CalendarCheck },
+  { to: '/timetable', label: '课程表', icon: CalendarDays },
+  { to: '/finance', label: '课时费与工作量', icon: Wallet },
   { to: '/notifications', label: '消息通知', icon: MessageSquare },
   { to: '/todos', label: '班级待办', icon: ListTodo },
   { group: '班主任工具' },
   { to: '/classroom', label: '课堂小助手', icon: MonitorPlay },
   { to: '/comments', label: 'AI 期末评语', icon: PenLine },
   { to: '/ai-writer', label: 'AI 文案助手', icon: Wand2 },
+  { to: '/ai-tools', label: 'AI 工具', icon: Bot },
   { to: '/journals', label: '班主任周记', icon: BookText },
 ];
 
@@ -88,10 +93,12 @@ const TITLES = {
   '/teaching/exam': '综合测试',
   '/teaching/classroom-practice': '课堂练习',
   '/students': '班级成员管理', '/attendance': '考勤记录管理',
+  '/finance': '课时费与工作量',
   '/classes': '班级管理', '/classes/new': '新建班级',
   '/notifications': '微信消息通知', '/todos': '班级事务待办',
   '/classroom': '课堂小助手', '/comments': 'AI 期末评语',
-  '/ai-writer': 'AI 文案助手', '/journals': '班主任周记',
+  '/ai-writer': 'AI 文案助手', '/ai-tools': 'AI 工具', '/journals': '班主任周记',
+  '/timetable': '课程表',
   '/admin': '管理后台',
 };
 
@@ -284,6 +291,9 @@ export default function Layout() {
           </div>
         </footer>
       </div>
+
+      {/* 上课提醒：教师课表中「我的课」开课前 10 / 5 分钟弹出 */}
+      <LessonReminders />
 
       {/* 移动端底部悬浮 Dock（lg 以上由侧边栏接管） */}
       <nav

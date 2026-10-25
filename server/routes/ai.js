@@ -6,6 +6,7 @@
  *  - 主备模型：AI_MODEL → AI_MODEL_BACKUP（主失败 5xx/超时 fallback）
  */
 const express = require('express');
+const { AsyncLocalStorage } = require('async_hooks');
 const db = require('../db');
 const { ah } = require('../util');
 
@@ -32,13 +33,63 @@ const COSTS = {
     summary: 8,     // 学期总结（长文）
   },
   practice: 1,       // 课堂练习（全科目，按题扣费：每题 1 算力）
+  lessonplan: 3,     // AI 备课助手（教案思路 + 课堂环节）
+  homework: 5,       // 作业提效（题目 + 答案 + 批注）
+  essaycomment: 2,   // 作文 / 作业评语
+  material: 1,       // 备课资料库 AI 检索
 };
+
+/* 教师自选模型只允许服务端已配置的主/备模型，禁止前端传任意值 */
+const pickModel = (m) => (m === MODEL || m === MODEL_BACKUP ? m : '');
+
+/* 请求级模型上下文：让 chat() 在不改所有调用点的情况下读取教师选择 */
+const aiAls = new AsyncLocalStorage();
+
+/* ===== AI 设置：开关 + 自选模型（须在下面统一校验中间件之前注册） ===== */
+router.get('/settings', ah(async (req, res) => {
+  const t = await db.get('SELECT ai_enabled, ai_model FROM teachers WHERE id = ?', [req.teacherId]);
+  res.json({
+    enabled: Number(t?.ai_enabled ?? 1) !== 0,
+    model: t?.ai_model || '',
+    models: [
+      { value: '', label: `默认（${MODEL}）` },
+      ...(MODEL_BACKUP && MODEL_BACKUP !== MODEL ? [{ value: MODEL_BACKUP, label: `备用（${MODEL_BACKUP}）` }] : []),
+    ],
+  });
+}));
+
+router.put('/settings', ah(async (req, res) => {
+  const { enabled, model } = req.body || {};
+  const sets = [];
+  const params = [];
+  if (enabled != null) { sets.push('ai_enabled = ?'); params.push(enabled ? 1 : 0); }
+  if (model != null) {
+    const m = String(model).trim();
+    if (m && !pickModel(m)) return res.status(400).json({ error: '不支持的模型' });
+    sets.push('ai_model = ?'); params.push(pickModel(m));
+  }
+  if (!sets.length) return res.status(400).json({ error: '没有可更新的设置' });
+  params.push(req.teacherId);
+  await db.run(`UPDATE teachers SET ${sets.join(', ')} WHERE id = ?`, params);
+  res.json({ ok: true });
+}));
+
+/* AI 总开关：关闭时除设置接口外一律 403（提示到 AI 工具页重新开启） */
+router.use(ah(async (req, res, next) => {
+  const t = await db.get('SELECT ai_enabled, ai_model FROM teachers WHERE id = ?', [req.teacherId]);
+  if (Number(t?.ai_enabled ?? 1) === 0) {
+    return res.status(403).json({ error: 'AI 功能已关闭，可在「AI 工具」页重新开启', aiDisabled: true });
+  }
+  aiAls.run({ model: pickModel(t?.ai_model) || MODEL }, () => next());
+}));
 
 /* 通用 Chat Completions 调用：主模型失败 fallback 备模型
  *  - timeoutMs：单次尝试超时；budgetMs：整次调用总预算（含 fallback）
  *  - Vercel 函数上限 60s，预算默认 55s：超时必须赶在平台强杀前返回 JSON 错误，
  *    否则浏览器只会收到 ERR_CONNECTION_CLOSED，前端无法提示且已生成题目状态不明 */
-async function chat(messages, { model = MODEL, maxTokens = 2048, timeoutMs = 50_000, budgetMs = 55_000 } = {}) {
+async function chat(messages, opts = {}) {
+  const { maxTokens = 2048, timeoutMs = 50_000, budgetMs = 55_000 } = opts;
+  const model = opts.model || aiAls.getStore()?.model || MODEL;
   if (!KEY) throw Object.assign(new Error('AI_KEY 未配置'), { status: 503 });
   const deadline = Date.now() + budgetMs;
 
@@ -70,8 +121,8 @@ async function chat(messages, { model = MODEL, maxTokens = 2048, timeoutMs = 50_
     if (e.status >= 400 && e.status < 500 && e.status !== 408 && e.status !== 429) throw e;
     /* 剩余预算不足 fallback 时直接抛原错误（二次尝试必定被平台强杀，不如返回可读错误） */
     if (deadline - Date.now() < 12_000) throw e;
-    /* 超时 / 5xx / 网络错误 → 用新 controller 重试备模型 */
-    return await tryOnce(MODEL_BACKUP);
+    /* 超时 / 5xx / 网络错误 → 用新 controller 重试备模型（教师选了备用则回退主模型） */
+    return await tryOnce(model === MODEL_BACKUP ? MODEL : MODEL_BACKUP);
   }
 }
 
@@ -797,6 +848,229 @@ ${JSON.stringify(original, null, 2)}
      `单题重出 · ${fb.slice(0, 60)} · ${preview.slice(0, 60)}`, JSON.stringify([out]), cost]
   ).catch(err => console.warn('[ai] history save failed:', err.message));
   res.json({ question: out, cost, credits: charged.credits, usage: result.usage });
+}));
+
+/* ==================== AI 工具集（备课 / 作业 / 评语 / 资料检索） ==================== */
+
+/* 统一写历史：失败不影响主流程 */
+function saveToolHistory(teacherId, type, keyword, payload, cost, extra = {}) {
+  db.run(
+    `INSERT INTO ai_history (teacher_id, type, grade, difficulty, count, keyword, questions, cost)
+     VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8)`,
+    [teacherId, type, String(extra.grade || ''), String(extra.difficulty || ''), Number(extra.count) || 1,
+     String(keyword || '').slice(0, 200), JSON.stringify(payload), cost]
+  ).catch(err => console.warn('[ai] history save failed:', err.message));
+}
+
+const strList = (v, max = 12) => (Array.isArray(v) ? v : [])
+  .map(s => String(s || '').trim()).filter(Boolean).slice(0, max);
+
+/* ===== POST /api/ai/lesson-plan  AI 备课助手（扣 3 算力） ===== */
+router.post('/lesson-plan', ah(async (req, res) => {
+  const { subject = '', grade = '7', topic = '', duration = 1, textbook = '', style = '' } = req.body || {};
+  if (!String(subject).trim()) return res.status(400).json({ error: '请填写学科' });
+  if (!String(topic).trim()) return res.status(400).json({ error: '请填写课题' });
+  const dur = Math.max(0.5, Math.min(4, Number(duration) || 1));
+  const sys = `你是${GRADE_DESC(String(grade))}${String(subject).trim()}资深教师与教研员，正在为一线教师准备一份可直接上课的备课方案。
+要求：
+- 教学目标指向核心素养，可观察、可评价；重难点各 2-3 条，说明突破方法
+- 课堂环节按 ${dur} 课时分配分钟数，环节名称具体（如"情境导入""合作探究""分层练习"），每个环节写清教师活动、学生活动与设计意图
+- 体现以学生为中心：至少有 1 个互动/探究活动、1 个课堂即时检测
+- 作业分层（基础/提升/拓展），标注建议用时；不含答案
+- 语言务实、可落地，避免空话；严格返回 JSON，不要 markdown 包装，字符串内引用一律用「」
+
+JSON Schema：
+{
+  "overview": "备课思路 120-200 字（课标依据、学情起点、整体设计逻辑）",
+  "objectives": ["教学目标"],
+  "key_points": ["教学重点"],
+  "difficulties": ["教学难点及突破方法"],
+  "preparation": ["课前准备 / 教具 / 素材"],
+  "stages": [{"name":"环节名称","minutes":10,"teacher":"教师活动","student":"学生活动","note":"设计意图或评价方式"}],
+  "homework": {"basic":["基础作业"],"improve":["提升作业"],"extend":["拓展作业"]},
+  "reflection": "课后反思提示（2-3 句）"
+}`;
+  const user = `【学科】${String(subject).trim()}
+【年级】${GRADE_DESC(String(grade))}
+【课题】${String(topic).trim()}
+【课时】${dur} 课时
+【教材版本/单元】${String(textbook).trim() || '不限'}
+【教学风格/特别要求】${String(style).trim() || '无'}`;
+
+  const out = await chatJson([
+    { role: 'system', content: sys },
+    { role: 'user', content: user },
+  ], { maxTokens: 4000 });
+  if (!out?.parsed) return res.status(502).json({ error: 'AI 返回解析失败，请重试' });
+  const p = out.parsed;
+  const plan = {
+    subject: String(subject).trim(), grade: String(grade), topic: String(topic).trim(), duration: dur,
+    overview: String(p.overview || '').trim(),
+    objectives: strList(p.objectives, 8),
+    key_points: strList(p.key_points, 6),
+    difficulties: strList(p.difficulties, 6),
+    preparation: strList(p.preparation, 8),
+    stages: (Array.isArray(p.stages) ? p.stages : []).slice(0, 12).map(s => ({
+      name: String(s?.name || '').trim(),
+      minutes: Math.max(1, Math.min(180, Number(s?.minutes) || 5)),
+      teacher: String(s?.teacher || '').trim(),
+      student: String(s?.student || '').trim(),
+      note: String(s?.note || '').trim(),
+    })).filter(s => s.name),
+    homework: {
+      basic: strList(p.homework?.basic, 6),
+      improve: strList(p.homework?.improve, 6),
+      extend: strList(p.homework?.extend, 6),
+    },
+    reflection: String(p.reflection || '').trim(),
+  };
+  if (!plan.overview && !plan.stages.length) return res.status(502).json({ error: 'AI 返回解析失败' });
+
+  const cost = COSTS.lessonplan;
+  const charged = await charge(req.teacherId, cost);
+  saveToolHistory(req.teacherId, 'lessonplan', `${plan.subject}·${plan.topic}`, [plan], cost, { grade, count: 1 });
+  res.json({ plan, cost, credits: charged.credits, usage: out.result?.usage });
+}));
+
+/* ===== POST /api/ai/homework  作业提效：题目 + 答案 + 批注（扣 5 算力） ===== */
+router.post('/homework', ah(async (req, res) => {
+  const { subject = '', grade = '7', topic = '', count = 5, difficulty = 'medium', types = '' } = req.body || {};
+  if (!String(subject).trim()) return res.status(400).json({ error: '请填写学科' });
+  if (!String(topic).trim()) return res.status(400).json({ error: '请填写作业主题 / 知识点' });
+  const n = Math.max(1, Math.min(15, Number(count) || 5));
+  const sys = `你是${GRADE_DESC(String(grade))}${String(subject).trim()}教师，正在设计一份课后作业。
+要求：
+- 紧扣给定知识点，难度：${difficulty === 'easy' ? '基础为主' : difficulty === 'hard' ? '拔高为主' : '基础与提升兼顾'}，共 ${n} 题
+- 题型尽量覆盖：${String(types).trim() || '选择、填空、简答/解答等常规题型'}
+- 每题给出参考答案（解答题给关键步骤），并给老师一条「批注」——说明评分要点与常见错误
+- 题干表述准确、无错别字；选择题给 4 个选项
+- 严格返回 JSON，不要 markdown 包装，字符串内引用一律用「」
+
+JSON Schema：
+{"questions":[{"qtype":"选择题|填空题|简答题|解答题|其他","stem":"题干","choices":["仅选择题的 4 个选项"],"answer":"参考答案","comment":"批注：评分要点 / 常见错误","points":5}]}`;
+  const user = `【学科】${String(subject).trim()}
+【年级】${GRADE_DESC(String(grade))}
+【知识点/主题】${String(topic).trim()}
+【题量】${n} 题`;
+
+  const out = await chatJson([
+    { role: 'system', content: sys },
+    { role: 'user', content: user },
+  ], { maxTokens: 4500 });
+  const rawQs = Array.isArray(out?.parsed?.questions) ? out.parsed.questions : [];
+  const questions = rawQs.slice(0, n).map((q, i) => {
+    const choices = Array.isArray(q?.choices) ? q.choices.map(c => String(c || '').trim()).filter(Boolean).slice(0, 4) : [];
+    const qtype = String(q?.qtype || (choices.length ? '选择题' : '简答题')).trim();
+    const pts = Number(q?.points);
+    return {
+      id: `ai-homework-${Date.now()}-${i}`,
+      subject: String(subject).trim(), grade: String(grade), qtype,
+      stem: String(q?.stem || '').trim(),
+      ...(choices.length ? { choices } : {}),
+      answer: String(q?.answer || '').trim(),
+      comment: String(q?.comment || '').trim(),
+      points: pts > 0 ? Math.min(20, pts) : 5,
+    };
+  }).filter(q => q.stem);
+  if (!questions.length) return res.status(502).json({ error: 'AI 返回解析失败，请重试' });
+
+  const cost = COSTS.homework;
+  const charged = await charge(req.teacherId, cost);
+  saveToolHistory(req.teacherId, 'homework', `${String(subject).trim()}·${String(topic).trim()}`, questions, cost,
+    { grade, difficulty, count: questions.length });
+  res.json({ questions, cost, credits: charged.credits, usage: out.result?.usage });
+}));
+
+/* ===== POST /api/ai/essay-comment  作文 / 作业评语（扣 2 算力） ===== */
+router.post('/essay-comment', ah(async (req, res) => {
+  const { text = '', tone = '温暖鼓励', title = '', focus = '' } = req.body || {};
+  const body = String(text).trim();
+  if (!body) return res.status(400).json({ error: '请粘贴作文或作业内容' });
+  if (body.length > 8000) return res.status(400).json({ error: '内容过长，请控制在 8000 字以内' });
+  const TONES = ['温暖鼓励', '严谨中肯', '幽默亲切', '简明扼要'];
+  const t = TONES.includes(String(tone)) ? String(tone) : TONES[0];
+  const sys = `你是${GRADE_DESC('7')}语文/学科教师，正在为学生作文或作业撰写评语。
+要求：
+- 语气：${t}；第二人称"你"，具体、有画面感，不说套话
+- 先肯定 2-3 个真实亮点（引用原文词句），再指出 2-3 个可改进点，给出可操作的修改方法
+- 总评 120-200 字；示范修改片段 60-120 字（针对最值得改的一处）
+- 严格返回 JSON，不要 markdown 包装，字符串内引用一律用「」
+
+JSON Schema：
+{"score": 0到100的整数, "grade": "A/B+/B/C 等第", "highlights": ["亮点"], "issues": ["问题与改进建议"], "comment": "总评", "rewrite": "示范修改片段"}`;
+  const user = `【题目/作业】${String(title).trim() || '未提供'}
+【重点关注】${String(focus).trim() || '无'}
+【原文】
+${body}`;
+
+  const out = await chatJson([
+    { role: 'system', content: sys },
+    { role: 'user', content: user },
+  ], { maxTokens: 2200 });
+  if (!out?.parsed) return res.status(502).json({ error: 'AI 返回解析失败，请重试' });
+  const p = out.parsed;
+  const score = Number(p.score);
+  const result = {
+    score: score >= 0 && score <= 100 ? Math.round(score) : null,
+    grade: String(p.grade || '').trim(),
+    highlights: strList(p.highlights, 6),
+    issues: strList(p.issues, 6),
+    comment: String(p.comment || '').trim(),
+    rewrite: String(p.rewrite || '').trim(),
+  };
+  if (!result.comment) return res.status(502).json({ error: 'AI 返回解析失败' });
+
+  const cost = COSTS.essaycomment;
+  const charged = await charge(req.teacherId, cost);
+  saveToolHistory(req.teacherId, 'essaycomment', `${String(title).trim() || '作文/作业'}·${t}`,
+    [{ text: body.slice(0, 4000), ...result }], cost, { count: 1 });
+  res.json({ result, cost, credits: charged.credits, usage: out.result?.usage });
+}));
+
+/* ===== POST /api/ai/material-search  备课资料库 AI 检索（扣 1 算力） ===== */
+router.post('/material-search', ah(async (req, res) => {
+  const { query = '', items = [] } = req.body || {};
+  const q = String(query).trim();
+  if (!q) return res.status(400).json({ error: '请输入检索关键词' });
+  const list = (Array.isArray(items) ? items : [])
+    .map(m => ({
+      id: m?.id,
+      title: String(m?.title || '').trim(),
+      type: String(m?.type || '').trim(),
+      course: String(m?.course_name || m?.course || '').trim(),
+      summary: String(m?.summary || '').trim().slice(0, 200),
+    }))
+    .filter(m => m.id && m.title).slice(0, 200);
+  if (!list.length) return res.status(400).json({ error: '资料库为空，请先上传资料' });
+
+  const sys = `你是备课资料库检索助手。用户会给出检索需求与资料清单（JSON），请从清单中挑出最相关的资料。
+要求：
+- 只能从给定清单里选择，id 必须原样返回，不得编造
+- 按相关度从高到低，最多 10 条；完全不相关的不要返回
+- 每条 reason 一句话说明与检索需求的关系（15-30 字）
+- 严格返回 JSON，不要 markdown 包装
+
+JSON Schema：{"items":[{"id":"资料 id","reason":"推荐理由"}]}`;
+  const user = `【检索需求】${q}\n【资料清单】\n${JSON.stringify(list)}`;
+
+  const out = await chatJson([
+    { role: 'system', content: sys },
+    { role: 'user', content: user },
+  ], { maxTokens: 1500 });
+  const valid = new Map(list.map(m => [String(m.id), m]));
+  const items2 = (Array.isArray(out?.parsed?.items) ? out.parsed.items : [])
+    .map(it => {
+      const m = valid.get(String(it?.id));
+      return m ? { ...m, reason: String(it?.reason || '').trim().slice(0, 120) } : null;
+    })
+    .filter(Boolean)
+    .slice(0, 10);
+  if (!out?.parsed) return res.status(502).json({ error: 'AI 返回解析失败，请重试' });
+
+  const cost = COSTS.material;
+  const charged = await charge(req.teacherId, cost);
+  saveToolHistory(req.teacherId, 'material', q, items2, cost, { count: items2.length || 1 });
+  res.json({ items: items2, cost, credits: charged.credits, usage: out.result?.usage });
 }));
 
 module.exports = router;

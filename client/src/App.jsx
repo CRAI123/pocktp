@@ -32,10 +32,13 @@ import Assignments from './pages/Assignments.jsx';
 import Grades from './pages/Grades.jsx';
 import Students from './pages/Students.jsx';
 import Attendance from './pages/Attendance.jsx';
+import Finance from './pages/Finance.jsx';
 import Notifications from './pages/Notifications.jsx';
 import Todos from './pages/Todos.jsx';
 import Comments from './pages/Comments.jsx';
 import AiWriter from './pages/AiWriter.jsx';
+import AiTools from './pages/AiTools.jsx';
+import Timetable from './pages/Timetable.jsx';
 import Journals from './pages/Journals.jsx';
 import Classroom from './pages/Classroom.jsx';
 import NotFound from './pages/NotFound.jsx';
@@ -153,10 +156,13 @@ export default function App() {
           <Route path="classes/new" element={<Classes />} />
           <Route path="classes/:id" element={<ClassDetail />} />
           <Route path="attendance" element={<Attendance />} />
+          <Route path="finance" element={<Finance />} />
           <Route path="notifications" element={<Notifications />} />
           <Route path="todos" element={<Todos />} />
           <Route path="comments" element={<Comments />} />
           <Route path="ai-writer" element={<AiWriter />} />
+          <Route path="ai-tools" element={<AiTools />} />
+          <Route path="timetable" element={<Timetable />} />
           <Route path="journals" element={<Journals />} />
           <Route path="classroom" element={<Classroom />} />
           <Route path="admin" element={<RequireAdmin />} />
