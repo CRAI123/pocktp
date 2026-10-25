@@ -14,7 +14,7 @@ import { isDesktopApp } from '../components/Layout.jsx';
 const EXE_URL = '/desktop/teacher-workbench-setup.exe';
 const EXE_NAME = '教师工作台-安装包.exe';
 const VERSION = 'v2.0.0';
-const SIZE = '约 47 MB';
+const SIZE = '约 55 MB';
 
 /* 干净承诺：安装与运行全程透明 */
 const CLEAN_PROMISES = [
