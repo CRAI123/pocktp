@@ -26,24 +26,27 @@ export default function PrivacyNotice() {
   return (
     <>
       <div className="fixed inset-x-3 bottom-3 z-40 mx-auto max-w-2xl sm:inset-x-6 sm:bottom-6">
-        <div className="card flex flex-col gap-3 border border-black/5 p-4 sm:flex-row sm:items-center sm:gap-4 sm:p-5">
-          <div className="brand-gradient flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-white shadow-md shadow-blue-500/20">
-            <ShieldCheck size={18} />
+        <div className="card flex items-center gap-2.5 border border-black/5 p-3 sm:flex-row sm:gap-4 sm:p-5">
+          <div className="brand-gradient grid h-8 w-8 shrink-0 place-items-center rounded-lg text-white shadow-md shadow-blue-500/20 sm:h-9 sm:w-9 sm:rounded-xl">
+            <ShieldCheck size={16} className="sm:hidden" />
+            <ShieldCheck size={18} className="hidden sm:block" />
           </div>
-          <p className="flex-1 text-xs leading-relaxed text-ink-secondary sm:text-sm">
-            我们使用浏览器本地存储（Cookie / LocalStorage）保存您的登录状态与使用偏好，
-            <b className="font-semibold text-ink">这些信息仅保存在您的设备上，不会上传云端</b>
-            ，也不使用任何第三方追踪或广告 Cookie。
+          <p className="min-w-0 flex-1 text-[11px] leading-snug text-ink-secondary sm:text-sm sm:leading-relaxed">
+            <span className="hidden sm:inline">我们使用浏览器本地存储（Cookie / LocalStorage）保存您的登录状态与使用偏好，</span>
+            <span className="sm:hidden">仅在您的设备本地保存，不上传云端。</span>
+            <b className="hidden font-semibold text-ink sm:inline">这些信息仅保存在您的设备上，不会上传云端</b>
+            <span className="hidden sm:inline">，也不使用任何第三方追踪或广告 Cookie。</span>
             <button
               type="button"
               onClick={() => setShowPolicy(true)}
-              className="ml-1 font-medium text-[#0071e3] transition hover:underline"
+              className="ml-0.5 font-medium text-[#0071e3] transition hover:underline sm:ml-1"
             >
-              查看隐私说明
+              <span className="hidden sm:inline">查看隐私说明</span>
+              <span className="sm:hidden">隐私说明</span>
             </button>
           </p>
           <div className="flex shrink-0 justify-end">
-            <Button onClick={accept}>我知道了</Button>
+            <Button onClick={accept} className="!px-3 !py-1.5 !text-[12px] sm:!px-4 sm:!py-2.5 sm:!text-sm">我知道了</Button>
           </div>
         </div>
       </div>
