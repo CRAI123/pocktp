@@ -1,11 +1,11 @@
 {
     "platforms":  {
                       "windows-x86_64":  {
-                                             "signature":  "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSaTlYdy8vcTFzV1RzM3FPSk1TSXo0OWtTaHluTkRLSzZMRk94MUVGUDZNM3FOZkVpRVVjemNtZmZvZmFqY3FaZ0xNM0l5TkZ0U1Nlc1BlS1MwM3haWVpJYWdSMWpaOXdVPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyOTA1MDYwCWZpbGU65pWZ5biI5bel5L2c5Y+wXzIuMC4wX3g2NC1zZXR1cC5leGUJdmVyc2lvbjoyLjAuMAord25pd1ozNjBDR3JmZnREdjYvRFJVOFhKekgrcHFSOWw5cDVzMG9GVkhjNjJHZUgyckx2WWptTitIVVZORDVEYXBWbkRvNGdQQXRYQkVDYjVxcWxCUT09Cg==",
+                                             "signature":  "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSaTlYdy8vcTFzV2VJUXJPMUpNSUNXNXZXb2szd3FGTi9mUW9CQWlaZ2dSOHVWMzYrME5Pc3d2UDB3TUV0WUZXQ3l0dDl2WHkzcHdsVnZBbzUra1ZpK3hnOG90ZUFzWEFVPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyOTE5NjY3CWZpbGU65pWZ5biI5bel5L2c5Y+wXzIuMC4xX3g2NC1zZXR1cC5leGUJdmVyc2lvbjoyLjAuMQpycXBBSDdtcmc4SkZoUExEMXN1V0lBTVo3d2FuTHo2L0dIODl1NzhqZ1FRUG9TUzFFV3JBdjRoTFhGVHVmb1Z2THptRjF2YTNhakpGT1c2VFpNU0FBQT09Cg==",
                                              "url":  "https://teach.rayzo.cn/desktop/teacher-workbench-setup.exe"
                                          }
                   },
-    "pub_date":  "2026-10-25T05:49:24Z",
-    "version":  "2.0.0",
-    "notes":  "2.0.0：系统托盘常驻、可选开机自启、完成通知、课堂小助手独立投屏/分屏、一键直出打印机"
+    "pub_date":  "2026-10-25T09:14:35Z",
+    "version":  "2.0.1",
+    "notes":  "2.0.1：全局界面视觉焕新、课时费权限由后台分配、通知与 AI 文案合并、课程表逐节自填作息、桌面端免密登录"
 }
