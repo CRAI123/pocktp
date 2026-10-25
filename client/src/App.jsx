@@ -83,7 +83,7 @@ export default function App() {
       .catch(() => {});
   }, []);
 
-  /* 桌面端检查更新：壳内 F5 热键 → 事件通知 → 打开应用内弹窗；
+  /* 桌面端检查更新：壳内 F5 热键 / 托盘「检查更新」→ 事件通知 → 打开应用内弹窗；
    * 网页端不注册，保持浏览器默认刷新 */
   useEffect(() => {
     if (!isDesktopApp()) return;
@@ -94,6 +94,15 @@ export default function App() {
       ?.listen?.('tw-update-check', () => setUpdateOpen(true))
       .then((u) => { unlisten = u; })
       .catch(() => {});
+
+    /* 启动自动检查：由网页在挂载后主动调用壳命令，避免壳端 4 秒后发的事件
+     * 早于远程页面注册监听而丢失；只有确实有新版本才自动弹窗 */
+    const timer = setTimeout(() => {
+      window.__TAURI__?.core?.invoke?.('check_update')
+        .then((r) => { if (r) setUpdateOpen(true); })
+        .catch(() => {});
+    }, 1200);
+
     const onKey = (e) => {
       if (e.key === 'F5') {
         e.preventDefault();
@@ -102,6 +111,7 @@ export default function App() {
     };
     window.addEventListener('keydown', onKey);
     return () => {
+      clearTimeout(timer);
       window.removeEventListener('keydown', onKey);
       unlisten?.();
     };
