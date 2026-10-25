@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Wand2, Copy, RefreshCw, MessageSquare, Newspaper } from 'lucide-react';
 import { ai, auth } from '../api.js';
 import { SectionHeader, Button, Badge } from '../components/ui.jsx';
+import { notifyDone } from '../desktop.js';
 
 const TYPES = [
   { key: 'notice', label: '家长通知', icon: MessageSquare, cost: 2, placeholder: '例：下周三下午三点开家长会，地点本班教室，请家长提前十分钟到场，带上笔记本', hint: '200-400 字，家长群直接发送' },
@@ -25,6 +26,7 @@ export default function AiWriter() {
     try {
       const d = await ai.write(tab, { points: points.trim() });
       setText(d.text);
+      notifyDone('AI 文案已生成', `${cur?.label || '文案'}已生成，可复制或导出`);
       if (d.credits != null && auth.teacher) auth.save(auth.token, { ...auth.teacher, credits: d.credits });
     } catch (e) {
       setError(e.message || '生成失败');

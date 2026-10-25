@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Sparkles, Loader2, Printer, Trash2, Plus, BookOpenCheck, CheckSquare, Eye, EyeOff, RotateCcw, TrendingUp } from 'lucide-react';
 import { SectionHeader, Button, Badge, Empty } from '../../components/ui.jsx';
 import { ai, auth } from '../../api.js';
+import { isDesktopApp, printSheets, notifyDone } from '../../desktop.js';
 
 const GRADES = [
   { v: '1', l: '一年级' }, { v: '2', l: '二年级' }, { v: '3', l: '三年级' },
@@ -63,6 +64,7 @@ export default function ClassroomPractice() {
   const [sel, setSel] = useState([]);
   const [showAns, setShowAns] = useState({});
   const [done, setDone] = useState(false);
+  const [printBusy, setPrintBusy] = useState(false);
 
   const total = items.reduce((s, i) => s + (i.qtype ? i.count : 0), 0);
   const gradeLabel = GRADES.find(g => g.v === form.grade)?.l || '';
@@ -115,6 +117,7 @@ export default function ClassroomPractice() {
       }
       setShowAns({});
       setDone(true);
+      notifyDone('课堂练习已生成', `《${form.topic}》共 ${done} 题，可直接打印`);
     } catch (e) {
       const msg = e.message || '生成失败';
       setErr(msg + (done > 0 ? `（第 ${curBatch}/${batches.length} 批中断，已生成 ${done} 题，可重新生成）` : ''));
@@ -126,6 +129,18 @@ export default function ClassroomPractice() {
 
   const reset = () => {
     setQuestions([]); setSel([]); setDraft(''); setDone(false); setErr(''); setWarn(''); setShowAns({});
+  };
+
+  /* 一键打印（桌面端）：直接送默认打印机，题目卷与答案卷各自成页 */
+  const printDirect = async () => {
+    if (printBusy || !sel.length) return;
+    try {
+      setPrintBusy(true);
+      const els = [...document.querySelectorAll('.print-only .print-sheet, .print-only .print-answer-page')];
+      await printSheets(els);
+    } catch (e) {
+      alert('打印失败：' + (e.message || '未知错误'));
+    } finally { setPrintBusy(false); }
   };
 
   return (
@@ -266,6 +281,12 @@ export default function ClassroomPractice() {
               <Button onClick={() => window.print()} disabled={!sel.length}>
                 <Printer size={15} /> 打印 / 导出 PDF（{sel.length} 题）
               </Button>
+              {isDesktopApp() && (
+                <Button onClick={printDirect} disabled={printBusy || !sel.length}>
+                  {printBusy ? <Loader2 size={15} className="animate-spin" /> : <Printer size={15} />}
+                  {printBusy ? '打印中' : '一键打印'}
+                </Button>
+              )}
             </div>
           </div>
           {questions.map((q, i) => (

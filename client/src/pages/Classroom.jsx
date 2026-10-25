@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { Dices, Timer, Zap, Volume2, Play, Pause, RotateCcw, Mic, MicOff, Plus, Minus, Users } from 'lucide-react';
+import { Dices, Timer, Zap, Volume2, Play, Pause, RotateCcw, Mic, MicOff, Plus, Minus, Users, MonitorUp, Columns2 } from 'lucide-react';
 import { api, todayStr } from '../api.js';
+import { isDesktopApp, openClassroomWindow } from '../desktop.js';
 
 /**
  * 课堂小助手（大屏深色风）：随机点名 / 倒计时 / 课堂加减分 / 分贝计
@@ -38,6 +39,20 @@ export default function Classroom() {
               {c.name}
             </button>
           ))}
+          {isDesktopApp() && (
+            <>
+              <button onClick={() => openClassroomWindow(false).catch(e => alert(e.message))}
+                title="在独立窗口打开大屏，可拖到投影仪"
+                className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3.5 py-1.5 text-sm font-medium text-white/80 transition hover:bg-white/20">
+                <MonitorUp size={15} /> 独立投屏
+              </button>
+              <button onClick={() => openClassroomWindow(true).catch(e => alert(e.message))}
+                title="主窗口与小助手左右各占半屏"
+                className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3.5 py-1.5 text-sm font-medium text-white/80 transition hover:bg-white/20">
+                <Columns2 size={15} /> 分屏并排
+              </button>
+            </>
+          )}
         </div>
       </div>
 

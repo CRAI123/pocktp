@@ -5,8 +5,9 @@
  *  - PDF：A4 分页题目卷 + 独立答案页
  */
 import { useEffect, useMemo, useState } from 'react';
-import { Sparkles, Loader2, Download, Eye, EyeOff, Wand2, TrendingUp, GraduationCap, CheckSquare, Square } from 'lucide-react';
+import { Sparkles, Loader2, Download, Eye, EyeOff, Wand2, TrendingUp, GraduationCap, CheckSquare, Square, Printer } from 'lucide-react';
 import { ai, auth } from '../../api.js';
+import { isDesktopApp, printSheets, notifyDone } from '../../desktop.js';
 import { Button, SectionHeader, Badge, inputCls } from '../../components/ui.jsx';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
@@ -140,6 +141,7 @@ export default function ComprehensiveExam() {
   const [regenBusy, setRegenBusy] = useState(null);
   const [regenErr, setRegenErr] = useState('');
   const [pdfBusy, setPdfBusy] = useState(false);
+  const [printBusy, setPrintBusy] = useState(false);
   /* 屏幕端学科页签：一科一个页面，切换查看，互不混杂 */
   const [activeSubj, setActiveSubj] = useState('chinese');
 
@@ -208,6 +210,7 @@ export default function ComprehensiveExam() {
       setExpanded({});
       setRegenFor(null);
       setSubjState(s => ({ ...s, [key]: { loading: false, err: '', done, progress: '' } }));
+      notifyDone('综合测试卷已生成', `${SUBJ_META[key]?.label || ''} ${done} 题已就绪，可勾选组卷`);
     } catch (e) {
       const msg = e.message || '生成失败';
       const suffix = done > 0
@@ -285,6 +288,17 @@ export default function ComprehensiveExam() {
       console.error(e);
       alert('PDF 生成失败：' + e.message);
     } finally { setPdfBusy(false); }
+  }
+
+  /* ---------- 一键打印：直出默认打印机，不弹预览（仅桌面端） ---------- */
+  async function printDirect() {
+    if (printBusy || !picked.length) return;
+    try {
+      setPrintBusy(true);
+      await printSheets([...document.querySelectorAll('.exam-page')]);
+    } catch (e) {
+      alert('打印失败：' + (e.message || '未知错误'));
+    } finally { setPrintBusy(false); }
   }
 
   /* ---------- 通用小控件（与 ExerciseConfig 同风格） ---------- */
@@ -606,6 +620,14 @@ export default function ComprehensiveExam() {
               <Square size={15} /><span className="hidden sm:inline">清空本科</span>
             </button>
             <span className="mx-1 h-5 w-px bg-black/10" />
+            {isDesktopApp() && (
+              <button onClick={printDirect} disabled={printBusy || !picked.length}
+                title="一键打印：直接发送到默认打印机，不弹预览"
+                className="flex h-9 items-center gap-1.5 rounded-full px-3 text-sm text-ink transition hover:bg-black/5 active:scale-90 disabled:opacity-60">
+                {printBusy ? <Loader2 size={15} className="animate-spin" /> : <Printer size={15} />}
+                <span className="hidden sm:inline">{printBusy ? '打印中' : '一键打印'}</span>
+              </button>
+            )}
             <button onClick={downloadPDF} disabled={pdfBusy || !picked.length}
               title="生成 PDF 打印版（A4 标准分页，语数英独立成部分，含答案页）"
               className="brand-gradient ml-1 flex h-9 items-center gap-1.5 rounded-full px-4 text-sm font-medium text-white shadow-lg shadow-blue-500/30 transition active:scale-90 disabled:opacity-60">

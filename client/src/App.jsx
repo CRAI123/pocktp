@@ -2,6 +2,7 @@ import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { auth, isMembershipActive } from './api.js';
 import Layout, { isDesktopApp, DesktopTitlebar } from './components/Layout.jsx';
+import { syncCloseToTray } from './desktop.js';
 import UpdateDialog from './components/UpdateDialog.jsx';
 import Login from './pages/Login.jsx';
 import Activate from './pages/Activate.jsx';
@@ -64,6 +65,8 @@ export default function App() {
    * 网页端不注册，保持浏览器默认刷新 */
   useEffect(() => {
     if (!isDesktopApp()) return;
+    /* 把用户偏好同步给壳：关闭窗口时是否最小化到托盘（默认直接退出） */
+    syncCloseToTray(localStorage.getItem('tw_close_tray') === '1');
     let unlisten;
     window.__TAURI__?.event
       ?.listen?.('tw-update-check', () => setUpdateOpen(true))
