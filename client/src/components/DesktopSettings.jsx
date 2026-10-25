@@ -36,7 +36,6 @@ export default function DesktopSettings({ onClose }) {
   const [auto, setAuto] = useState(false);
   const [autoBusy, setAutoBusy] = useState(false);
   const [toTray, setToTray] = useState(localStorage.getItem('tw_close_tray') === '1');
-  const [notify, setNotify] = useState(localStorage.getItem('tw_notify') !== '0');
 
   useEffect(() => {
     if (!isDesktopApp()) return;
@@ -56,11 +55,6 @@ export default function DesktopSettings({ onClose }) {
     syncCloseToTray(v);
   };
 
-  const changeNotify = (v) => {
-    setNotify(v);
-    localStorage.setItem('tw_notify', v ? '1' : '0');
-  };
-
   return (
     <Modal open onClose={onClose} title="桌面端设置" width="max-w-md">
       <div className="space-y-2.5">
@@ -70,8 +64,8 @@ export default function DesktopSettings({ onClose }) {
         <Row icon={PanelTopClose} title="关闭窗口时最小化到托盘" desc="关闭后不退出程序，点击托盘图标随时唤起；关闭则直接退出">
           <Toggle on={toTray} onChange={changeTray} />
         </Row>
-        <Row icon={Bell} title="系统通知" desc="AI 出卷/周报生成完成、上课前 10 / 5 分钟提醒均通过系统通知弹出">
-          <Toggle on={notify} onChange={changeNotify} />
+        <Row icon={Bell} title="系统通知" desc="AI 出卷/周报生成完成、上课前 10 / 5 分钟提醒均通过系统通知弹出（为保证提醒不遗漏，始终开启）">
+          <span className="rounded-full bg-[#28cd41]/10 px-2 py-0.5 text-[11px] font-medium text-[#1a7f2b]">始终开启</span>
         </Row>
       </div>
 

@@ -44,6 +44,7 @@ import Classroom from './pages/Classroom.jsx';
 import NotFound from './pages/NotFound.jsx';
 import Download from './pages/Download.jsx';
 import PrivacyNotice from './components/PrivacyNotice.jsx';
+import DesktopConsent from './components/DesktopConsent.jsx';
 
 /** 路由守卫：未登录跳 /login；未激活或会员到期跳 /activate 续费 */
 function RequireAuth() {
@@ -154,6 +155,8 @@ export default function App() {
       <div className={isDesktopApp() ? 'pt-9' : ''}>
       {/* Cookie / 隐私提示条：全站首访出现，同意状态仅存本地 */}
       <PrivacyNotice />
+      {/* 桌面端首次启动：右上角询问自启 / 关闭到托盘，系统通知默认开启 */}
+      {isDesktopApp() && <DesktopConsent />}
       <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/desktop-login" element={<DesktopLogin />} />
