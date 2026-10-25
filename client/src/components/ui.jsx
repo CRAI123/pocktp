@@ -1,38 +1,40 @@
 import { X, ShieldCheck, Inbox } from 'lucide-react';
 
-/** 统计卡片 */
+/** 统计卡片：眉标 + 大数字 + 右侧色调图标；悬停轻微上浮 */
 export function StatCard({ icon: Icon, label, value, hint, tone = 'blue' }) {
   const tones = {
-    blue: 'from-[#0071e3] to-[#00c6ff] shadow-[#0071e3]/30',
-    green: 'from-[#28cd41] to-[#34d058] shadow-[#28cd41]/30',
-    orange: 'from-[#ff9500] to-[#ffcc00] shadow-[#ff9500]/30',
-    purple: 'from-[#af52de] to-[#d783ff] shadow-[#af52de]/30',
+    blue: { chip: 'bg-[#0071e3]/10 text-[#0071e3]', ring: 'group-hover:border-[#0071e3]/25' },
+    green: { chip: 'bg-[#28cd41]/12 text-[#1a7f2b]', ring: 'group-hover:border-[#28cd41]/30' },
+    orange: { chip: 'bg-[#ff9500]/12 text-[#a85300]', ring: 'group-hover:border-[#ff9500]/30' },
+    purple: { chip: 'bg-[#af52de]/10 text-[#7b2f9e]', ring: 'group-hover:border-[#af52de]/25' },
   };
+  const t = tones[tone] || tones.blue;
   return (
-    <div className="card card-hover group flex items-center gap-3 p-4 sm:gap-4 sm:p-5">
-      <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br text-white shadow-lg transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-3 sm:h-12 sm:w-12 ${tones[tone]}`}>
-        <Icon size={20} />
+    <div className={`card group flex flex-col gap-2 p-4 transition hover:-translate-y-0.5 sm:p-5 ${t.ring}`}>
+      <div className="flex items-start justify-between gap-2">
+        <span className="eyebrow truncate">{label}</span>
+        <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl transition-transform duration-300 group-hover:scale-105 ${t.chip}`}>
+          <Icon size={17} />
+        </span>
       </div>
-      <div className="min-w-0">
-        <div className="text-xl font-bold tracking-tight tabular-nums sm:text-[26px] sm:leading-8">{value}</div>
-        <div className="truncate text-xs text-ink-secondary sm:text-sm">{label}{hint ? ` · ${hint}` : ''}</div>
-      </div>
+      <div className="num text-[26px] font-semibold leading-none text-ink sm:text-[30px]">{value}</div>
+      {hint && <div className="truncate text-[11px] text-ink-secondary/75">{hint}</div>}
     </div>
   );
 }
 
-/** 区块标题：渐变强调条 + 大标题 */
+/** 区块标题：品牌圆点 + 紧凑大标题 + 说明 */
 export function SectionHeader({ title, desc, action }) {
   return (
-    <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
-      <div className="flex items-start gap-3">
-        <span className="brand-gradient mt-1.5 h-7 w-1.5 shrink-0 rounded-full sm:mt-2 sm:h-8" />
-        <div>
-          <h2 className="text-[22px] font-bold tracking-tight sm:text-[26px]">{title}</h2>
-          {desc && <p className="mt-0.5 text-sm text-ink-secondary">{desc}</p>}
+    <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+      <div className="min-w-0">
+        <div className="flex items-center gap-2.5">
+          <span className="brand-gradient h-2 w-2 shrink-0 rounded-full shadow-[0_0_0_4px_rgba(0,113,227,0.08)]" />
+          <h2 className="display truncate text-[24px] font-semibold text-ink sm:text-[28px]">{title}</h2>
         </div>
+        {desc && <p className="mt-1.5 max-w-3xl text-[13px] leading-relaxed text-ink-secondary sm:text-sm">{desc}</p>}
       </div>
-      {action}
+      {action && <div className="shrink-0">{action}</div>}
     </div>
   );
 }
@@ -40,12 +42,12 @@ export function SectionHeader({ title, desc, action }) {
 /** 主按钮 / 次按钮 */
 export function Button({ children, variant = 'primary', className = '', ...props }) {
   const styles = {
-    primary: 'brand-gradient text-white shadow-lg shadow-[#0071e3]/25 hover:shadow-xl hover:shadow-[#0071e3]/30 hover:brightness-105',
-    secondary: 'bg-black/[0.05] text-ink hover:bg-black/[0.08]',
-    danger: 'bg-[#ff3b30]/10 text-[#ff3b30] hover:bg-[#ff3b30]/15',
+    primary: 'brand-gradient text-white shadow-[0_10px_24px_-12px_rgba(0,113,227,0.60)] hover:brightness-[1.06]',
+    secondary: 'border border-black/[0.08] bg-white/75 text-ink shadow-sm hover:border-black/[0.14] hover:bg-white',
+    danger: 'border border-[#ff3b30]/15 bg-[#ff3b30]/10 text-[#d70015] hover:bg-[#ff3b30]/15',
   };
   return (
-    <button {...props} className={`btn-pill inline-flex items-center gap-2 px-4 py-2 text-sm font-medium disabled:opacity-50 ${styles[variant]} ${className}`}>
+    <button {...props} className={`btn-pill inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold disabled:pointer-events-none disabled:opacity-50 ${styles[variant]} ${className}`}>
       {children}
     </button>
   );
@@ -54,27 +56,30 @@ export function Button({ children, variant = 'primary', className = '', ...props
 /** 标签 */
 export function Badge({ children, tone = 'gray' }) {
   const tones = {
-    gray: 'bg-black/[0.05] text-ink-secondary',
-    blue: 'bg-[#0071e3]/10 text-[#0071e3]',
-    green: 'bg-[#28cd41]/12 text-[#1fa733]',
-    orange: 'bg-[#ff9500]/12 text-[#c93400]',
-    red: 'bg-[#ff3b30]/10 text-[#ff3b30]',
-    purple: 'bg-[#af52de]/10 text-[#af52de]',
+    gray: 'bg-black/[0.045] text-ink-secondary ring-black/[0.06]',
+    blue: 'bg-[#0071e3]/10 text-[#0059b3] ring-[#0071e3]/15',
+    green: 'bg-[#28cd41]/12 text-[#1a7f2b] ring-[#28cd41]/20',
+    orange: 'bg-[#ff9500]/12 text-[#a85300] ring-[#ff9500]/20',
+    red: 'bg-[#ff3b30]/10 text-[#b3251c] ring-[#ff3b30]/15',
+    purple: 'bg-[#af52de]/10 text-[#7b2f9e] ring-[#af52de]/15',
   };
-  return <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${tones[tone]}`}>{children}</span>;
+  return <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset ${tones[tone] || tones.gray}`}>{children}</span>;
 }
 
-/** 弹窗：遮罩淡入 + 面板缩放上浮 */
+/** 弹窗：遮罩淡入 + 面板缩放上浮；窄屏从底部弹出更顺手 */
 export function Modal({ open, onClose, title, children, width = 'max-w-lg' }) {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="fade-in absolute inset-0 bg-[#1d1d1f]/35 backdrop-blur-md" onClick={onClose} />
-      <div className={`modal-in card relative w-full ${width} max-h-[85vh] overflow-y-auto p-6`}>
-        <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-lg font-bold tracking-tight">{title}</h3>
-          <button onClick={onClose} className="btn-pill p-1.5 text-ink-secondary hover:bg-black/5"><X size={18} /></button>
+    <div className="fixed inset-0 z-50 flex items-end justify-center p-3 sm:items-center sm:p-4">
+      <div className="fade-in absolute inset-0 bg-[#12141a]/40 backdrop-blur-md" onClick={onClose} />
+      <div className={`modal-in card relative w-full ${width} max-h-[88vh] overflow-y-auto p-5 sm:p-6`}>
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <h3 className="display text-lg font-semibold tracking-tight text-ink">{title}</h3>
+          <button onClick={onClose} aria-label="关闭" className="btn-pill -mr-1 grid h-8 w-8 shrink-0 place-items-center text-ink-secondary transition hover:bg-black/[0.06] hover:text-ink">
+            <X size={17} />
+          </button>
         </div>
+        <div className="hairline mb-5" />
         {children}
       </div>
     </div>
@@ -85,25 +90,26 @@ export function Modal({ open, onClose, title, children, width = 'max-w-lg' }) {
 export function Field({ label, children }) {
   return (
     <label className="block">
-      <span className="mb-1.5 block text-sm font-medium text-ink-secondary">{label}</span>
+      <span className="mb-1.5 block text-[13px] font-medium text-ink-secondary">{label}</span>
       {children}
     </label>
   );
 }
 
 export const inputCls =
-  'w-full rounded-xl border border-black/10 bg-bg-light px-3.5 py-2.5 text-sm outline-none transition focus:border-[#0071e3] focus:bg-white focus:ring-2 focus:ring-[#0071e3]/15';
+  'w-full rounded-xl border border-black/[0.09] bg-white px-3.5 py-2.5 text-sm text-ink shadow-[inset_0_1px_2px_rgba(16,24,40,0.04)] outline-none transition placeholder:text-ink-secondary/50 hover:border-black/20 focus:border-[#0071e3] focus:ring-4 focus:ring-[#0071e3]/10';
 
 /** 空状态：图标 + 标题 + 可选描述与引导按钮 */
 export function Empty({ icon: Icon = Inbox, text = '暂无数据', desc, action }) {
   return (
-    <div className="card flex flex-col items-center justify-center gap-3 p-10 text-center">
-      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-black/[0.04] text-ink-secondary/50">
+    <div className="card flex flex-col items-center justify-center gap-4 p-10 text-center">
+      <div className="relative grid h-16 w-16 place-items-center rounded-2xl bg-black/[0.03] text-ink-secondary/60 ring-1 ring-inset ring-black/[0.05]">
+        <span className="brand-gradient absolute inset-x-4 bottom-0 h-px opacity-40" />
         <Icon size={26} />
       </div>
       <div>
-        <div className="text-sm font-medium text-ink">{text}</div>
-        {desc && <div className="mt-1 text-xs leading-relaxed text-ink-secondary">{desc}</div>}
+        <div className="text-sm font-semibold text-ink">{text}</div>
+        {desc && <div className="mx-auto mt-1.5 max-w-sm text-xs leading-relaxed text-ink-secondary">{desc}</div>}
       </div>
       {action}
     </div>

@@ -485,9 +485,11 @@ ALTER TABLE students ADD COLUMN IF NOT EXISTS fee REAL DEFAULT 0;               
 ALTER TABLE students ADD COLUMN IF NOT EXISTS destination TEXT DEFAULT '';        -- 毕业去向说明
 ALTER TABLE teachers ADD COLUMN IF NOT EXISTS ai_enabled INTEGER NOT NULL DEFAULT 1; -- AI 功能开关（0=关闭）
 ALTER TABLE teachers ADD COLUMN IF NOT EXISTS ai_model TEXT DEFAULT '';             -- 自选主模型（空=服务端默认）
+ALTER TABLE teachers ADD COLUMN IF NOT EXISTS finance_enabled INTEGER NOT NULL DEFAULT 0; -- 课时费与工作量功能（默认关闭，由管理员分配）
 ALTER TABLE notifications ADD COLUMN IF NOT EXISTS status TEXT DEFAULT '待发送';    -- 待发送/已发送
 ALTER TABLE notifications ADD COLUMN IF NOT EXISTS sent_at TEXT;                    -- 标记已发送的时间
 ALTER TABLE timetables ADD COLUMN IF NOT EXISTS is_mine INTEGER NOT NULL DEFAULT 0;  -- 1=我的课（教师课表 / 上课提醒）
+ALTER TABLE timetable_settings ADD COLUMN IF NOT EXISTS slots TEXT DEFAULT '';       -- 逐节作息时间 JSON：[{period,start,end}]（各校作息不同，由老师自填）
 CREATE UNIQUE INDEX IF NOT EXISTS idx_teachers_phone ON teachers(phone);
 `);
 

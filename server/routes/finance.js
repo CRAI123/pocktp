@@ -4,11 +4,15 @@
  */
 const express = require('express');
 const db = require('../db');
-const { own } = require('../auth');
+const { own, financeRequired } = require('../auth');
 const { ah } = require('../util');
 
 const router = express.Router();
 const MONTH_RE = /^\d{4}-\d{2}$/;
+
+/* 功能权限：课时费与工作量默认关闭，由管理员在后台分配后才能访问
+ * 限定在 /lesson-logs 路径上，避免影响同挂载点下的其他业务路由 */
+router.use('/lesson-logs', financeRequired);
 
 /* 课时记录列表 + 本月汇总（按班级分组）+ 近 12 月趋势；month=all 时返回全部记录（供台账导出） */
 router.get('/lesson-logs', ah(async (req, res) => {

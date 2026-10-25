@@ -2,11 +2,11 @@ import { NavLink, Link, Outlet, useLocation, useNavigate } from 'react-router-do
 import {
   LayoutDashboard, BookOpen, FolderOpen, ClipboardList, LineChart, Sparkles,
   Users, CalendarCheck, MessageSquare, ListTodo, Menu, LogOut, ShieldCheck, Zap,
-  MonitorPlay, PenLine, Wand2, BookText, MonitorDown, Minus, Square, X, Settings, Wallet,
-  Bot, CalendarDays,
+  MonitorPlay, PenLine, BookText, MonitorDown, Minus, Square, X, Settings, Wallet,
+  Bot, CalendarDays, ChevronRight,
 } from 'lucide-react';
 import { useState } from 'react';
-import { auth, isMembershipActive } from '../api.js';
+import { auth, isMembershipActive, canUseFinance } from '../api.js';
 import { isDesktopApp } from '../desktop.js';
 import DesktopSettings from './DesktopSettings.jsx';
 import LessonReminders from './LessonReminders.jsx';
@@ -70,7 +70,6 @@ const NAV = [
   { group: '班主任工具' },
   { to: '/classroom', label: '课堂小助手', icon: MonitorPlay },
   { to: '/comments', label: 'AI 期末评语', icon: PenLine },
-  { to: '/ai-writer', label: 'AI 文案助手', icon: Wand2 },
   { to: '/ai-tools', label: 'AI 工具', icon: Bot },
   { to: '/journals', label: '班主任周记', icon: BookText },
 ];
@@ -95,9 +94,9 @@ const TITLES = {
   '/students': '班级成员管理', '/attendance': '考勤记录管理',
   '/finance': '课时费与工作量',
   '/classes': '班级管理', '/classes/new': '新建班级',
-  '/notifications': '微信消息通知', '/todos': '班级事务待办',
+  '/notifications': '消息通知', '/todos': '班级事务待办',
   '/classroom': '课堂小助手', '/comments': 'AI 期末评语',
-  '/ai-writer': 'AI 文案助手', '/ai-tools': 'AI 工具', '/journals': '班主任周记',
+  '/ai-tools': 'AI 工具', '/journals': '班主任周记',
   '/timetable': '课程表',
   '/admin': '管理后台',
 };
@@ -133,48 +132,53 @@ export default function Layout() {
   const sidebar = (
     <div className="flex h-full flex-col">
       {/* 品牌区：官网 LOGO + 产品名 + slogan */}
-      <NavLink to="/" className="flex items-center gap-3 px-6 pt-7 pb-6" onClick={() => setOpen(false)}>
-        <img src="/rayzo-logo.png" alt="教师工作台 LOGO" className="brand-logo h-12 w-12 rounded-full" />
-        <div>
-          <div className="text-[15px] font-semibold tracking-tight text-ink">教师工作台</div>
-          <div className="text-xs text-ink-secondary">连接创意与未来教育</div>
+      <NavLink to="/" className="flex items-center gap-3 px-6 pb-7 pt-7" onClick={() => setOpen(false)}>
+        <img src="/rayzo-logo.png" alt="教师工作台 LOGO" className="brand-logo h-11 w-11 rounded-full" />
+        <div className="min-w-0">
+          <div className="display truncate text-[16px] font-semibold tracking-tight text-ink">教师工作台</div>
+          <div className="truncate text-[11px] tracking-wide text-ink-secondary">连接创意与未来教育</div>
         </div>
       </NavLink>
 
       {/* 导航 */}
-      <nav className="flex-1 space-y-1 overflow-y-auto px-3 pb-6">
+      <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 pb-4">
         <NavLink
           to="/" end onClick={() => setOpen(false)}
           className={({ isActive }) => linkCls(isActive)}
         >
-          <LayoutDashboard size={18} /> 工作台总览
+          <LayoutDashboard size={18} className="shrink-0" /> 工作台总览
         </NavLink>
-        {NAV.map((item, i) =>
-          item.group ? (
-            <div key={i} className="px-3 pt-5 pb-1 text-xs font-semibold tracking-widest text-ink-secondary/70">
-              {item.group}
-            </div>
-          ) : (
+        {NAV.map((item, i) => {
+          if (item.group) {
+            return (
+              <div key={i} className="px-3 pb-1.5 pt-6 eyebrow">
+                {item.group}
+              </div>
+            );
+          }
+          /* 课时费与工作量默认不开放，由管理员在后台按教师分配 */
+          if (item.to === '/finance' && !canUseFinance(teacher)) return null;
+          return (
             <NavLink
               key={item.to} to={item.to} onClick={() => setOpen(false)}
               className={({ isActive }) => linkCls(isActive)}
             >
-              <item.icon size={18} /> {item.label}
+              <item.icon size={18} className="shrink-0" /> {item.label}
             </NavLink>
-          )
-        )}
+          );
+        })}
         {teacher?.is_admin && (
           <>
-            <div className="px-3 pt-5 pb-1 text-xs font-semibold tracking-widest text-ink-secondary/70">系统</div>
+            <div className="px-3 pb-1.5 pt-6 eyebrow">系统</div>
             <NavLink to="/admin" onClick={() => setOpen(false)} className={({ isActive }) => linkCls(isActive)}>
-              <ShieldCheck size={18} /> 管理后台
+              <ShieldCheck size={18} className="shrink-0" /> 管理后台
             </NavLink>
           </>
         )}
       </nav>
 
-      <div className="mx-4 mb-6 rounded-2xl bg-bg-light p-4 text-xs leading-relaxed text-ink-secondary">
-        <span className="brand-gradient-text font-semibold">教学·班务一体化</span>
+      <div className="mx-4 mb-4 rounded-2xl border border-black/[0.05] bg-white/60 px-4 py-3.5 text-[11px] leading-relaxed text-ink-secondary">
+        <span className="brand-gradient-text font-semibold">教学 · 班务一体化</span>
         <br />面向一线教师的日常工作平台
       </div>
 
@@ -182,7 +186,7 @@ export default function Layout() {
       {!isDesktopApp() && (
         <Link
           to="/download"
-          className="group relative mx-4 mb-6 block overflow-hidden rounded-2xl bg-gradient-to-r from-[#0071e3] to-[#0a84ff] px-4 py-3.5 text-white shadow-[0_10px_24px_-10px_rgba(0,113,227,0.55)] transition hover:brightness-105"
+          className="group relative mx-4 mb-6 block overflow-hidden rounded-2xl bg-gradient-to-br from-[#0071e3] to-[#0a84ff] px-4 py-3.5 text-white shadow-[0_12px_28px_-14px_rgba(0,113,227,0.65)] transition hover:brightness-105"
         >
           <span className="absolute -right-4 -top-6 h-20 w-20 rounded-full bg-white/15 blur-md transition group-hover:scale-125" />
           <span className="relative flex items-center justify-center gap-2 text-sm font-semibold tracking-wide">
@@ -199,44 +203,49 @@ export default function Layout() {
   return (
     <div className="flex min-h-screen">
       {/* 桌面侧边栏：玻璃质感，透出氛围背景 */}
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 border-r border-black/5 bg-white/70 backdrop-blur-2xl lg:block">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-[248px] border-r border-black/[0.055] bg-white/72 backdrop-blur-2xl lg:block">
         {sidebar}
       </aside>
 
       {/* 移动端抽屉 */}
       {open && (
         <div className="fixed inset-0 z-40 lg:hidden">
-          <div className="absolute inset-0 bg-black/30" onClick={() => setOpen(false)} />
-          <aside className="absolute inset-y-0 left-0 w-64 bg-white shadow-2xl">{sidebar}</aside>
+          <div className="absolute inset-0 bg-[#12141a]/35 backdrop-blur-sm" onClick={() => setOpen(false)} />
+          <aside className="absolute inset-y-0 left-0 w-[272px] bg-white shadow-2xl">{sidebar}</aside>
         </div>
       )}
 
       {/* 主区域 */}
-      <div className="flex min-h-screen flex-1 flex-col lg:pl-60">
+      <div className="flex min-h-screen flex-1 flex-col lg:pl-[248px]">
         <header className={`glass sticky ${isDesktopApp() ? 'top-9' : 'top-0'} z-20 flex h-16 items-center gap-3 px-4 sm:px-8`}>
-          {/* 官网 LOGO + 品牌名 + slogan（窄屏仅显示 LOGO） */}
-          <Link to="/" className="flex items-center gap-2.5" title="教师工作台 · 连接创意与未来教育">
-            <img src="/rayzo-logo.png" alt="教师工作台 LOGO" className="brand-logo h-10 w-10 rounded-full" />
+          {/* 窄屏显示品牌，宽屏显示面包屑 + 页面标题 */}
+          <Link to="/" className="flex items-center gap-2.5 lg:hidden" title="教师工作台 · 连接创意与未来教育">
+            <img src="/rayzo-logo.png" alt="教师工作台 LOGO" className="brand-logo h-9 w-9 rounded-full" />
             <span className="hidden flex-col leading-tight sm:flex">
-              <span className="text-[15px] font-semibold tracking-tight text-ink">教师工作台</span>
+              <span className="display text-[15px] font-semibold tracking-tight text-ink">教师工作台</span>
               <span className="text-[11px] tracking-wide text-ink-secondary">连接创意与未来教育</span>
             </span>
           </Link>
 
-          {/* 品牌区与页面标题的分隔线 */}
-          <div className="mx-1 hidden h-6 w-px bg-black/10 md:block" />
-
-          <h1 className="truncate text-lg font-semibold tracking-tight">
+          <div className="hidden min-w-0 items-center gap-2 lg:flex">
+            <span className="shrink-0 text-xs font-medium text-ink-secondary">工作台</span>
+            <ChevronRight size={13} className="shrink-0 text-ink-secondary/40" />
+            <h1 className="display truncate text-[17px] font-semibold text-ink">
+              {TITLES[pathname] || (pathname.startsWith('/classes/') ? '班级管理' : '教师工作台')}
+            </h1>
+          </div>
+          <h1 className="display truncate text-[16px] font-semibold text-ink lg:hidden">
             {TITLES[pathname] || (pathname.startsWith('/classes/') ? '班级管理' : '教师工作台')}
           </h1>
+
           <div className="ml-auto flex items-center gap-3">
             {teacher && !teacher.is_admin && (
               <span
                 title={teacher.membership_expires_at ? `会员有效期至 ${teacher.membership_expires_at}` : '永久会员'}
-                className={`hidden items-center gap-1 rounded-full px-3 py-1 text-xs font-medium sm:inline-flex ${
+                className={`hidden items-center gap-1 rounded-full px-3 py-1 text-[11px] font-medium ring-1 ring-inset sm:inline-flex ${
                   isMembershipActive(teacher)
-                    ? 'bg-[#28cd41]/10 text-[#1f9e33]'
-                    : 'bg-[#ff3b30]/10 text-[#ff3b30]'
+                    ? 'bg-[#28cd41]/10 text-[#1a7f2b] ring-[#28cd41]/20'
+                    : 'bg-[#ff3b30]/10 text-[#b3251c] ring-[#ff3b30]/20'
                 }`}
               >
                 {teacher.membership_expires_at
@@ -246,26 +255,28 @@ export default function Layout() {
             )}
             <Link to="/renew" onClick={() => setOpen(false)}
               title="算力余额：点击前往续费"
-              className="hidden items-center gap-1 rounded-full bg-[#ff9500]/10 px-3 py-1 text-xs font-medium text-[#ff9500] transition hover:bg-[#ff9500]/20 hover:text-[#ff7b00] sm:inline-flex">
+              className="hidden items-center gap-1 rounded-full bg-[#ff9500]/10 px-3 py-1 text-[11px] font-medium text-[#a85300] ring-1 ring-inset ring-[#ff9500]/20 transition hover:bg-[#ff9500]/15 sm:inline-flex">
               <Zap size={12} />{teacher?.credits ?? 0} 算力
             </Link>
-            <span className="hidden rounded-full bg-black/[0.04] px-3 py-1 text-xs text-ink-secondary sm:block">2026 春季学期</span>
-            <span className="hidden text-sm font-medium sm:block">{teacher?.name || '教师'}</span>
-            <div className="brand-gradient flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold text-white">
-              {(teacher?.name || '师')[0]}
+            <span className="hidden rounded-full bg-black/[0.035] px-3 py-1 text-[11px] text-ink-secondary ring-1 ring-inset ring-black/[0.05] xl:inline-block">2026 春季学期</span>
+            <span className="hidden text-[13px] font-medium text-ink sm:block">{teacher?.name || '教师'}</span>
+            <div className="brand-gradient grid h-9 w-9 place-items-center rounded-full p-[2px] shadow-[0_4px_12px_-6px_rgba(0,113,227,0.6)]">
+              <span className="grid h-full w-full place-items-center rounded-full bg-white/95 text-[13px] font-semibold text-ink">
+                {(teacher?.name || '师')[0]}
+              </span>
             </div>
             <button
               onClick={logout}
               title="退出登录"
-              className="btn-pill p-2 text-ink-secondary transition hover:bg-[#ff3b30]/10 hover:text-[#ff3b30]"
+              className="btn-pill -mr-1 p-2 text-ink-secondary transition hover:bg-[#ff3b30]/10 hover:text-[#d70015]"
             >
-              <LogOut size={18} />
+              <LogOut size={17} />
             </button>
           </div>
         </header>
 
         <main className="flex-1 px-4 py-6 sm:px-8 sm:py-8">
-          <div key={pathname} className="page-enter">
+          <div key={pathname} className="page-enter mx-auto w-full max-w-[1400px]">
             <Outlet />
           </div>
         </main>
@@ -297,14 +308,14 @@ export default function Layout() {
 
       {/* 移动端底部悬浮 Dock（lg 以上由侧边栏接管） */}
       <nav
-        className="fixed inset-x-3 bottom-3 z-30 flex items-center rounded-full border border-black/[0.06] bg-white/80 p-1.5 shadow-[0_8px_32px_rgba(0,0,0,0.12)] backdrop-blur-2xl lg:hidden"
+        className="fixed inset-x-3 bottom-3 z-30 flex items-center rounded-full border border-black/[0.07] bg-white/85 p-1.5 shadow-[0_12px_36px_-12px_rgba(16,24,40,0.35)] backdrop-blur-2xl lg:hidden"
         style={{ marginBottom: 'env(safe-area-inset-bottom)' }}
       >
         {TABS.map(t => (
           <NavLink
             key={t.to} to={t.to} end={t.exact}
-            className={({ isActive }) => `flex flex-1 flex-col items-center gap-0.5 rounded-full py-1.5 text-[10px] font-medium transition-all ${
-              isActive ? 'brand-gradient text-white shadow-md shadow-[#0071e3]/30' : 'text-ink-secondary'
+            className={({ isActive }) => `flex flex-1 flex-col items-center gap-0.5 rounded-full py-1.5 text-[10px] font-semibold transition-all ${
+              isActive ? 'bg-[#0071e3]/10 text-[#0071e3]' : 'text-ink-secondary'
             }`}
           >
             <t.icon size={20} />
@@ -313,7 +324,7 @@ export default function Layout() {
         ))}
         <button
           onClick={() => setOpen(true)}
-          className="flex flex-1 flex-col items-center gap-0.5 rounded-full py-1.5 text-[10px] font-medium text-ink-secondary transition"
+          className="flex flex-1 flex-col items-center gap-0.5 rounded-full py-1.5 text-[10px] font-semibold text-ink-secondary transition"
         >
           <Menu size={20} />
           更多
@@ -324,9 +335,9 @@ export default function Layout() {
 }
 
 function linkCls(isActive) {
-  return `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all ${
+  return `group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13.5px] font-medium transition-all ${
     isActive
-      ? 'brand-gradient text-white shadow-lg shadow-[#0071e3]/25 scale-[1.02]'
-      : 'text-ink-secondary hover:bg-black/[0.04] hover:text-ink hover:translate-x-0.5'
+      ? 'nav-active bg-white text-ink shadow-[0_1px_2px_rgba(16,24,40,0.05),0_10px_24px_-18px_rgba(16,24,40,0.45)] ring-1 ring-inset ring-black/[0.05]'
+      : 'text-ink-secondary hover:bg-black/[0.035] hover:text-ink'
   }`;
 }

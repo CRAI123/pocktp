@@ -106,7 +106,7 @@ router.post('/codes/:id/revoke', ah(async (req, res) => {
 /* 教师用户列表 */
 router.get('/teachers', ah(async (req, res) => {
   const list = await db.all(`
-    SELECT t.id, t.name, t.phone, t.activated, t.is_admin, t.credits, t.membership_expires_at, t.activated_at, t.created_at,
+    SELECT t.id, t.name, t.phone, t.activated, t.is_admin, t.finance_enabled, t.credits, t.membership_expires_at, t.activated_at, t.created_at,
       (SELECT COUNT(*) FROM classes c WHERE c.teacher_id = t.id) AS classes,
       (SELECT COUNT(*) FROM students s JOIN classes c ON c.id = s.class_id WHERE c.teacher_id = t.id) AS students,
       (SELECT COUNT(*) FROM activation_codes ac WHERE ac.used_by = t.id) AS used_count,
@@ -114,7 +114,17 @@ router.get('/teachers', ah(async (req, res) => {
          ORDER BY ac.used_at DESC NULLS LAST, ac.id DESC LIMIT 1) AS used_code
     FROM teachers t ORDER BY t.id DESC LIMIT 500
   `);
-  res.json(list.map(t => ({ ...t, activated: !!t.activated, is_admin: !!t.is_admin })));
+  res.json(list.map(t => ({ ...t, activated: !!t.activated, is_admin: !!t.is_admin, finance_enabled: !!t.finance_enabled })));
+}));
+
+/* 功能权限分配：课时费与工作量（默认关闭，按教师开启/关闭） */
+router.post('/teachers/:id/finance', ah(async (req, res) => {
+  const t = await db.get('SELECT id FROM teachers WHERE id = ?', [req.params.id]);
+  if (!t) return res.status(404).json({ error: '用户不存在' });
+  const enabled = req.body?.enabled === true || req.body?.enabled === 1 || req.body?.enabled === '1';
+  await db.run('UPDATE teachers SET finance_enabled = ? WHERE id = ?', [enabled ? 1 : 0, t.id]);
+  try { require('../auth').invalidateFeatures(t.id); } catch (_) {}
+  res.json({ ok: true, finance_enabled: enabled });
 }));
 
 /* 本地日期工具（与 activation.js 同语义：YYYY-MM-DD 本地时区） */

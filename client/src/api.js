@@ -2,19 +2,47 @@
 const BASE = '/api';
 const TOKEN_KEY = 'tw_token';
 const TEACHER_KEY = 'tw_teacher';
+const REMEMBER_KEY = 'tw_remember';
+const LAST_PHONE_KEY = 'tw_last_phone';
+
+/* 勾选「记住登录」→ localStorage（关掉应用仍保留）；否则仅 sessionStorage */
+const store = {
+  get(k) {
+    try { return sessionStorage.getItem(k) ?? localStorage.getItem(k); } catch { return localStorage.getItem(k); }
+  },
+  set(k, v, persist) {
+    const keep = persist ? localStorage : sessionStorage;
+    const drop = persist ? sessionStorage : localStorage;
+    try { keep.setItem(k, v); drop.removeItem(k); } catch { try { localStorage.setItem(k, v); } catch {} }
+  },
+  del(k) {
+    try { localStorage.removeItem(k); } catch {}
+    try { sessionStorage.removeItem(k); } catch {}
+  },
+};
 
 export const auth = {
-  get token() { return localStorage.getItem(TOKEN_KEY); },
+  get token() { return store.get(TOKEN_KEY); },
   get teacher() {
-    try { return JSON.parse(localStorage.getItem(TEACHER_KEY)); } catch { return null; }
+    try { return JSON.parse(store.get(TEACHER_KEY)); } catch { return null; }
   },
-  save(token, teacher) {
-    localStorage.setItem(TOKEN_KEY, token);
-    localStorage.setItem(TEACHER_KEY, JSON.stringify(teacher));
+  /** 是否「记住登录」（下次打开免密进入） */
+  get remember() {
+    try { return localStorage.getItem(REMEMBER_KEY) !== '0'; } catch { return true; }
+  },
+  /** 上次登录的手机号，用于登录页预填 */
+  get lastPhone() {
+    try { return localStorage.getItem(LAST_PHONE_KEY) || ''; } catch { return ''; }
+  },
+  save(token, teacher, remember = auth.remember) {
+    try { localStorage.setItem(REMEMBER_KEY, remember ? '1' : '0'); } catch {}
+    store.set(TOKEN_KEY, token, remember);
+    store.set(TEACHER_KEY, JSON.stringify(teacher), remember);
+    if (teacher?.phone) { try { localStorage.setItem(LAST_PHONE_KEY, teacher.phone); } catch {} }
   },
   clear() {
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem(TEACHER_KEY);
+    store.del(TOKEN_KEY);
+    store.del(TEACHER_KEY);
   },
 };
 
@@ -30,6 +58,11 @@ export function isMembershipActive(t = auth.teacher) {
   if (t.is_admin) return true;
   if (!t.activated) return false; // 未激活账号不算有效会员
   return !t.membership_expires_at || t.membership_expires_at >= todayStr();
+}
+
+/** 课时费与工作量：默认不开放，由管理员在后台按教师分配（管理员可用） */
+export function canUseFinance(t = auth.teacher) {
+  return !!t && (!!t.finance_enabled || !!t.is_admin);
 }
 
 async function request(path, options = {}) {
