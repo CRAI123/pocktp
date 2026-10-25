@@ -189,49 +189,55 @@ authRouter.post('/refresh', authRequired, (req, res) => {
 
 /* ---------- 桌面端浏览器快捷登录（设备码授权） ----------
  * 桌面版发起 → 跳浏览器登录/授权 → 桌面版轮询取回令牌，全程无需在软件内输密码。
- * 授权码 5 分钟有效、一次性领取；浏览器侧仍需已登录（可用记住登录保持）。 */
-const deviceCodes = new Map(); // code -> { ts, remember, tid? }
+ * 授权码 5 分钟有效、一次性领取；存数据库以适配 Vercel 多实例与冷启动。 */
 const DEVICE_TTL = 5 * 60 * 1000;
 
-function cleanupDeviceCodes() {
-  const now = Date.now();
-  for (const [k, v] of deviceCodes) if (now - v.ts > DEVICE_TTL) deviceCodes.delete(k);
+function purgeDeviceCodes() {
+  return db.run('DELETE FROM device_codes WHERE created_at < ?', [Date.now() - DEVICE_TTL]);
 }
 
-authRouter.post('/device/start', (req, res) => {
-  cleanupDeviceCodes();
-  if (deviceCodes.size > 500) return res.status(429).json({ error: '请求过于频繁，请稍后再试' });
+authRouter.post('/device/start', ah(async (req, res) => {
+  await purgeDeviceCodes();
   const code = crypto.randomBytes(16).toString('hex');
-  deviceCodes.set(code, { ts: Date.now(), remember: req.body?.remember !== false });
+  await db.run(
+    'INSERT INTO device_codes (code, teacher_id, remember, created_at) VALUES (?,?,?,?) RETURNING code',
+    [code, null, req.body?.remember !== false ? 1 : 0, Date.now()]
+  );
   res.json({ code, expires_in: DEVICE_TTL / 1000 });
-});
+}));
 
 authRouter.post('/device/approve', authRequired, ah(async (req, res) => {
   const code = String(req.body?.code || '');
-  const entry = deviceCodes.get(code);
-  if (!entry || Date.now() - entry.ts > DEVICE_TTL) {
-    return res.status(404).json({ error: '授权链接已过期，请回到桌面版重新发起' });
-  }
+  const entry = await db.get(
+    'SELECT code FROM device_codes WHERE code = ? AND created_at >= ?',
+    [code, Date.now() - DEVICE_TTL]
+  );
+  if (!entry) return res.status(404).json({ error: '授权链接已过期，请回到桌面版重新发起' });
   const t = await db.get('SELECT * FROM teachers WHERE id = ?', [req.teacherId]);
   if (!t) return res.status(404).json({ error: '账号不存在' });
-  entry.tid = t.id;
+  await db.run('UPDATE device_codes SET teacher_id = ? WHERE code = ?', [t.id, code]);
   res.json({ ok: true, name: t.name });
 }));
 
 authRouter.get('/device/claim', ah(async (req, res) => {
-  cleanupDeviceCodes();
   const code = String(req.query.code || '');
-  const entry = deviceCodes.get(code);
+  const entry = await db.get(
+    'SELECT * FROM device_codes WHERE code = ? AND created_at >= ?',
+    [code, Date.now() - DEVICE_TTL]
+  );
   if (!entry) return res.status(404).json({ error: '授权链接已过期，请重新发起' });
-  if (!entry.tid) return res.json({ pending: true });
-  deviceCodes.delete(code); // 一次性：先删除，避免并发重复领取
-  const t = await db.get('SELECT * FROM teachers WHERE id = ?', [entry.tid]);
+  if (entry.teacher_id == null) return res.json({ pending: true });
+  /* 一次性：DELETE 带条件，只有一个请求能领取成功 */
+  const del = await db.run('DELETE FROM device_codes WHERE code = ? AND teacher_id IS NOT NULL', [code]);
+  if (!del.changes) return res.json({ pending: true });
+  const t = await db.get('SELECT * FROM teachers WHERE id = ?', [entry.teacher_id]);
   if (!t) return res.status(404).json({ error: '账号不存在' });
-  const ttl = entry.remember ? REMEMBER_TTL : TOKEN_TTL;
+  const remember = Number(entry.remember) === 1;
+  const ttl = remember ? REMEMBER_TTL : TOKEN_TTL;
   res.json({
     token: signToken(t.id, ttl),
     teacher: publicTeacher(t),
-    remember: entry.remember,
+    remember,
     expires_at: new Date(Date.now() + ttl).toISOString(),
   });
 }));

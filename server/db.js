@@ -454,6 +454,15 @@ CREATE TABLE IF NOT EXISTS timetable_settings (
   break_minutes INTEGER NOT NULL DEFAULT 10,
   updated_at TEXT DEFAULT (to_char(now() AT TIME ZONE 'Asia/Shanghai','YYYY-MM-DD HH24:MI:SS'))
 );
+
+/* 桌面端浏览器快捷登录：一次性授权码（5 分钟有效，claim 后删除）
+ * 放在数据库而不是内存，保证 Vercel 多实例/冷启动下也能取回令牌 */
+CREATE TABLE IF NOT EXISTS device_codes (
+  code TEXT PRIMARY KEY,
+  teacher_id INTEGER REFERENCES teachers(id) ON DELETE CASCADE,
+  remember INTEGER NOT NULL DEFAULT 1,
+  created_at BIGINT NOT NULL
+);
 `);
 
   /* 兼容旧库：补列（IF NOT EXISTS 幂等） */
