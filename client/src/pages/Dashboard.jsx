@@ -1,6 +1,6 @@
 import { useEffect, useState, memo } from 'react';
 import { Link } from 'react-router-dom';
-import { Users, ClipboardList, ListTodo, CalendarCheck, GraduationCap, ArrowRight, Zap, RefreshCw, MonitorPlay, PenLine, MessageSquare, BookText, Check, Clock3, ArrowLeftRight } from 'lucide-react';
+import { Users, ClipboardList, ListTodo, CalendarCheck, GraduationCap, ArrowRight, Zap, RefreshCw, MonitorPlay, PenLine, MessageSquare, BookText, Check, Clock3, ArrowLeftRight, Heart } from 'lucide-react';
 import { api, auth } from '../api.js';
 import { StatCard, Badge } from '../components/ui.jsx';
 import { periodRange, todayWeekday } from '../timetable.js';
@@ -378,6 +378,16 @@ export default function Dashboard() {
   const greet = hour < 6 ? '夜深了' : hour < 9 ? '早上好' : hour < 12 ? '上午好' : hour < 14 ? '中午好' : hour < 18 ? '下午好' : '晚上好';
   const dateStr = new Date().toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'long' });
 
+  /* 与工作台相伴的天数：按本地自然日计算，注册当天记为第 1 天 */
+  const companionDays = (() => {
+    const raw = teacher?.created_at;
+    if (!raw) return null;
+    const created = new Date(String(raw).replace(' ', 'T'));
+    if (Number.isNaN(created.getTime())) return null;
+    const dayStart = d => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    return Math.max(1, Math.round((dayStart(new Date()) - dayStart(created)) / 86400000) + 1);
+  })();
+
   return (
     <div className="space-y-8">
       {/* 欢迎区：编辑式大标题 + 今日考勤环，替代整块渐变大横幅 */}
@@ -388,7 +398,15 @@ export default function Dashboard() {
 
         <div className="relative flex flex-col gap-7 lg:flex-row lg:items-center lg:justify-between">
           <div className="min-w-0">
-            <div className="eyebrow">{dateStr}</div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="eyebrow">{dateStr}</span>
+              {companionDays != null && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-[#0071e3]/[0.07] px-2 py-[3px] text-[10.5px] font-medium text-[#0059b3] ring-1 ring-inset ring-[#0071e3]/10">
+                  <Heart size={10} className="fill-current" />
+                  已陪伴您 <b className="num font-semibold">{companionDays}</b> 天
+                </span>
+              )}
+            </div>
             <h2 className="display mt-2.5 text-[28px] font-semibold leading-tight text-ink sm:text-[34px]">
               {greet}，{teacher?.name || '老师'}
             </h2>
