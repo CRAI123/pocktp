@@ -455,6 +455,27 @@ CREATE TABLE IF NOT EXISTS timetable_settings (
   updated_at TEXT DEFAULT (to_char(now() AT TIME ZONE 'Asia/Shanghai','YYYY-MM-DD HH24:MI:SS'))
 );
 
+/* 换课 / 调课 / 代课 / 停课登记：只记录临时调整，不改动基础课表 */
+CREATE TABLE IF NOT EXISTS schedule_changes (
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  teacher_id INTEGER NOT NULL REFERENCES teachers(id) ON DELETE CASCADE,
+  date TEXT NOT NULL,                    -- 原课日期 YYYY-MM-DD
+  weekday INTEGER NOT NULL,              -- 原课星期 1=周一 … 7=周日
+  period INTEGER NOT NULL,               -- 原课节次
+  class_id INTEGER REFERENCES classes(id) ON DELETE SET NULL,
+  subject TEXT NOT NULL DEFAULT '',      -- 原课科目（快照）
+  teacher TEXT DEFAULT '',               -- 原任课教师（快照）
+  kind TEXT NOT NULL DEFAULT '调课',     -- 调课/代课/停课/换教室/其他
+  new_weekday INTEGER,                   -- 调到周几（调课可跨天，空=当天）
+  new_period INTEGER,                    -- 调到第几节
+  new_subject TEXT DEFAULT '',           -- 代课/换课后的科目
+  new_teacher TEXT DEFAULT '',           -- 代课教师
+  new_note TEXT DEFAULT '',              -- 新教室 / 补充说明
+  reason TEXT DEFAULT '',
+  created_at TEXT DEFAULT (to_char(now() AT TIME ZONE 'Asia/Shanghai','YYYY-MM-DD HH24:MI:SS'))
+);
+CREATE INDEX IF NOT EXISTS idx_schedule_changes_teacher ON schedule_changes(teacher_id, date);
+
 /* 桌面端浏览器快捷登录：一次性授权码（5 分钟有效，claim 后删除）
  * 放在数据库而不是内存，保证 Vercel 多实例/冷启动下也能取回令牌 */
 CREATE TABLE IF NOT EXISTS device_codes (

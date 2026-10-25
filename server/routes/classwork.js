@@ -302,6 +302,71 @@ router.post('/timetables/bulk', ah(async (req, res) => {
   res.json({ ok: true, count: list.length });
 }));
 
+/* ---------- 换课调课登记 ----------
+ * 只记录临时调整（调课/代课/停课/换教室），不改动基础课表；
+ * 用于上课提醒文案与工作台「今日提醒」展示。 */
+const CHANGE_KINDS = ['调课', '代课', '停课', '换教室', '其他'];
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/* 由日期推算星期（1=周一 … 7=周日），避免客户端时区差异 */
+function weekdayOf(date) {
+  const d = new Date(`${date}T00:00:00Z`);
+  return ((d.getUTCDay() + 6) % 7) + 1;
+}
+
+router.get('/schedule-changes', ah(async (req, res) => {
+  const { date, from, to } = req.query;
+  const conds = ['s.teacher_id = ?'];
+  const params = [req.teacherId];
+  if (DATE_RE.test(String(date || ''))) { conds.push('s.date = ?'); params.push(String(date)); }
+  if (DATE_RE.test(String(from || ''))) { conds.push('s.date >= ?'); params.push(String(from)); }
+  if (DATE_RE.test(String(to || ''))) { conds.push('s.date <= ?'); params.push(String(to)); }
+  const rows = await db.all(`
+    SELECT s.*, c.name AS class_name FROM schedule_changes s
+    LEFT JOIN classes c ON c.id = s.class_id
+    WHERE ${conds.join(' AND ')}
+    ORDER BY s.date, s.period, s.id
+  `, params);
+  res.json(rows);
+}));
+
+router.post('/schedule-changes', ah(async (req, res) => {
+  const b = req.body || {};
+  const date = String(b.date || '').trim();
+  const period = Number(b.period);
+  const kind = String(b.kind || '调课');
+  if (!DATE_RE.test(date)) return res.status(400).json({ error: '日期格式应为 YYYY-MM-DD' });
+  if (!(period >= 1 && period <= 15)) return res.status(400).json({ error: '节次不合法' });
+  if (!CHANGE_KINDS.includes(kind)) return res.status(400).json({ error: '调整类型不合法' });
+  const subject = String(b.subject || '').trim().slice(0, 40);
+  if (!subject) return res.status(400).json({ error: '请选择要调整的课程' });
+  const classId = b.class_id ? Number(b.class_id) : null;
+  if (classId && !(await own.class(req.teacherId, classId))) return res.status(403).json({ error: '无权使用该班级' });
+  const newPeriod = Number(b.new_period) >= 1 && Number(b.new_period) <= 15 ? Number(b.new_period) : null;
+  const newWeekday = Number(b.new_weekday) >= 1 && Number(b.new_weekday) <= 7 ? Number(b.new_weekday) : null;
+  if (kind === '调课' && !newPeriod) return res.status(400).json({ error: '调课请填写调到第几节' });
+
+  const info = await db.run(`
+    INSERT INTO schedule_changes
+      (teacher_id, date, weekday, period, class_id, subject, teacher, kind, new_weekday, new_period, new_subject, new_teacher, new_note, reason)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+  `, [
+    req.teacherId, date, weekdayOf(date), period, classId, subject,
+    String(b.teacher || '').trim().slice(0, 40), kind,
+    newWeekday, newPeriod,
+    String(b.new_subject || '').trim().slice(0, 40),
+    String(b.new_teacher || '').trim().slice(0, 40),
+    String(b.new_note || '').trim().slice(0, 80),
+    String(b.reason || '').trim().slice(0, 200),
+  ]);
+  res.status(201).json({ id: info.lastInsertRowid });
+}));
+
+router.delete('/schedule-changes/:id', ah(async (req, res) => {
+  await db.run('DELETE FROM schedule_changes WHERE id = ? AND teacher_id = ?', [req.params.id, req.teacherId]);
+  res.json({ ok: true });
+}));
+
 /* ---------- 作息时间（上课提醒依据） ----------
  * 各校作息不同：以老师自填的「逐节起止时间」为准（slots JSON）。
  * 旧字段（节数/第1节开始/时长/课间）仅作模板填充与兼容回退。 */
