@@ -256,6 +256,31 @@ Write-Output 'OK'
   Ok(format!("已发送 {} 页到默认打印机", images.len()))
 }
 
+/* 用系统默认浏览器打开外部链接（浏览器快捷登录用）：仅允许本站域名 */
+#[tauri::command]
+fn open_url(url: String) -> Result<(), String> {
+  let allowed = [
+    "https://teach.rayzo.cn/",
+    "https://rayzo.cn/",
+    "http://localhost:5173/",
+  ]
+  .iter()
+  .any(|p| url.starts_with(p));
+  if !allowed {
+    return Err("不支持的链接".into());
+  }
+  #[cfg(target_os = "windows")]
+  {
+    use std::os::windows::process::CommandExt;
+    std::process::Command::new("cmd")
+      .args(["/C", "start", "", &url])
+      .creation_flags(0x08000000) /* CREATE_NO_WINDOW，避免闪黑框 */
+      .spawn()
+      .map_err(|e| format!("打开浏览器失败：{}", e))?;
+  }
+  Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   tauri::Builder::default()
@@ -283,7 +308,8 @@ pub fn run() {
       set_autostart,
       native_notify,
       open_classroom_window,
-      print_images
+      print_images,
+      open_url
     ])
     .setup(|app| {
       if cfg!(debug_assertions) {
