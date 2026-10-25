@@ -187,6 +187,55 @@ authRouter.post('/refresh', authRequired, (req, res) => {
   res.json({ token: signToken(req.teacherId, ttl), expires_at: new Date(Date.now() + ttl).toISOString() });
 });
 
+/* ---------- 桌面端浏览器快捷登录（设备码授权） ----------
+ * 桌面版发起 → 跳浏览器登录/授权 → 桌面版轮询取回令牌，全程无需在软件内输密码。
+ * 授权码 5 分钟有效、一次性领取；浏览器侧仍需已登录（可用记住登录保持）。 */
+const deviceCodes = new Map(); // code -> { ts, remember, tid? }
+const DEVICE_TTL = 5 * 60 * 1000;
+
+function cleanupDeviceCodes() {
+  const now = Date.now();
+  for (const [k, v] of deviceCodes) if (now - v.ts > DEVICE_TTL) deviceCodes.delete(k);
+}
+
+authRouter.post('/device/start', (req, res) => {
+  cleanupDeviceCodes();
+  if (deviceCodes.size > 500) return res.status(429).json({ error: '请求过于频繁，请稍后再试' });
+  const code = crypto.randomBytes(16).toString('hex');
+  deviceCodes.set(code, { ts: Date.now(), remember: req.body?.remember !== false });
+  res.json({ code, expires_in: DEVICE_TTL / 1000 });
+});
+
+authRouter.post('/device/approve', authRequired, ah(async (req, res) => {
+  const code = String(req.body?.code || '');
+  const entry = deviceCodes.get(code);
+  if (!entry || Date.now() - entry.ts > DEVICE_TTL) {
+    return res.status(404).json({ error: '授权链接已过期，请回到桌面版重新发起' });
+  }
+  const t = await db.get('SELECT * FROM teachers WHERE id = ?', [req.teacherId]);
+  if (!t) return res.status(404).json({ error: '账号不存在' });
+  entry.tid = t.id;
+  res.json({ ok: true, name: t.name });
+}));
+
+authRouter.get('/device/claim', ah(async (req, res) => {
+  cleanupDeviceCodes();
+  const code = String(req.query.code || '');
+  const entry = deviceCodes.get(code);
+  if (!entry) return res.status(404).json({ error: '授权链接已过期，请重新发起' });
+  if (!entry.tid) return res.json({ pending: true });
+  deviceCodes.delete(code); // 一次性：先删除，避免并发重复领取
+  const t = await db.get('SELECT * FROM teachers WHERE id = ?', [entry.tid]);
+  if (!t) return res.status(404).json({ error: '账号不存在' });
+  const ttl = entry.remember ? REMEMBER_TTL : TOKEN_TTL;
+  res.json({
+    token: signToken(t.id, ttl),
+    teacher: publicTeacher(t),
+    remember: entry.remember,
+    expires_at: new Date(Date.now() + ttl).toISOString(),
+  });
+}));
+
 authRouter.get('/me', authRequired, ah(async (req, res) => {
   const t = await db.get('SELECT * FROM teachers WHERE id = ?', [req.teacherId]);
   if (!t) return res.status(404).json({ error: '账号不存在' });

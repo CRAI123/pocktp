@@ -5,6 +5,7 @@ import Layout, { isDesktopApp, DesktopTitlebar } from './components/Layout.jsx';
 import { syncCloseToTray } from './desktop.js';
 import UpdateDialog from './components/UpdateDialog.jsx';
 import Login from './pages/Login.jsx';
+import DesktopLogin from './pages/DesktopLogin.jsx';
 import Activate from './pages/Activate.jsx';
 import Renew from './pages/Renew.jsx';
 import Redeem from './pages/Redeem.jsx';
@@ -155,6 +156,7 @@ export default function App() {
       <PrivacyNotice />
       <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/desktop-login" element={<DesktopLogin />} />
       <Route path="/download" element={<Download />} />
       <Route path="/redeem/:code?" element={<Redeem />} />
       <Route path="/activate" element={auth.token ? <Activate /> : <Navigate to="/login" replace />} />

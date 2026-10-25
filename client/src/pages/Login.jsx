@@ -1,12 +1,18 @@
-import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { Phone, Lock, User, LogIn, MonitorDown } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
+import { Phone, Lock, User, LogIn, MonitorDown, ExternalLink, Loader2, Copy, Check, X } from 'lucide-react';
 import { api, auth, isMembershipActive } from '../api.js';
 import { Button, Field, inputCls, BrandFooter } from '../components/ui.jsx';
 import { isDesktopApp } from '../components/Layout.jsx';
 
 export default function Login() {
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  /* 登录后跳转（浏览器快捷登录页会在登录完成后回到授权页） */
+  const next = (() => {
+    const v = params.get('next') || '';
+    return v.startsWith('/') && !v.startsWith('//') ? v : '';
+  })();
   const [form, setForm] = useState({ phone: auth.lastPhone, password: '', name: '' });
   /* 记住登录：桌面版默认开启，下次打开免密直接进入 */
   const [remember, setRemember] = useState(() => {
@@ -19,6 +25,11 @@ export default function Login() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  /* 浏览器快捷登录：桌面版发起授权码 → 跳浏览器 → 轮询取回令牌 */
+  const [deviceCode, setDeviceCode] = useState('');
+  const [browser, setBrowser] = useState({ state: 'idle', url: '', error: '' });
+  const [copied, setCopied] = useState(false);
+
   const submit = async (e) => {
     e.preventDefault();
     setError('');
@@ -26,12 +37,74 @@ export default function Login() {
     try {
       const res = await api.post('/auth/login', { ...form, remember });
       auth.save(res.token, res.teacher, remember);
-      navigate(isMembershipActive(res.teacher) ? '/' : '/activate', { replace: true });
+      navigate(next || (isMembershipActive(res.teacher) ? '/' : '/activate'), { replace: true });
     } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
     }
+  };
+
+  /* 授权完成前每 2 秒取一次令牌；拿到即写入本地并进入软件 */
+  useEffect(() => {
+    if (!deviceCode) return;
+    let alive = true;
+    let timer;
+    const tick = async () => {
+      try {
+        const r = await api.get(`/auth/device/claim?code=${deviceCode}`);
+        if (!alive) return;
+        if (r?.token) {
+          auth.save(r.token, r.teacher, true);
+          navigate(isMembershipActive(r.teacher) ? '/' : '/activate', { replace: true });
+          return;
+        }
+      } catch (err) {
+        if (!alive) return;
+        setBrowser({ state: 'expired', url: '', error: err.message });
+        setDeviceCode('');
+        return;
+      }
+      if (alive) timer = setTimeout(tick, 2000);
+    };
+    tick();
+    return () => { alive = false; clearTimeout(timer); };
+  }, [deviceCode, navigate]);
+
+  const startBrowserLogin = async () => {
+    setError('');
+    setCopied(false);
+    setBrowser({ state: 'opening', url: '', error: '' });
+    try {
+      const r = await api.post('/auth/device/start', { remember });
+      const url = `${location.origin}/desktop-login?code=${r.code}`;
+      setDeviceCode(r.code);
+      setBrowser({ state: 'waiting', url, error: '' });
+      const invoke = window.__TAURI__?.core?.invoke;
+      try {
+        if (typeof invoke !== 'function') throw new Error('shell unavailable');
+        await invoke('open_url', { url });
+      } catch {
+        /* 旧版壳没有 open_url 命令（或非桌面环境）：退化为复制链接手动打开 */
+        setBrowser({ state: 'fallback', url, error: '' });
+      }
+    } catch (err) {
+      setBrowser({ state: 'idle', url: '', error: '' });
+      setError(err.message);
+    }
+  };
+
+  const cancelBrowserLogin = () => {
+    setDeviceCode('');
+    setBrowser({ state: 'idle', url: '', error: '' });
+  };
+
+  const copyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(browser.url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } catch {}
   };
 
   return (
@@ -132,6 +205,67 @@ export default function Login() {
               <LogIn size={16} />{loading ? '登录中…' : '登录 / 注册'}
             </Button>
           </form>
+
+          {/* 桌面版专属：跳浏览器完成登录授权，回来自动进入，免重复输密码 */}
+          {isDesktopApp() && (
+            <div className="mt-3">
+              {browser.state === 'idle' ? (
+                <button
+                  type="button" onClick={startBrowserLogin}
+                  className="flex w-full items-center justify-center gap-2 rounded-full border border-black/[0.09] bg-white px-4 py-2.5 text-[13px] font-semibold text-ink transition hover:border-black/[0.16] hover:bg-white active:scale-[0.99]"
+                >
+                  <ExternalLink size={15} className="text-[#0071e3]" /> 用浏览器登录，免输密码
+                </button>
+              ) : (
+                <div className="rounded-xl border border-[#0071e3]/15 bg-[#0071e3]/[0.05] px-3.5 py-3">
+                  <div className="flex items-start gap-2 text-[12.5px] font-medium text-ink">
+                    {browser.state === 'expired' ? (
+                      <X size={14} className="mt-0.5 shrink-0 text-[#b3251c]" />
+                    ) : (
+                      <Loader2 size={14} className="mt-0.5 shrink-0 animate-spin text-[#0071e3]" />
+                    )}
+                    <span>
+                      {browser.state === 'opening' && '正在打开浏览器…'}
+                      {browser.state === 'waiting' && '请在浏览器中完成登录与授权'}
+                      {browser.state === 'fallback' && '未能自动打开浏览器'}
+                      {browser.state === 'expired' && (browser.error || '授权链接已过期')}
+                    </span>
+                  </div>
+                  <p className="mt-1.5 pl-[22px] text-[11px] leading-relaxed text-ink-secondary">
+                    {browser.state === 'fallback'
+                      ? '请复制下方链接，在浏览器地址栏打开；授权完成后本窗口会自动进入。'
+                      : '授权完成后本窗口会自动进入，无需再输入密码。链接 5 分钟内有效。'}
+                  </p>
+                  {(browser.state === 'waiting' || browser.state === 'fallback') && (
+                    <>
+                      <div className="ml-[22px] mt-2 break-all rounded-lg border border-black/[0.05] bg-white/75 px-2.5 py-1.5 font-mono text-[10px] leading-relaxed text-ink-secondary">
+                        {browser.url}
+                      </div>
+                      <div className="mt-2 flex items-center gap-2 pl-[22px]">
+                        <button type="button" onClick={copyLink}
+                          className="inline-flex items-center gap-1 rounded-full border border-black/[0.08] bg-white px-2.5 py-1 text-[11px] font-medium text-ink transition hover:border-black/[0.16]">
+                          {copied ? <Check size={12} className="text-[#28cd41]" /> : <Copy size={12} />}
+                          {copied ? '已复制' : '复制链接'}
+                        </button>
+                        <button type="button" onClick={cancelBrowserLogin}
+                          className="rounded-full px-2.5 py-1 text-[11px] font-medium text-ink-secondary transition hover:bg-black/[0.04]">
+                          取消
+                        </button>
+                      </div>
+                    </>
+                  )}
+                  {browser.state === 'expired' && (
+                    <div className="mt-2.5 pl-[22px]">
+                      <button type="button" onClick={startBrowserLogin}
+                        className="rounded-full border border-black/[0.08] bg-white px-2.5 py-1 text-[11px] font-medium text-ink transition hover:border-black/[0.16]">
+                        重新发起
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="hairline my-5" />
 
