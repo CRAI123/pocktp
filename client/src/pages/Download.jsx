@@ -13,13 +13,13 @@ import { isDesktopApp } from '../components/Layout.jsx';
 
 const EXE_URL = '/desktop/teacher-workbench-setup.exe';
 const EXE_NAME = '教师工作台-安装包.exe';
-const VERSION = 'v1.0.7';
+const VERSION = 'v2.0.0';
 const SIZE = '约 47 MB';
 
 /* 干净承诺：安装与运行全程透明 */
 const CLEAN_PROMISES = [
   { icon: Package, text: '无捆绑软件，安装包只有一个主程序' },
-  { icon: Zap, text: '无开机自启，不点图标绝不运行' },
+  { icon: Zap, text: '开机自启可选，默认关闭，不点图标绝不运行' },
   { icon: RefreshCw, text: '无静默安装，版本更新需你确认' },
   { icon: Lock, text: '免管理员权限，学校受限电脑也能装' },
   { icon: Trash2, text: '卸载干净利落，不留后台服务与驻留进程' },
@@ -30,6 +30,9 @@ const CLEAN_PROMISES = [
 const COMPARE_ROWS = [
   { label: '打开方式', desk: '双击桌面图标即开', web: '浏览器输入网址', deskLevel: 2, webLevel: 1 },
   { label: '上课常驻', desk: '独立窗口，无浏览器标签干扰', web: '挤在浏览器标签页中', deskLevel: 2, webLevel: 0 },
+  { label: '投屏上课', desk: '课堂小助手独立窗口，可分屏并排', web: '需拉第二个浏览器窗口', deskLevel: 2, webLevel: 0 },
+  { label: '打印试卷', desk: '一键直出默认打印机，免预览', web: '浏览器打印，需手动选纸张', deskLevel: 2, webLevel: 1 },
+  { label: '完成后提醒', desk: '出卷 / 周报生成后系统通知', web: '需自己盯着页面', deskLevel: 2, webLevel: 0 },
   { label: '版本更新', desk: '启动时提醒，一键更新', web: '打开即是最新版', deskLevel: 2, webLevel: 2 },
   { label: '安装', desk: `需下载一次（${SIZE}）`, web: '无需安装', deskLevel: 1, webLevel: 2 },
   { label: '设备支持', desk: 'Windows 电脑', web: '手机 / 平板 / 电脑任意设备', deskLevel: 1, webLevel: 2 },
