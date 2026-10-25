@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
-import { Phone, Lock, User, LogIn, MonitorDown, ExternalLink, Loader2, Copy, Check, X, ChevronDown, MonitorSmartphone } from 'lucide-react';
+import {
+  Phone, Lock, User, LogIn, MonitorDown, ExternalLink, Loader2, Copy, Check, X,
+  MonitorSmartphone, ArrowLeft,
+} from 'lucide-react';
 import { api, auth, isMembershipActive } from '../api.js';
 import { Button, Field, inputCls, BrandFooter } from '../components/ui.jsx';
 import { isDesktopApp } from '../components/Layout.jsx';
@@ -109,8 +112,11 @@ export default function Login() {
     } catch {}
   };
 
+  /* 桌面版窗口最小 960×640：提前进入双栏，避免上下堆叠把卡片挤出首屏 */
+  const desktop = isDesktopApp();
+
   return (
-    <div className="auth-bg relative flex min-h-screen items-center justify-center px-4 py-10 sm:py-14">
+    <div className={`auth-bg relative flex items-center justify-center px-4 py-10 sm:py-14 ${desktop ? 'min-h-[calc(100vh-2.25rem)] [@media(max-height:700px)]:py-4' : 'min-h-screen'}`}>
       {/* 品牌氛围装饰：卡片后方斜向重复排版的渐变文字（纯装饰，不拦截交互） */}
       <div className="pointer-events-none absolute inset-0 -z-10 select-none overflow-hidden" aria-hidden="true">
         <div className="absolute -inset-[16%] -rotate-6 flex flex-col justify-between py-[8%] opacity-[0.09]">
@@ -125,22 +131,22 @@ export default function Login() {
         </div>
       </div>
 
-      <div className="grid w-full max-w-5xl items-center gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16">
+      <div className={`grid w-full max-w-5xl items-center gap-10 ${desktop ? 'min-[900px]:grid-cols-[1.05fr_0.95fr] min-[900px]:gap-10' : 'lg:grid-cols-[1.05fr_0.95fr] lg:gap-16'}`}>
         {/* 左侧：品牌主张（窄屏精简为标题区） */}
-        <div className="text-center lg:text-left">
-          <img src="/rayzo-logo.png" alt="教师工作台 LOGO" className="brand-logo mx-auto mb-6 h-16 w-16 rounded-full lg:mx-0 lg:h-[72px] lg:w-[72px]" />
+        <div className={`text-center ${desktop ? 'min-[900px]:text-left' : 'lg:text-left'}`}>
+          <img src="/rayzo-logo.png" alt="教师工作台 LOGO" className={`brand-logo mx-auto mb-4 h-14 w-14 rounded-full sm:mb-6 sm:h-16 sm:w-16 ${desktop ? 'min-[900px]:mx-0 min-[900px]:h-[72px] min-[900px]:w-[72px]' : 'lg:mx-0 lg:h-[72px] lg:w-[72px]'}`} />
           <div className="eyebrow">Rayzo · Teacher Workspace</div>
-          <h1 className="display mt-3 text-[30px] font-semibold leading-[1.15] tracking-tight text-ink sm:text-[40px]">
+          <h1 className="display mt-3 text-[27px] font-semibold leading-[1.18] tracking-tight text-ink sm:text-[40px] sm:leading-[1.15]">
             把教学与班务
-            <br className="hidden sm:block" />
+            <br />
             收进一个工作台
           </h1>
           <p className="brand-gradient-text mt-4 text-base font-semibold sm:text-lg">连接创意与未来教育</p>
-          <p className="mx-auto mt-3 max-w-md text-[13px] leading-relaxed text-ink-secondary sm:text-sm lg:mx-0">
+          <p className={`mx-auto mt-3 max-w-md text-[13px] leading-relaxed text-ink-secondary sm:text-sm ${desktop ? 'min-[900px]:mx-0' : 'lg:mx-0'}`}>
             备课出题、作业批改、考勤课表、家校沟通与 AI 辅助，日常琐事在这里一次完成。
           </p>
 
-          <div className="mt-7 hidden flex-wrap gap-2 lg:flex">
+          <div className={`mt-7 hidden flex-wrap gap-2 ${desktop ? 'min-[900px]:flex' : 'lg:flex'}`}>
             {['AI 出题与批改', '课程表与上课提醒', '班务一体化', '桌面端免密登录'].map(t => (
               <span key={t} className="rounded-full border border-black/[0.06] bg-white/70 px-3 py-1.5 text-[11px] font-medium text-ink-secondary backdrop-blur">
                 {t}
@@ -150,17 +156,17 @@ export default function Login() {
         </div>
 
         {/* 右侧：登录卡片 */}
-        <div className="card mx-auto w-full max-w-md p-7 sm:p-8">
-          <div className="mb-6">
+        <div className={`card mx-auto w-full max-w-md p-5 sm:p-8 ${desktop ? '[@media(max-height:700px)]:p-5' : ''}`}>
+          <div className={`mb-4 sm:mb-6 ${desktop ? '[@media(max-height:700px)]:mb-4' : ''}`}>
             <div className="eyebrow">Welcome back</div>
             <h2 className="display mt-2 text-[22px] font-semibold tracking-tight text-ink">登录 / 注册</h2>
             <p className="mt-1.5 text-[13px] text-ink-secondary">
-              {isDesktopApp() ? '推荐用浏览器快捷登录，免输密码直接进入' : '手机号未注册将自动创建账号'}
+              {isDesktopApp() && !showPwd ? '推荐用浏览器快捷登录，免输密码直接进入' : '手机号未注册将自动创建账号'}
             </p>
           </div>
 
-          {/* 桌面版主推：浏览器快捷登录 */}
-          {isDesktopApp() && (
+          {/* 桌面版主推：浏览器快捷登录（密码登录时切换为表单，避免页面过长） */}
+          {isDesktopApp() && !showPwd && (
             <div className="mb-3">
               {browser.state === 'idle' ? (
                 <div className="relative overflow-hidden rounded-[22px] bg-gradient-to-br from-[#0071e3] via-[#0a84ff] to-[#1aa3c8] p-5 text-white shadow-[0_18px_40px_-22px_rgba(0,113,227,0.85)]">
@@ -234,15 +240,24 @@ export default function Login() {
             </div>
           )}
 
-          {/* 桌面版：手机号密码作为次要入口，默认折叠 */}
-          {isDesktopApp() && (
+          {/* 桌面版：密码登录作为独立视图，按钮切换而非向下展开 */}
+          {isDesktopApp() && !showPwd && (
             <button
               type="button"
-              onClick={() => setShowPwd(v => !v)}
-              className="flex w-full items-center justify-center gap-1.5 rounded-full px-4 py-2 text-[12.5px] font-medium text-ink-secondary transition hover:bg-black/[0.04]"
+              onClick={() => { setError(''); setShowPwd(true); }}
+              className="mt-1 flex w-full items-center justify-center gap-2 rounded-full border border-black/[0.08] bg-white/80 py-2.5 text-[12.5px] font-semibold text-ink shadow-sm transition hover:border-black/[0.16] hover:bg-white active:scale-[0.99]"
             >
-              {showPwd ? '收起手机号密码登录' : '使用手机号密码登录'}
-              <ChevronDown size={14} className={`transition-transform duration-200 ${showPwd ? 'rotate-180' : ''}`} />
+              <Lock size={14} className="text-ink-secondary/70" /> 使用手机号密码登录
+            </button>
+          )}
+
+          {desktop && showPwd && (
+            <button
+              type="button"
+              onClick={() => { setError(''); setShowPwd(false); }}
+              className="mx-auto mt-1 flex items-center gap-1.5 text-[12px] font-medium text-ink-secondary transition hover:text-ink"
+            >
+              <ArrowLeft size={13} /> 返回浏览器快捷登录
             </button>
           )}
 
@@ -251,13 +266,13 @@ export default function Login() {
           )}
 
           {showPwd && (
-          <form onSubmit={submit} className={`space-y-4 ${isDesktopApp() ? 'mt-3' : ''}`}>
+          <form onSubmit={submit} className={`space-y-4 ${isDesktopApp() ? 'mt-3 [@media(max-height:700px)]:space-y-3' : ''}`}>
             <Field label="手机号">
               <div className="relative">
                 <Phone size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-secondary/55" />
                 <input
                   required type="tel" inputMode="numeric" maxLength={11} placeholder="请输入 11 位手机号"
-                  className={`${inputCls} pl-10`}
+                  className={`${inputCls} pl-10 max-sm:text-[16px]`}
                   value={form.phone}
                   onChange={e => setForm({ ...form, phone: e.target.value.replace(/\D/g, '') })}
                 />
@@ -268,7 +283,7 @@ export default function Login() {
                 <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-secondary/55" />
                 <input
                   required type="password" placeholder="至少 6 位"
-                  className={`${inputCls} pl-10`}
+                  className={`${inputCls} pl-10 max-sm:text-[16px]`}
                   value={form.password} onChange={e => setForm({ ...form, password: e.target.value })}
                 />
               </div>
@@ -278,7 +293,7 @@ export default function Login() {
                 <User size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-secondary/55" />
                 <input
                   placeholder="如：王老师（已有账号可留空）"
-                  className={`${inputCls} pl-10`}
+                  className={`${inputCls} pl-10 max-sm:text-[16px]`}
                   value={form.name} onChange={e => setForm({ ...form, name: e.target.value })}
                 />
               </div>
@@ -299,18 +314,19 @@ export default function Login() {
           </form>
           )}
 
-          <div className="hairline my-5" />
+          <div className={`hairline my-5 ${desktop ? '[@media(max-height:700px)]:my-3' : ''}`} />
 
           <p className="text-center text-[11px] leading-relaxed text-ink-secondary">
             新账号需使用激活码解锁完整功能 · 登录即代表同意隐私说明
           </p>
 
-          {!isDesktopApp() && (
+          {!desktop && (
             <Link
               to="/download"
               className="mt-4 flex items-center justify-center gap-1.5 rounded-full border border-[#0071e3]/15 bg-[#0071e3]/[0.06] px-4 py-2.5 text-xs font-semibold text-[#0071e3] transition hover:bg-[#0071e3]/10"
             >
-              <MonitorDown size={14} /> 推荐下载 Windows 桌面版 · 双击即开，上课更专注
+              <MonitorDown size={14} className="shrink-0" /> 推荐下载 Windows 桌面版
+              <span className="hidden sm:inline">· 双击即开，上课更专注</span>
             </Link>
           )}
         </div>
