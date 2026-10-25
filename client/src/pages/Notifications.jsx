@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Wand2, Copy, Check, Plus, MessageSquare } from 'lucide-react';
+import { Wand2, Copy, Check, Plus, MessageSquare, Undo2, Trash2, Send } from 'lucide-react';
 import { api } from '../api.js';
 import { SectionHeader, Button, Modal, Field, inputCls, Badge, Empty } from '../components/ui.jsx';
 
@@ -19,12 +19,31 @@ export default function Notifications() {
   const [params, setParams] = useState({});
   const [generated, setGenerated] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [queue, setQueue] = useState('全部');
 
   const load = () => api.get('/notifications').then(setList).catch(console.error);
   useEffect(() => {
     load();
     api.get('/classes').then(cs => { setClasses(cs); if (cs.length) setClassId(String(cs[0].id)); }).catch(console.error);
   }, []);
+
+  const setStatus = async (n, status) => {
+    await api.patch(`/notifications/${n.id}`, { status });
+    load();
+  };
+
+  const remove = async (n) => {
+    if (!confirm(`删除通知「${n.title}」？`)) return;
+    await api.del(`/notifications/${n.id}`);
+    load();
+  };
+
+  const copyOne = async (n) => {
+    await navigator.clipboard.writeText(`【${n.title}】\n${n.content}`);
+  };
+
+  const shown = list.filter(n => queue === '全部' || (n.status || '待发送') === queue);
+  const pendingCount = list.filter(n => (n.status || '待发送') === '待发送').length;
 
   const generate = async () => {
     const result = await api.post('/notifications/generate', { type: tpl.type, class_id: classId || null, params });
@@ -54,22 +73,49 @@ export default function Notifications() {
         action={<Button onClick={() => setOpen(true)}><Plus size={16} />生成通知</Button>}
       />
 
-      {list.length === 0 ? <Empty text="还没有生成过通知" /> : (
+      {/* 待发队列筛选 */}
+      <div className="mb-5 flex flex-wrap items-center gap-2">
+        {['全部', '待发送', '已发送'].map(k => (
+          <button key={k} onClick={() => setQueue(k)}
+            className={`btn-pill px-4 py-1.5 text-sm font-medium transition ${queue === k ? 'brand-gradient text-white shadow-md shadow-blue-500/20' : 'bg-white text-ink-secondary shadow-sm hover:text-ink'}`}>
+            {k}{k === '待发送' && pendingCount ? ` ${pendingCount}` : ''}
+          </button>
+        ))}
+        <span className="ml-auto text-xs text-ink-secondary">生成文案后先存入待发队列，发到群里再标记「已发送」</span>
+      </div>
+
+      {shown.length === 0 ? <Empty text={queue === '全部' ? '还没有生成过通知' : `没有${queue}的通知`} /> : (
         <div className="space-y-3">
-          {list.map(n => (
-            <div key={n.id} className="card card-hover p-5">
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#28cd41]/12 text-[#1fa733]">
-                  <MessageSquare size={17} />
+          {shown.map(n => {
+            const st = n.status || '待发送';
+            return (
+              <div key={n.id} className="card card-hover group p-5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#28cd41]/12 text-[#1fa733]">
+                    <MessageSquare size={17} />
+                  </div>
+                  <h3 className="font-semibold">{n.title}</h3>
+                  <Badge tone={st === '已发送' ? 'green' : 'orange'}>{st}</Badge>
+                  <Badge tone="green">{n.channel}</Badge>
+                  {n.class_name && <Badge tone="blue">{n.class_name}</Badge>}
+                  <span className="ml-auto text-xs text-ink-secondary">{st === '已发送' && n.sent_at ? `发送于 ${n.sent_at}` : (n.created_at || '').slice(0, 16)}</span>
                 </div>
-                <h3 className="font-semibold">{n.title}</h3>
-                <Badge tone="green">{n.channel}</Badge>
-                {n.class_name && <Badge tone="blue">{n.class_name}</Badge>}
-                <span className="ml-auto text-xs text-ink-secondary">{(n.created_at || '').slice(0, 16)}</span>
+                <p className="mt-3 whitespace-pre-wrap rounded-2xl bg-bg-light p-4 text-sm leading-relaxed text-ink-secondary">{n.content}</p>
+                <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                  <Button variant="secondary" onClick={() => copyOne(n)}><Copy size={14} />复制</Button>
+                  {st === '待发送' ? (
+                    <Button onClick={() => setStatus(n, '已发送')}><Send size={14} />标记已发送</Button>
+                  ) : (
+                    <Button variant="secondary" onClick={() => setStatus(n, '待发送')}><Undo2 size={14} />撤回待发</Button>
+                  )}
+                  <button onClick={() => remove(n)} title="删除通知"
+                    className="btn-pill ml-auto p-2 text-ink-secondary/50 opacity-60 transition hover:bg-[#ff3b30]/10 hover:text-[#ff3b30] sm:opacity-0 sm:group-hover:opacity-100">
+                    <Trash2 size={15} />
+                  </button>
+                </div>
               </div>
-              <p className="mt-3 whitespace-pre-wrap rounded-2xl bg-bg-light p-4 text-sm leading-relaxed text-ink-secondary">{n.content}</p>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

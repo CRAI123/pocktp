@@ -1,9 +1,15 @@
-﻿﻿import { useEffect, useRef, useState } from 'react';
+﻿import { useEffect, useRef, useState } from 'react';
 import { Plus, Trash2, Pencil, Phone, MessageCircle, Download, Upload, Keyboard, CheckCircle2, Users, ClipboardPaste } from 'lucide-react';
 import { api } from '../api.js';
 import { SectionHeader, Button, Modal, Field, inputCls, Badge, Empty, SkeletonList } from '../components/ui.jsx';
 
-const EMPTY_FORM = { class_id: '', name: '', gender: '男', student_no: '', parent_phone: '', parent_wechat: '' };
+const EMPTY_FORM = {
+  class_id: '', name: '', gender: '男', student_no: '', parent_phone: '', parent_wechat: '',
+  school: '', current_class: '', status: '在读',
+  cohort: '', university: '', major: '', fee: '', destination: '',
+};
+const STATUSES = ['在读', '毕业', '流失'];
+const STATUS_TONE = { 在读: 'green', 毕业: 'blue', 流失: 'orange' };
 
 /** 必填星号 */
 const Star = () => <span className="ml-0.5 text-[#ff3b30]">*</span>;
@@ -12,10 +18,29 @@ const Kbd = ({ children }) => (
   <kbd className="mx-0.5 inline-block rounded-md border border-black/10 bg-white px-1.5 py-px font-sans text-[11px] font-semibold text-ink shadow-sm">{children}</kbd>
 );
 
+/** 解析一行 CSV：支持双引号包裹与 "" 转义（与导出格式对应） */
+function parseCsvLine(line) {
+  const out = [];
+  let cur = '', inQuote = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (inQuote) {
+      if (ch === '"') {
+        if (line[i + 1] === '"') { cur += '"'; i++; } else inQuote = false;
+      } else cur += ch;
+    } else if (ch === '"') inQuote = true;
+    else if (ch === ',') { out.push(cur); cur = ''; }
+    else cur += ch;
+  }
+  out.push(cur);
+  return out;
+}
+
 export default function Students() {
   const [classes, setClasses] = useState([]);
   const [students, setStudents] = useState([]);
   const [filter, setFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('全部');
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -39,12 +64,14 @@ export default function Students() {
   /* ---- CSV 导出（带 BOM，Excel 直接打开不乱码） ---- */
   const fileRef = useRef(null);
   const [importing, setImporting] = useState(false);
+  const [ledgerBusy, setLedgerBusy] = useState(false);
 
   const exportCsv = () => {
-    const head = '姓名,性别,学号,班级,家长电话,家长微信\n';
+    const head = '姓名,性别,学号,班级,就读学校,就读班级,学员状态,届别,考取大学,专业,学费,毕业去向,家长电话,家长微信\n';
     const body = students.map(s =>
-      [s.name, s.gender, s.student_no, s.class_name, s.parent_phone, s.parent_wechat]
-        .map(v => String(v ?? '')).join(',')
+      [s.name, s.gender, s.student_no, s.class_name, s.school, s.current_class, s.status || '在读',
+        s.cohort, s.university, s.major, s.fee, s.destination, s.parent_phone, s.parent_wechat]
+        .map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')
     ).join('\n');
     const blob = new Blob(['﻿' + head + body], { type: 'text/csv;charset=utf-8' });
     const a = document.createElement('a');
@@ -54,7 +81,63 @@ export default function Students() {
     URL.revokeObjectURL(a.href);
   };
 
-  /* ---- CSV 导入：列顺序 姓名,性别,学号,家长电话,家长微信（首行表头可省） ---- */
+  /** 下载一个 CSV（BOM 防 Excel 乱码） */
+  const downloadCsv = (filename, head, lines) => {
+    const blob = new Blob(['﻿' + head + lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  };
+
+  /**
+   * 学员台账一键导出：学员信息 / 课时记录 / 费用与考勤 三张表
+   * 作用域跟随当前班级筛选（全部班级时导出全部）
+   */
+  const exportLedger = async () => {
+    if (!students.length) return;
+    setLedgerBusy(true);
+    try {
+      const scopeName = filter ? (classes.find(c => String(c.id) === filter)?.name || '班级') : '全部班级';
+      const classIds = [...new Set(students.map(s => s.class_id))];
+
+      /* 表 1：学员信息 */
+      downloadCsv(`${scopeName}_学员信息.csv`,
+        '姓名,性别,学号,班级,就读学校,就读班级,学员状态,届别,考取大学,专业,学费,毕业去向,家长电话,家长微信\n',
+        students.map(s => [s.name, s.gender, s.student_no, s.class_name, s.school, s.current_class, s.status || '在读',
+          s.cohort, s.university, s.major, s.fee, s.destination, s.parent_phone, s.parent_wechat]
+          .map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(','))
+      );
+
+      /* 表 2：课时记录（按班级筛选时只取该班） */
+      const lesson = await api.get('/lesson-logs?month=all');
+      const lessons = filter ? lesson.rows.filter(r => String(r.class_id) === String(filter)) : lesson.rows;
+      downloadCsv(`${scopeName}_课时记录.csv`, '日期,班级,课程,课时,单价,课时费,备注\n',
+        lessons.map(r => [r.date, r.class_name || '', r.course_name || '', r.hours, r.rate,
+          (Number(r.hours) * Number(r.rate)).toFixed(2), `"${(r.note || '').replace(/"/g, '""')}"`].join(','))
+      );
+
+      /* 表 3：费用与考勤（当月出勤统计 + 学费） */
+      const month = new Date().toISOString().slice(0, 7);
+      const att = await Promise.all(classIds.map(id => api.get(`/classes/${id}/attendance-monthly?month=${month}`)));
+      const attMap = {};
+      att.forEach(d => d.rows.forEach(r => { attMap[r.student_id] = r; }));
+      downloadCsv(`${scopeName}_费用与考勤_${month}.csv`,
+        '姓名,学号,班级,出勤,迟到,缺勤,请假,出勤率,学费(元)\n',
+        students.map(s => {
+          const a = attMap[s.id] || {};
+          const total = (+a.present || 0) + (+a.late || 0) + (+a.absent || 0) + (+a.leave || 0);
+          const rate = total ? (((+a.present + +a.late) / total) * 100).toFixed(1) + '%' : '—';
+          return [s.name, s.student_no, s.class_name, a.present ?? 0, a.late ?? 0, a.absent ?? 0, a.leave ?? 0, rate, Number(s.fee) || 0].join(',');
+        })
+      );
+    } finally {
+      setLedgerBusy(false);
+    }
+  };
+
+  /* ---- CSV 导入：支持本页导出的完整表头（学校/学员状态等），也兼容旧版 5 列无表头 ---- */
   const importCsv = async (file) => {
     if (!file) return;
     if (!filter) { alert('请先在上方选择一个班级卡片，再导入该班学生'); return; }
@@ -62,13 +145,46 @@ export default function Students() {
     try {
       const text = (await file.text()).replace(/^﻿/, '');
       const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-      if (lines.length && lines[0].includes('姓名')) lines.shift();
+      let cols = {
+        name: 0, gender: 1, student_no: 2, parent_phone: 3, parent_wechat: 4,
+        school: -1, current_class: -1, status: -1, cohort: -1, university: -1, major: -1, fee: -1, destination: -1,
+      };
+      if (lines.length && lines[0].includes('姓名')) {
+        const h = parseCsvLine(lines.shift()).map(x => x.trim());
+        const find = (...keys) => {
+          for (const k of keys) { const i = h.findIndex(x => x.includes(k)); if (i >= 0) return i; }
+          return -1;
+        };
+        cols = {
+          name: find('姓名'), gender: find('性别'), student_no: find('学号'),
+          parent_phone: find('电话'), parent_wechat: find('微信'),
+          school: find('学校'), current_class: find('就读班级'), status: find('状态'),
+          cohort: find('届别'), university: find('大学', '考取'), major: find('专业'),
+          fee: find('学费', '费用'), destination: find('去向'),
+        };
+      }
+      const pick = (r, i) => (i >= 0 ? (r[i] || '').trim() : '');
       let ok = 0, fail = 0;
       for (const line of lines) {
-        const [name, gender, student_no, parent_phone, parent_wechat] = line.split(',').map(s => (s || '').trim());
+        const r = parseCsvLine(line).map(s => (s || '').trim());
+        const name = pick(r, cols.name);
         if (!name) { fail++; continue; }
         try {
-          await api.post('/students', { class_id: filter, name, gender: gender === '女' ? '女' : '男', student_no, parent_phone, parent_wechat });
+          await api.post('/students', {
+            class_id: filter, name,
+            gender: pick(r, cols.gender) === '女' ? '女' : '男',
+            student_no: pick(r, cols.student_no),
+            parent_phone: pick(r, cols.parent_phone),
+            parent_wechat: pick(r, cols.parent_wechat),
+            school: pick(r, cols.school),
+            current_class: pick(r, cols.current_class),
+            status: STATUSES.includes(pick(r, cols.status)) ? pick(r, cols.status) : '在读',
+            cohort: pick(r, cols.cohort),
+            university: pick(r, cols.university),
+            major: pick(r, cols.major),
+            fee: Number(pick(r, cols.fee)) || 0,
+            destination: pick(r, cols.destination),
+          });
           ok++;
         } catch { fail++; }
       }
@@ -84,7 +200,13 @@ export default function Students() {
   const openEdit = (s) => {
     setEditingId(s.id);
     setQuickError('');
-    setForm({ class_id: s.class_id, name: s.name, gender: s.gender, student_no: s.student_no, parent_phone: s.parent_phone, parent_wechat: s.parent_wechat });
+    setForm({
+      class_id: s.class_id, name: s.name, gender: s.gender, student_no: s.student_no,
+      parent_phone: s.parent_phone, parent_wechat: s.parent_wechat,
+      school: s.school || '', current_class: s.current_class || '', status: s.status || '在读',
+      cohort: s.cohort || '', university: s.university || '', major: s.major || '',
+      fee: s.fee ? String(s.fee) : '', destination: s.destination || '',
+    });
     setOpen(true);
   };
 
@@ -199,7 +321,10 @@ export default function Students() {
         title="班级成员管理"
         desc="学生档案与家长联系方式"
         action={
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            <Button variant="secondary" onClick={exportLedger} disabled={!students.length || ledgerBusy} title="导出学员信息 / 课时记录 / 费用与考勤三张表">
+              <Download size={15} />{ledgerBusy ? '导出中…' : '学员台账（3 表）'}
+            </Button>
             <Button variant="secondary" onClick={exportCsv} disabled={!students.length}><Download size={15} />导出 CSV</Button>
             <Button variant="secondary" onClick={() => fileRef.current?.click()} disabled={importing}>
               <Upload size={15} />{importing ? '导入中…' : '导入 CSV'}
@@ -228,6 +353,20 @@ export default function Students() {
         ))}
       </div>
 
+      {/* 学员状态筛选 */}
+      <div className="mb-3 flex flex-wrap items-center gap-1.5">
+        <span className="text-xs text-ink-secondary">学员状态</span>
+        {['全部', ...STATUSES].map(st => {
+          const n = st === '全部' ? students.length : students.filter(s => (s.status || '在读') === st).length;
+          return (
+            <button key={st} onClick={() => setStatusFilter(st)}
+              className={`btn-pill px-3 py-1.5 text-xs font-medium transition ${
+                statusFilter === st ? 'brand-gradient text-white shadow' : 'bg-black/[0.04] text-ink-secondary hover:bg-black/[0.07]'
+              }`}>{st} <span className="opacity-70">{n}</span></button>
+          );
+        })}
+      </div>
+
       {loading ? <SkeletonList rows={4} /> : students.length === 0 ? (
         <Empty
           icon={Users}
@@ -238,18 +377,20 @@ export default function Students() {
       ) : (
         <div className="card overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[560px] text-sm">
+            <table className="w-full min-w-[880px] text-sm">
               <thead>
                 <tr className="bg-bg-light text-left text-ink-secondary">
                   <th className="px-6 py-3 font-medium">学号</th>
                   <th className="px-6 py-3 font-medium">姓名</th>
+                  <th className="px-6 py-3 font-medium">学员状态</th>
+                  <th className="px-6 py-3 font-medium">升学 / 去向</th>
                   <th className="px-6 py-3 font-medium">班级</th>
                   <th className="px-6 py-3 font-medium">家长联系</th>
                   <th className="px-6 py-3 font-medium text-right">操作</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-black/5">
-                {students.map(s => (
+                {(statusFilter === '全部' ? students : students.filter(s => (s.status || '在读') === statusFilter)).map(s => (
                   <tr key={s.id} className="group hover:bg-bg-light/60">
                     <td className="px-6 py-3.5 text-ink-secondary">{s.student_no}</td>
                     <td className="px-6 py-3.5">
@@ -257,8 +398,25 @@ export default function Students() {
                         <div className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold text-white ${s.gender === '女' ? 'bg-gradient-to-br from-[#ff9500] to-[#ffcc00]' : 'brand-gradient'}`}>
                           {s.name[0]}
                         </div>
-                        {s.name}
+                        <div>
+                          <div>{s.name}</div>
+                          {(s.school || s.current_class) && (
+                            <div className="text-xs text-ink-secondary">{[s.school, s.current_class].filter(Boolean).join(' · ')}</div>
+                          )}
+                        </div>
                       </div>
+                    </td>
+                    <td className="px-6 py-3.5"><Badge tone={STATUS_TONE[s.status] || 'gray'}>{s.status || '在读'}</Badge></td>
+                    <td className="px-6 py-3.5">
+                      {s.status === '毕业' && (s.cohort || s.university || s.destination) ? (
+                        <div className="text-xs leading-relaxed">
+                          {s.cohort && <span className="mr-1.5 rounded bg-black/[0.05] px-1.5 py-0.5">{s.cohort}</span>}
+                          <span className="text-ink">{[s.university, s.major].filter(Boolean).join(' · ')}</span>
+                          {s.destination && <div className="text-ink-secondary">{s.destination}</div>}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-ink-secondary">—</span>
+                      )}
                     </td>
                     <td className="px-6 py-3.5"><Badge tone="blue">{s.class_name}</Badge></td>
                     <td className="px-6 py-3.5 text-ink-secondary">
@@ -371,6 +529,88 @@ export default function Students() {
               onChange={e => setForm({ ...form, parent_wechat: e.target.value })}
             />
           </Field>
+
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="就读学校（选填）">
+              <input
+                ref={el => (quickRefs.current[5] = el)}
+                className={inputCls} value={form.school}
+                placeholder="如：实验中学"
+                onKeyDown={onFieldKeyDown(5)}
+                onChange={e => setForm({ ...form, school: e.target.value })}
+              />
+            </Field>
+            <Field label="就读班级（选填）">
+              <input
+                ref={el => (quickRefs.current[6] = el)}
+                className={inputCls} value={form.current_class}
+                placeholder="如：初二(3)班"
+                onKeyDown={onFieldKeyDown(6)}
+                onChange={e => setForm({ ...form, current_class: e.target.value })}
+              />
+            </Field>
+          </div>
+
+          <Field label="学员状态">
+            <select
+              ref={el => (quickRefs.current[7] = el)}
+              className={inputCls} value={form.status}
+              onChange={e => setForm({ ...form, status: e.target.value })}
+            >
+              {STATUSES.map(st => <option key={st}>{st}</option>)}
+            </select>
+          </Field>
+
+          {/* 毕业 / 升学归档：仅编辑时或标记为毕业时展开，避免拖慢日常录入 */}
+          {(editingId || form.status === '毕业') && (
+            <div className="space-y-4 rounded-xl bg-black/[0.025] p-4">
+              <div className="text-xs font-semibold text-ink-secondary">毕业 / 升学归档（选填）</div>
+              <div className="grid grid-cols-2 gap-4">
+                <Field label="届别">
+                  <input
+                    ref={el => (quickRefs.current[8] = el)}
+                    className={inputCls} placeholder="如：2026 届" value={form.cohort}
+                    onKeyDown={onFieldKeyDown(8)}
+                    onChange={e => setForm({ ...form, cohort: e.target.value })}
+                  />
+                </Field>
+                <Field label="学费（元）">
+                  <input
+                    ref={el => (quickRefs.current[9] = el)}
+                    type="number" min="0" step="0.01" className={inputCls} placeholder="0.00" value={form.fee}
+                    onKeyDown={onFieldKeyDown(9)}
+                    onChange={e => setForm({ ...form, fee: e.target.value })}
+                  />
+                </Field>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <Field label="考取大学 / 去向学校">
+                  <input
+                    ref={el => (quickRefs.current[10] = el)}
+                    className={inputCls} placeholder="如：华东师范大学" value={form.university}
+                    onKeyDown={onFieldKeyDown(10)}
+                    onChange={e => setForm({ ...form, university: e.target.value })}
+                  />
+                </Field>
+                <Field label="专业">
+                  <input
+                    ref={el => (quickRefs.current[11] = el)}
+                    className={inputCls} placeholder="如：汉语言文学" value={form.major}
+                    onKeyDown={onFieldKeyDown(11)}
+                    onChange={e => setForm({ ...form, major: e.target.value })}
+                  />
+                </Field>
+              </div>
+              <Field label="毕业去向说明">
+                <input
+                  ref={el => (quickRefs.current[12] = el)}
+                  className={inputCls} placeholder="如：已就业 / 复读 / 出国" value={form.destination}
+                  onKeyDown={onFieldKeyDown(12)}
+                  onChange={e => setForm({ ...form, destination: e.target.value })}
+                />
+              </Field>
+            </div>
+          )}
 
           {quickError && (
             <div className="rounded-xl bg-[#ff3b30]/8 px-4 py-2.5 text-sm text-[#ff3b30]">{quickError}</div>

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Plus, Trash2, FileText, Presentation, PenSquare, Video, Folder, Download, UploadCloud, FileUp } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Plus, Trash2, FileText, Presentation, PenSquare, Video, Folder, Download, UploadCloud, FileUp, Search } from 'lucide-react';
 import { api } from '../api.js';
 import { SectionHeader, Button, Modal, Field, inputCls, Badge, Empty, statusTone } from '../components/ui.jsx';
 
@@ -116,7 +117,14 @@ export default function Materials() {
       <SectionHeader
         title="备课资料库"
         desc="课件、教案、习题与教学视频云端保存，任意设备登录即可下载使用"
-        action={<Button onClick={openCreate}><Plus size={16} />上传资料</Button>}
+        action={(
+          <div className="flex items-center gap-2">
+            <Link to="/ai-tools?tab=material" className="btn-pill flex items-center gap-2 bg-[#0071e3]/10 px-4 py-2 text-sm font-medium text-[#0071e3] transition hover:bg-[#0071e3]/15">
+              <Search size={16} />AI 检索
+            </Link>
+            <Button onClick={openCreate}><Plus size={16} />上传资料</Button>
+          </div>
+        )}
       />
 
       {/* 课程筛选 */}

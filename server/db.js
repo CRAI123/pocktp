@@ -296,6 +296,164 @@ CREATE TABLE IF NOT EXISTS weekly_journals (
   created_at TEXT DEFAULT (to_char(now() AT TIME ZONE 'Asia/Shanghai','YYYY-MM-DD HH24:MI:SS')),
   UNIQUE(teacher_id, week_start)
 );
+
+/* ---------- 班级日常补全（2026-10-25）：奖励兑换 / 电子奖状 / 谈话记录 / 班级日志 / 请假条 ---------- */
+
+/* 奖励券 / 心愿瓶：教师自定义的可兑换项，用德育积分兑换 */
+CREATE TABLE IF NOT EXISTS class_rewards (
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  class_id INTEGER NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  type TEXT DEFAULT '奖励券',            -- 奖励券/心愿瓶/特权
+  cost INTEGER NOT NULL DEFAULT 10,      -- 兑换所需积分
+  stock INTEGER NOT NULL DEFAULT 0,      -- 库存，0=不限量
+  remark TEXT DEFAULT '',
+  created_at TEXT DEFAULT (to_char(now() AT TIME ZONE 'Asia/Shanghai','YYYY-MM-DD HH24:MI:SS'))
+);
+
+/* 兑换记录：reward_name / cost 为快照，奖励被删也不丢记录 */
+CREATE TABLE IF NOT EXISTS reward_redemptions (
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  class_id INTEGER NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+  student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+  reward_id INTEGER REFERENCES class_rewards(id) ON DELETE SET NULL,
+  reward_name TEXT NOT NULL DEFAULT '',
+  cost INTEGER NOT NULL DEFAULT 0,
+  status TEXT DEFAULT '待兑换',          -- 待兑换/已兑换
+  remark TEXT DEFAULT '',
+  created_at TEXT DEFAULT (to_char(now() AT TIME ZONE 'Asia/Shanghai','YYYY-MM-DD HH24:MI:SS'))
+);
+CREATE INDEX IF NOT EXISTS idx_reward_redemptions_class ON reward_redemptions(class_id, created_at DESC);
+
+/* 电子奖状 */
+CREATE TABLE IF NOT EXISTS class_certificates (
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  class_id INTEGER NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+  student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,                   -- 奖项名称
+  reason TEXT DEFAULT '',                -- 获奖理由
+  issuer TEXT DEFAULT '',                -- 颁发单位/落款
+  awarded_at TEXT DEFAULT (to_char(now() AT TIME ZONE 'Asia/Shanghai','YYYY-MM-DD')),
+  created_at TEXT DEFAULT (to_char(now() AT TIME ZONE 'Asia/Shanghai','YYYY-MM-DD HH24:MI:SS'))
+);
+
+/* 谈话记录：带提纲 + 跟进 */
+CREATE TABLE IF NOT EXISTS class_talks (
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  class_id INTEGER NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+  student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+  topic TEXT NOT NULL,
+  outline TEXT DEFAULT '',               -- 谈话提纲
+  content TEXT DEFAULT '',               -- 谈话记录
+  follow_up TEXT DEFAULT '',             -- 跟进要点
+  talked_at TEXT DEFAULT (to_char(now() AT TIME ZONE 'Asia/Shanghai','YYYY-MM-DD')),
+  status TEXT DEFAULT '无需跟进',        -- 无需跟进/待跟进/已跟进
+  created_at TEXT DEFAULT (to_char(now() AT TIME ZONE 'Asia/Shanghai','YYYY-MM-DD HH24:MI:SS'))
+);
+
+/* 班级日志 */
+CREATE TABLE IF NOT EXISTS class_logs (
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  class_id INTEGER NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  content TEXT DEFAULT '',
+  category TEXT DEFAULT '班级事件',      -- 班级事件/活动/荣誉/问题/其他
+  log_date TEXT DEFAULT (to_char(now() AT TIME ZONE 'Asia/Shanghai','YYYY-MM-DD')),
+  created_at TEXT DEFAULT (to_char(now() AT TIME ZONE 'Asia/Shanghai','YYYY-MM-DD HH24:MI:SS'))
+);
+
+/* 请假条 */
+CREATE TABLE IF NOT EXISTS leave_requests (
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  class_id INTEGER NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+  student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+  type TEXT DEFAULT '事假',              -- 事假/病假/其他
+  start_date TEXT NOT NULL,
+  end_date TEXT NOT NULL,
+  reason TEXT DEFAULT '',
+  status TEXT DEFAULT '待审批',          -- 待审批/已批准/已驳回
+  created_at TEXT DEFAULT (to_char(now() AT TIME ZONE 'Asia/Shanghai','YYYY-MM-DD HH24:MI:SS'))
+);
+
+/* 错题本：登记 → 订正 → 复测闭环 */
+CREATE TABLE IF NOT EXISTS wrong_questions (
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  class_id INTEGER NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+  student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+  course_id INTEGER REFERENCES courses(id) ON DELETE SET NULL,
+  subject TEXT DEFAULT '',
+  source TEXT DEFAULT '',                -- 来源试卷 / 作业
+  knowledge TEXT DEFAULT '',             -- 知识点
+  stem TEXT NOT NULL,                    -- 题干
+  answer TEXT DEFAULT '',                -- 正确答案 / 解析
+  status TEXT DEFAULT '待订正',          -- 待订正/已订正/已复测
+  retest_score REAL,                     -- 复测得分
+  retest_note TEXT DEFAULT '',
+  retest_at TEXT,
+  created_at TEXT DEFAULT (to_char(now() AT TIME ZONE 'Asia/Shanghai','YYYY-MM-DD HH24:MI:SS'))
+);
+CREATE INDEX IF NOT EXISTS idx_wrong_questions_class ON wrong_questions(class_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_wrong_questions_student ON wrong_questions(student_id);
+
+/* 课时记录：课时费统计 + 教师工作量统计 */
+CREATE TABLE IF NOT EXISTS lesson_logs (
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  teacher_id INTEGER NOT NULL REFERENCES teachers(id) ON DELETE CASCADE,
+  class_id INTEGER REFERENCES classes(id) ON DELETE SET NULL,
+  course_id INTEGER REFERENCES courses(id) ON DELETE SET NULL,
+  date TEXT NOT NULL,
+  hours REAL NOT NULL DEFAULT 1,          -- 课时数（1 课时 = 45 分钟或机构自定义）
+  rate REAL NOT NULL DEFAULT 0,           -- 课时单价（元/课时）
+  note TEXT DEFAULT '',
+  created_at TEXT DEFAULT (to_char(now() AT TIME ZONE 'Asia/Shanghai','YYYY-MM-DD HH24:MI:SS'))
+);
+CREATE INDEX IF NOT EXISTS idx_lesson_logs_teacher_date ON lesson_logs(teacher_id, date DESC);
+
+/* 座位方案：保存/切换多套座次布局 */
+CREATE TABLE IF NOT EXISTS seat_plans (
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  class_id INTEGER NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  layout TEXT NOT NULL DEFAULT '[]',      -- [{row,col,student_id,disabled}]
+  created_at TEXT DEFAULT (to_char(now() AT TIME ZONE 'Asia/Shanghai','YYYY-MM-DD HH24:MI:SS'))
+);
+CREATE INDEX IF NOT EXISTS idx_seat_plans_class ON seat_plans(class_id, id DESC);
+
+/* 班级数据备份点：payload 保存学生/成绩/考勤/德育/班费/错题的完整快照（JSON） */
+CREATE TABLE IF NOT EXISTS class_backups (
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  class_id INTEGER NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+  teacher_id INTEGER NOT NULL REFERENCES teachers(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  counts TEXT DEFAULT '{}',              -- 各表条数快照，列表展示用
+  payload TEXT NOT NULL,                 -- JSON 快照
+  created_at TEXT DEFAULT (to_char(now() AT TIME ZONE 'Asia/Shanghai','YYYY-MM-DD HH24:MI:SS'))
+);
+CREATE INDEX IF NOT EXISTS idx_class_backups_class ON class_backups(class_id, id DESC);
+
+/* 课表：按班级 + 星期 + 节次定位，同一格唯一 */
+CREATE TABLE IF NOT EXISTS timetables (
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  class_id INTEGER NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+  weekday INTEGER NOT NULL,              -- 1=周一 … 7=周日
+  period INTEGER NOT NULL,               -- 第几节
+  subject TEXT NOT NULL DEFAULT '',
+  teacher TEXT DEFAULT '',
+  note TEXT DEFAULT '',
+  is_mine INTEGER NOT NULL DEFAULT 0,    -- 1=这节课是当前教师的课（教师课表与上课提醒依据）
+  created_at TEXT DEFAULT (to_char(now() AT TIME ZONE 'Asia/Shanghai','YYYY-MM-DD HH24:MI:SS')),
+  UNIQUE(class_id, weekday, period)
+);
+
+/* 作息时间：每名教师一套（节数 / 第1节开始 / 每节时长 / 课间），用于上课提醒 */
+CREATE TABLE IF NOT EXISTS timetable_settings (
+  teacher_id INTEGER PRIMARY KEY REFERENCES teachers(id) ON DELETE CASCADE,
+  periods INTEGER NOT NULL DEFAULT 8,
+  start_time TEXT NOT NULL DEFAULT '08:00',
+  class_minutes INTEGER NOT NULL DEFAULT 40,
+  break_minutes INTEGER NOT NULL DEFAULT 10,
+  updated_at TEXT DEFAULT (to_char(now() AT TIME ZONE 'Asia/Shanghai','YYYY-MM-DD HH24:MI:SS'))
+);
 `);
 
   /* 兼容旧库：补列（IF NOT EXISTS 幂等） */
@@ -317,6 +475,19 @@ ALTER TABLE materials ADD COLUMN IF NOT EXISTS storage_path TEXT DEFAULT '';    
 ALTER TABLE materials ADD COLUMN IF NOT EXISTS file_name TEXT DEFAULT '';         -- 原始文件名
 ALTER TABLE materials ADD COLUMN IF NOT EXISTS size_bytes BIGINT DEFAULT 0;       -- 文件字节数（展示用 file_size 由它格式化）
 ALTER TABLE materials ADD COLUMN IF NOT EXISTS mime TEXT DEFAULT '';              -- 文件 Content-Type
+ALTER TABLE students ADD COLUMN IF NOT EXISTS school TEXT DEFAULT '';             -- 就读学校
+ALTER TABLE students ADD COLUMN IF NOT EXISTS current_class TEXT DEFAULT '';      -- 就读班级（校外/校内班级名）
+ALTER TABLE students ADD COLUMN IF NOT EXISTS status TEXT DEFAULT '在读';         -- 在读/毕业/流失
+ALTER TABLE students ADD COLUMN IF NOT EXISTS cohort TEXT DEFAULT '';             -- 届别（如 2026 届）
+ALTER TABLE students ADD COLUMN IF NOT EXISTS university TEXT DEFAULT '';         -- 考取大学/去向学校
+ALTER TABLE students ADD COLUMN IF NOT EXISTS major TEXT DEFAULT '';              -- 专业
+ALTER TABLE students ADD COLUMN IF NOT EXISTS fee REAL DEFAULT 0;                 -- 学费 / 辅导费用（元）
+ALTER TABLE students ADD COLUMN IF NOT EXISTS destination TEXT DEFAULT '';        -- 毕业去向说明
+ALTER TABLE teachers ADD COLUMN IF NOT EXISTS ai_enabled INTEGER NOT NULL DEFAULT 1; -- AI 功能开关（0=关闭）
+ALTER TABLE teachers ADD COLUMN IF NOT EXISTS ai_model TEXT DEFAULT '';             -- 自选主模型（空=服务端默认）
+ALTER TABLE notifications ADD COLUMN IF NOT EXISTS status TEXT DEFAULT '待发送';    -- 待发送/已发送
+ALTER TABLE notifications ADD COLUMN IF NOT EXISTS sent_at TEXT;                    -- 标记已发送的时间
+ALTER TABLE timetables ADD COLUMN IF NOT EXISTS is_mine INTEGER NOT NULL DEFAULT 0;  -- 1=我的课（教师课表 / 上课提醒）
 CREATE UNIQUE INDEX IF NOT EXISTS idx_teachers_phone ON teachers(phone);
 `);
 

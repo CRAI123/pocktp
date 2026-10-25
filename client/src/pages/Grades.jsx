@@ -447,12 +447,14 @@ function ClassExamAnalysis() {
       {!a ? <Empty text="该班级暂无统考成绩，请先在「课程走势」视图录入成绩" /> : (
         <>
           {/* 概览卡片 */}
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
             {[
               { label: '参考人数', value: a.student_count, sub: `${a.subjects} 科` },
               { label: '班均总分', value: a.avg_total },
               { label: '最高总分', value: a.max_total, cls: 'text-[#1fa733]' },
               { label: '最低总分', value: a.min_total, cls: 'text-[#ff3b30]' },
+              { label: '及格率', value: `${a.pass_rate ?? 0}%`, cls: 'text-[#0071e3]' },
+              { label: '优秀率', value: `${a.excellent_rate ?? 0}%`, cls: 'text-[#af52de]' },
             ].map((s, i) => (
               <div key={i} className="card p-4">
                 <div className={`text-2xl font-bold ${s.cls || ''}`}>{s.value}</div>
@@ -460,6 +462,17 @@ function ClassExamAnalysis() {
               </div>
             ))}
           </div>
+
+          {/* 总分四分位 */}
+          {a.quartiles && (
+            <div className="card flex flex-wrap items-center gap-x-6 gap-y-2 px-5 py-3 text-xs text-ink-secondary">
+              <span className="font-semibold text-ink">总分四分位</span>
+              <span>P25 后 25% 分界<b className="ml-1.5 text-sm text-ink">{a.quartiles.p25}</b></span>
+              <span>P50 中位数<b className="ml-1.5 text-sm text-ink">{a.quartiles.p50}</b></span>
+              <span>P75 前 25% 分界<b className="ml-1.5 text-sm text-ink">{a.quartiles.p75}</b></span>
+              <span className="ml-auto">低分率（未及格）<b className="ml-1.5 text-sm text-[#c93400]">{a.low_rate ?? 0}%</b></span>
+            </div>
+          )}
 
           <div className="grid gap-5 lg:grid-cols-2">
             {/* 分数段分布 */}
@@ -505,6 +518,19 @@ function ClassExamAnalysis() {
             </div>
           </div>
 
+          {/* 学科箱线图 */}
+          <div className="card p-6">
+            <div className="mb-4 flex items-center gap-2">
+              <BarChart3 size={18} className="text-[#af52de]" />
+              <h3 className="font-semibold">学科成绩分布（箱线图）</h3>
+            </div>
+            <BoxPlot items={a.perSubject} />
+            <p className="mt-3 text-xs text-ink-secondary">箱体为 P25–P75 区间，中线为中位数，圆点为班级均分，须线为最低 / 最高分。</p>
+          </div>
+
+          {/* 年级对比 */}
+          <GradeCompare data={a.grade_compare} />
+
           {/* 总分排名 */}
           <div className="card overflow-hidden">
             <div className="border-b border-black/5 px-6 py-4 font-semibold">总分排名</div>
@@ -540,6 +566,98 @@ function ClassExamAnalysis() {
             </div>
           </div>
         </>
+      )}
+    </div>
+  );
+}
+
+/** 纯 SVG 箱线图：各科成绩分布（单科满分 100） */
+function BoxPlot({ items }) {
+  const valid = (items || []).filter(i => i.box);
+  if (!valid.length) return <div className="py-10 text-center text-sm text-ink-secondary">暂无各科成绩明细</div>;
+  const W = 460, H = 230;
+  const P = { t: 18, r: 14, b: 42, l: 30 };
+  const iw = W - P.l - P.r, ih = H - P.t - P.b;
+  const n = valid.length;
+  const band = iw / n;
+  const y = v => P.t + ih - (Math.max(0, Math.min(100, v)) / 100) * ih;
+  const bw = Math.min(34, band * 0.46);
+  return (
+    <div className="overflow-x-auto">
+      <svg viewBox={`0 0 ${W} ${H}`} className="h-64 w-full min-w-[420px]" role="img" aria-label="学科成绩箱线图">
+        {[0, 20, 40, 60, 80, 100].map(v => (
+          <g key={v}>
+            <line x1={P.l} x2={W - P.r} y1={y(v)} y2={y(v)} stroke="rgba(0,0,0,0.06)" strokeDasharray="3 3" />
+            <text x={P.l - 6} y={y(v) + 3.5} textAnchor="end" fontSize="9" fill="#6e6e73">{v}</text>
+          </g>
+        ))}
+        {valid.map((it, i) => {
+          const cx = P.l + band * i + band / 2;
+          const b = it.box;
+          const color = PALETTE[i % PALETTE.length];
+          return (
+            <g key={it.course_id ?? i}>
+              <line x1={cx} x2={cx} y1={y(b.min)} y2={y(b.max)} stroke={color} strokeWidth="1.5" />
+              <line x1={cx - bw / 3} x2={cx + bw / 3} y1={y(b.min)} y2={y(b.min)} stroke={color} strokeWidth="1.5" />
+              <line x1={cx - bw / 3} x2={cx + bw / 3} y1={y(b.max)} y2={y(b.max)} stroke={color} strokeWidth="1.5" />
+              <rect x={cx - bw / 2} y={y(b.q3)} width={bw} height={Math.max(1, y(b.q1) - y(b.q3))} rx="3"
+                fill={color} fillOpacity="0.18" stroke={color} strokeWidth="1.5" />
+              <line x1={cx - bw / 2} x2={cx + bw / 2} y1={y(b.median)} y2={y(b.median)} stroke={color} strokeWidth="2.5" />
+              <circle cx={cx} cy={y(it.avg_score)} r="3" fill="#fff" stroke={color} strokeWidth="1.5" />
+              <text x={cx} y={H - P.b + 14} textAnchor="middle" fontSize="10" fill="#6e6e73">
+                {String(it.course_name || it.subject || '').slice(0, 7)}
+              </text>
+              <text x={cx} y={H - P.b + 28} textAnchor="middle" fontSize="9" fill="#1d1d1f">{it.pass_rate}% 及格</text>
+            </g>
+          );
+        })}
+        <line x1={P.l} x2={W - P.r} y1={H - P.b} y2={H - P.b} stroke="rgba(0,0,0,0.15)" />
+      </svg>
+    </div>
+  );
+}
+
+/** 年级对比：同年级各班学科均分（仅本账号名下班级） */
+function GradeCompare({ data }) {
+  if (!data || !data.classes?.length) return null;
+  const classNames = [...new Set(data.classes.map(c => c.class_name))];
+  const subjects = [...new Set(data.classes.map(c => c.subject))];
+  const chart = subjects.map(sub => {
+    const row = { subject: sub };
+    for (const cn of classNames) {
+      const hit = data.classes.find(c => c.subject === sub && c.class_name === cn);
+      if (hit) row[cn] = hit.avg_score;
+    }
+    return row;
+  });
+  const multi = classNames.length > 1;
+  return (
+    <div className="card p-6">
+      <div className="mb-1 flex flex-wrap items-center gap-2">
+        <BarChart3 size={18} className="text-[#0071e3]" />
+        <h3 className="font-semibold">年级对比 · {data.grade || '同年级'}</h3>
+        <Badge tone="blue">{classNames.length} 个班</Badge>
+      </div>
+      <p className="mb-4 text-xs text-ink-secondary">按同名考试比较同年级各班的学科均分（仅统计你名下的班级）。</p>
+      {multi ? (
+        <div className="h-64">
+          <ResponsiveContainer>
+            <BarChart data={chart} margin={{ top: 8, right: 8, bottom: 0, left: -24 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" />
+              <XAxis dataKey="subject" tick={{ fontSize: 12, fill: '#6e6e73' }} />
+              <YAxis domain={[0, 100]} tick={{ fontSize: 12, fill: '#6e6e73' }} />
+              <Tooltip contentStyle={{ borderRadius: 16, border: 'none', boxShadow: '0 8px 24px rgba(0,0,0,.12)' }} />
+              <Legend wrapperStyle={{ fontSize: 12 }} />
+              {classNames.map((cn, i) => (
+                <Bar key={cn} dataKey={cn} name={cn} fill={PALETTE[i % PALETTE.length]} radius={[6, 6, 0, 0]} />
+              ))}
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      ) : (
+        <div className="rounded-xl bg-bg-light p-4 text-xs leading-relaxed text-ink-secondary">
+          本年级目前只有 1 个班级有该次考试成绩。创建同年级的其它班级并录入成绩后，这里会自动横向对比。
+        </div>
       )}
     </div>
   );

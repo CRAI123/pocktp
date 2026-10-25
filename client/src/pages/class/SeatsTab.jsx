@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Save, Shuffle, RefreshCw, Plus, Minus, UserX, MonitorPlay, Ban } from 'lucide-react';
+import { Save, Shuffle, RefreshCw, Plus, Minus, UserX, MonitorPlay, Ban, LayoutGrid, Trash2 } from 'lucide-react';
 import { api } from '../../api.js';
-import { Button } from '../../components/ui.jsx';
+import { Button, inputCls } from '../../components/ui.jsx';
 
 /**
  * 座次表编排（支持不规则教室布局）：
@@ -19,6 +19,13 @@ export default function SeatsTab({ classId }) {
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [bigScreen, setBigScreen] = useState(false);
+  const [mode, setMode] = useState('random');
+  const [arranging, setArranging] = useState(false);
+  const [plans, setPlans] = useState([]);
+  const [planName, setPlanName] = useState('');
+
+  const loadPlans = () => api.get(`/classes/${classId}/seat-plans`).then(setPlans).catch(console.error);
+  useEffect(() => { loadPlans(); }, [classId]);
 
   const load = () => api.get(`/classes/${classId}/seats`).then(d => {
     setData(d);
@@ -210,6 +217,43 @@ export default function SeatsTab({ classId }) {
     await load();
   };
 
+  /* 智能排座：随机 / 按成绩均衡 / 男女交错（后端直接落库） */
+  const autoArrange = async () => {
+    if (dirty && !confirm('当前有未保存的调整，智能排座会覆盖，继续？')) return;
+    setArranging(true);
+    try {
+      const r = await api.post(`/classes/${classId}/seats/auto`, { mode });
+      await load();
+      if (r?.unslotted) alert(`座位数不足，还有 ${r.unslotted} 名学生留在待入座区`);
+    } catch (e) {
+      alert(e.message || '智能排座失败');
+    } finally { setArranging(false); }
+  };
+
+  const savePlan = async () => {
+    if (!planName.trim()) return alert('请先填写方案名称，如「期中调整后」');
+    if (dirty) await save();          /* 先把当前编辑落库，保证方案与所见一致 */
+    try {
+      await api.post(`/classes/${classId}/seat-plans`, { name: planName.trim() });
+      setPlanName('');
+      await loadPlans();
+    } catch (e) { alert(e.message || '保存方案失败'); }
+  };
+
+  const applyPlan = async (p) => {
+    if (!confirm(`应用方案「${p.name}」会覆盖当前座次，继续？`)) return;
+    try {
+      await api.post(`/seat-plans/${p.id}/apply`);
+      await load();
+    } catch (e) { alert(e.message || '应用方案失败'); }
+  };
+
+  const deletePlan = async (p) => {
+    if (!confirm(`删除方案「${p.name}」？`)) return;
+    await api.del(`/seat-plans/${p.id}`);
+    await loadPlans();
+  };
+
   /* 大屏模式：只读全屏座次图（空置区不渲染，呈现不规则布局原貌） */
   if (bigScreen) return (
     <div className="fixed inset-0 z-50 flex flex-col bg-white p-4 sm:p-6" onClick={() => setBigScreen(false)}>
@@ -252,7 +296,18 @@ export default function SeatsTab({ classId }) {
           <Button onClick={save} disabled={!dirty || saving}>
             <Save size={15} />{saving ? '保存中…' : dirty ? '保存座次' : '已保存'}
           </Button>
-          <Button variant="secondary" onClick={autoFill}><Shuffle size={15} />一键编排</Button>
+          <Button variant="secondary" onClick={autoFill} title="按学号顺序填座（跳过挖空区）"><LayoutGrid size={15} />顺序编排</Button>
+          <div className="flex items-center gap-1.5 rounded-full border border-black/[0.06] bg-white/70 py-1 pl-1 pr-1">
+            <select value={mode} onChange={e => setMode(e.target.value)}
+              className="rounded-full bg-transparent px-2 py-1 text-xs font-medium text-ink outline-none">
+              <option value="random">随机排</option>
+              <option value="score">按成绩均衡</option>
+              <option value="gender">男女交错</option>
+            </select>
+            <Button variant="secondary" onClick={autoArrange} disabled={arranging}>
+              <Shuffle size={15} />{arranging ? '排座中…' : '智能排'}
+            </Button>
+          </div>
           <Button variant="secondary" onClick={rotate} title="最后一排移到最前，其余顺移"><RefreshCw size={15} />前后轮换</Button>
           <Button variant="secondary" onClick={() => setBigScreen(true)} title="全屏展示座次"><MonitorPlay size={15} />大屏</Button>
           <div className="ml-auto flex items-center gap-1 text-xs text-ink-secondary">
@@ -336,31 +391,66 @@ export default function SeatsTab({ classId }) {
         </p>
       </div>
 
-      {/* 待入座学生（可作为拖拽放置区） */}
-      <div
-        className="card h-fit p-4"
-        onDragOver={(e) => e.preventDefault()}
-        onDrop={dropOnPool}
-      >
-        <div className="mb-2 text-sm font-medium">待入座 <span className="text-xs text-ink-secondary">({pool.length})</span></div>
-        {pool.length ? (
-          <div className="flex flex-wrap gap-1.5">
-            {pool.map(s => (
-              <button
-                key={s.id}
-                draggable
-                onDragStart={(e) => dragFromPool(s.id, e)}
-                onClick={() => clickPool(s.id)}
-                className={`rounded-lg px-2.5 py-1.5 text-xs font-medium transition active:scale-95 ${
-                  selected?.pool === s.id ? 'brand-gradient text-white shadow' : 'bg-black/[0.05] text-ink hover:bg-[#0071e3]/10 hover:text-[#0071e3]'
-                }`}
-              >{s.name}</button>
-            ))}
+      <div className="h-fit space-y-4">
+        {/* 待入座学生（可作为拖拽放置区） */}
+        <div
+          className="card p-4"
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={dropOnPool}
+        >
+          <div className="mb-2 text-sm font-medium">待入座 <span className="text-xs text-ink-secondary">({pool.length})</span></div>
+          {pool.length ? (
+            <div className="flex flex-wrap gap-1.5">
+              {pool.map(s => (
+                <button
+                  key={s.id}
+                  draggable
+                  onDragStart={(e) => dragFromPool(s.id, e)}
+                  onClick={() => clickPool(s.id)}
+                  className={`rounded-lg px-2.5 py-1.5 text-xs font-medium transition active:scale-95 ${
+                    selected?.pool === s.id ? 'brand-gradient text-white shadow' : 'bg-black/[0.05] text-ink hover:bg-[#0071e3]/10 hover:text-[#0071e3]'
+                  }`}
+                >{s.name}</button>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-ink-secondary">全部学生已入座 ✓</p>
+          )}
+          <p className="mt-3 text-[10px] leading-relaxed text-ink-secondary/70">拖拽座位上的学生到此区域可将其移出座位</p>
+        </div>
+
+        {/* 座位方案：多套布局保存与一键切换 */}
+        <div className="card p-4">
+          <div className="mb-2 text-sm font-medium">座位方案</div>
+          <div className="flex gap-1.5">
+            <input
+              className={`${inputCls} text-xs`}
+              placeholder="方案名，如「期中后」"
+              value={planName}
+              onChange={e => setPlanName(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); savePlan(); } }}
+            />
+            <Button variant="secondary" onClick={savePlan} className="shrink-0" title="保存当前座次为方案">
+              <Save size={14} />保存
+            </Button>
           </div>
-        ) : (
-          <p className="text-xs text-ink-secondary">全部学生已入座 ✓</p>
-        )}
-        <p className="mt-3 text-[10px] leading-relaxed text-ink-secondary/70">拖拽座位上的学生到此区域可将其移出座位</p>
+          <div className="mt-2 space-y-1.5">
+            {plans.length ? plans.map(p => (
+              <div key={p.id} className="group flex items-center gap-1 rounded-lg bg-black/[0.03] px-2 py-1.5">
+                <button onClick={() => applyPlan(p)} className="min-w-0 flex-1 text-left" title="应用此方案">
+                  <div className="truncate text-xs font-medium text-ink">{p.name}</div>
+                  <div className="text-[10px] text-ink-secondary">{p.student_count} 人 · {p.created_at?.slice(5, 16)}</div>
+                </button>
+                <button onClick={() => deletePlan(p)} title="删除方案"
+                  className="btn-pill p-1.5 text-ink-secondary opacity-60 hover:text-[#ff3b30] sm:opacity-0 sm:group-hover:opacity-100">
+                  <Trash2 size={12} />
+                </button>
+              </div>
+            )) : (
+              <p className="text-[10px] text-ink-secondary/70">还没有方案。排好后填个名字保存，随时一键切回。</p>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
