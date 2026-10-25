@@ -38,19 +38,24 @@ function pruneKeys(today) {
 }
 
 export default function LessonReminders() {
-  const dataRef = useRef({ rows: [], slots: null });
+  const dataRef = useRef({ rows: [], slots: null, changes: [] });
   const [toasts, setToasts] = useState([]);
 
-  /* 加载「我的课」与作息时间；每 10 分钟刷新，切回页面时也刷新 */
+  /* 加载「我的课」、作息时间与今日调课登记；每 10 分钟刷新，切回页面时也刷新 */
   useEffect(() => {
     let alive = true;
     const load = async () => {
       try {
-        const [rows, slots] = await Promise.all([
+        const [rows, slots, changes] = await Promise.all([
           api.get('/timetables?mine=1'),
           api.get('/timetable-settings'),
+          api.get(`/schedule-changes?date=${localDate()}`),
         ]);
-        if (alive) dataRef.current = { rows: Array.isArray(rows) ? rows : [], slots };
+        if (alive) dataRef.current = {
+          rows: Array.isArray(rows) ? rows : [],
+          slots,
+          changes: Array.isArray(changes) ? changes : [],
+        };
       } catch { /* 静默：接口异常不打扰用户 */ }
     };
     load();
@@ -65,7 +70,7 @@ export default function LessonReminders() {
     pruneKeys(localDate());
     const tick = () => {
       if (!classRemindEnabled()) return;
-      const { rows, slots } = dataRef.current;
+      const { rows, slots, changes } = dataRef.current;
       if (!rows.length || !slots) return;
       const now = new Date();
       const wd = todayWeekday(now);
@@ -74,6 +79,15 @@ export default function LessonReminders() {
 
       for (const r of rows) {
         if (Number(r.weekday) !== wd) continue;
+        /* 今日有调课登记：停课不再提醒，其余在提醒文案里注明调整 */
+        const chg = changes.find(c => Number(c.period) === Number(r.period)
+          && (!c.class_id || String(c.class_id) === String(r.class_id)));
+        if (chg?.kind === '停课') continue;
+        const changeNote = chg
+          ? (chg.kind === '调课' ? `已调至第 ${chg.new_period} 节`
+            : chg.kind === '代课' ? `${chg.new_teacher || '他人'} 代课`
+              : chg.kind === '换教室' ? `改至 ${chg.new_note || '新教室'}` : '')
+          : '';
         const range = periodRange(slots, Number(r.period));
         if (range.startMin == null) continue; /* 该节次未设置作息时间，不提醒 */
         const diff = range.startMin - nowMin;
@@ -86,7 +100,7 @@ export default function LessonReminders() {
               localStorage.setItem(key, '1');
             } catch { continue; }
             const title = `${k} 分钟后上课：${r.subject}`;
-            const body = `${r.class_name || ''} · ${wdLabel(r.weekday)}第 ${r.period} 节 ${range.start}-${range.end}${r.note ? ` · ${r.note}` : ''}`;
+            const body = `${r.class_name || ''} · ${wdLabel(r.weekday)}第 ${r.period} 节 ${range.start}-${range.end}${r.note ? ` · ${r.note}` : ''}${changeNote ? ` · ${changeNote}` : ''}`;
             if (isDesktopApp()) {
               notifyDone(title, body);
             } else if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
@@ -116,9 +130,11 @@ export default function LessonReminders() {
             <div className="min-w-0 flex-1">
               <div className="text-sm font-semibold text-ink">{t.title}</div>
               <div className="mt-0.5 break-words text-xs leading-relaxed text-ink-secondary">{t.body}</div>
-              <Link to="/timetable" className="mt-2 inline-block text-xs font-medium text-[#0071e3] hover:underline">
-                查看课程表
-              </Link>
+              <div className="mt-2 flex items-center gap-3 text-xs font-medium">
+                <Link to="/timetable" className="text-[#0071e3] hover:underline">查看课程表</Link>
+                <span className="text-black/15">|</span>
+                <Link to="/timetable?change=1" className="text-[#a85300] hover:underline">登记调课</Link>
+              </div>
             </div>
             <button aria-label="关闭提醒" title="关闭" onClick={() => setToasts(list => list.filter(x => x.id !== t.id))}
               className="rounded-lg p-1 text-ink-secondary transition hover:bg-black/5">

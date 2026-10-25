@@ -1,6 +1,7 @@
 /** 课程表：班级课表（排课/导入导出）+ 我的课表（跨班级汇总 + 上课提醒设置） */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { CalendarDays, Download, Upload, Plus, Trash2, Loader2, BellRing, Settings2, Clock3, UserRound } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
+import { CalendarDays, Download, Upload, Plus, Trash2, Loader2, BellRing, Settings2, Clock3, UserRound, ArrowLeftRight, X } from 'lucide-react';
 import { api, auth } from '../api.js';
 import { SectionHeader, Button, Modal, Field, inputCls, Empty } from '../components/ui.jsx';
 import { classRemindEnabled, setClassRemindEnabled } from '../components/LessonReminders.jsx';
@@ -8,6 +9,13 @@ import { DEFAULT_SLOTS, periodRange, todayWeekday, wdLabel, WEEKDAY_LABELS, fmtM
 
 const WEEKDAYS = WEEKDAY_LABELS.map((l, i) => ({ v: i + 1, l }));
 const COMMON_SUBJECTS = ['语文', '数学', '英语', '物理', '化学', '生物', '历史', '地理', '道德与法治', '科学', '信息技术', '体育', '音乐', '美术', '班会', '自习'];
+const CHANGE_KINDS = ['调课', '代课', '停课', '换教室'];
+
+/* 本地日期 YYYY-MM-DD（不用 toISOString，避免时区偏移） */
+const localDate = (d = new Date()) => {
+  const p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+};
 
 /* 科目配色：同科目恒定，便于快速扫视 */
 const PALETTE = [
@@ -45,8 +53,18 @@ export default function Timetable() {
   const [importing, setImporting] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [tick, setTick] = useState(Date.now());
+  const [params, setParams] = useSearchParams();
+  /* 换课调课登记（今日临时调整，只做记录，不改基础课表） */
+  const [changes, setChanges] = useState([]);
+  const [changeOpen, setChangeOpen] = useState(false);
+  const [changeForm, setChangeForm] = useState(null);
+  const [changeErr, setChangeErr] = useState('');
+  const [changeSaving, setChangeSaving] = useState(false);
+  const autoOpened = useRef(false);
   const fileRef = useRef(null);
   const teacherName = auth.teacher?.name || '';
+
+  const loadChanges = () => api.get(`/schedule-changes?date=${localDate()}`).then(rows => setChanges(Array.isArray(rows) ? rows : [])).catch(() => {});
 
   useEffect(() => {
     api.get('/timetable-settings').then(setSlots).catch(console.error);
@@ -55,6 +73,7 @@ export default function Timetable() {
       if (cs.length) setClassId(String(cs[0].id));
     }).catch(console.error);
     api.get('/timetables?mine=1').then(setMineRows).catch(console.error);
+    loadChanges();
     const t = setInterval(() => setTick(Date.now()), 30000);
     return () => clearInterval(t);
   }, []);
@@ -206,6 +225,68 @@ export default function Timetable() {
     return { text: '已结束', tone: 'text-ink-secondary/60' };
   };
 
+  /* ---------- 换课调课登记 ---------- */
+  const openChange = () => {
+    const wd = todayWeekday(new Date());
+    const first = mineRows.find(r => Number(r.weekday) === wd) || null;
+    setChangeForm({
+      date: localDate(),
+      weekday: wd,
+      class_id: first?.class_id ? String(first.class_id) : '',
+      period: first ? Number(first.period) : '',
+      subject: first?.subject || '',
+      teacher: first?.teacher || '',
+      kind: '调课',
+      new_period: '',
+      new_subject: '',
+      new_teacher: '',
+      new_note: '',
+      reason: '',
+    });
+    setChangeErr('');
+    setChangeOpen(true);
+  };
+
+  const changeWeekday = changeForm?.date
+    ? todayWeekday(new Date(`${changeForm.date}T00:00:00`))
+    : todayWeekday(new Date());
+  const courseOptions = mineRows.filter(r => Number(r.weekday) === changeWeekday);
+
+  const pickCourse = (key) => {
+    const r = courseOptions.find(x => `${x.class_id}-${x.period}` === key);
+    if (!r) return;
+    setChangeForm(f => ({ ...f, class_id: String(r.class_id), period: Number(r.period), subject: r.subject, teacher: r.teacher || '' }));
+  };
+
+  const saveChange = async () => {
+    if (!changeForm?.subject) { setChangeErr('请先选择要调整的课程'); return; }
+    setChangeSaving(true); setChangeErr('');
+    try {
+      await api.post('/schedule-changes', changeForm);
+      setChangeOpen(false);
+      await loadChanges();
+    } catch (e) { setChangeErr(e.message || '登记失败'); }
+    finally { setChangeSaving(false); }
+  };
+
+  const removeChange = async (id) => {
+    if (!confirm('删除这条调课登记？')) return;
+    try { await api.del(`/schedule-changes/${id}`); await loadChanges(); } catch {}
+  };
+
+  /* 上课提醒 / 工作台的「登记调课」入口：/timetable?change=1 直接打开弹窗 */
+  useEffect(() => {
+    if (autoOpened.current || params.get('change') !== '1' || !mineRows.length) return;
+    autoOpened.current = true;
+    openChange();
+    const next = new URLSearchParams(params);
+    next.delete('change');
+    setParams(next, { replace: true });
+  }, [mineRows, params]);
+
+  const changeOf = (r) => changes.find(c => Number(c.period) === Number(r.period)
+    && (!c.class_id || String(c.class_id) === String(r.class_id)));
+
   return (
     <div>
       <SectionHeader
@@ -222,6 +303,7 @@ export default function Timetable() {
                 <Button variant="secondary" onClick={exportExcel} disabled={!rows.length}><Download size={16} />导出 Excel</Button>
               </>
             )}
+            <Button variant="secondary" onClick={openChange}><ArrowLeftRight size={16} />换课调课登记</Button>
             <Button variant="secondary" onClick={() => setSettingsOpen(true)}><Settings2 size={16} />作息与提醒</Button>
           </div>
         )}
@@ -319,6 +401,42 @@ export default function Timetable() {
         <>
           {err && <div className="mb-4 rounded-xl bg-[#ff3b30]/8 px-4 py-2.5 text-sm text-[#ff3b30]">{err}</div>}
 
+          {/* 今日换课调课登记 */}
+          {!!changes.length && (
+            <div className="card mb-4 border-[#ff9500]/25 bg-gradient-to-r from-[#ff9500]/[0.06] to-transparent p-4">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 text-sm font-semibold text-ink">
+                  <ArrowLeftRight size={15} className="text-[#a85300]" />今日调整
+                  <span className="rounded-full bg-[#ff9500]/15 px-1.5 text-[11px] font-medium text-[#a85300]">{changes.length} 条</span>
+                </div>
+                <button onClick={loadChanges} className="text-[11px] font-medium text-ink-secondary transition hover:text-ink">刷新</button>
+              </div>
+              <div className="mt-2.5 space-y-1.5">
+                {changes.map(c => (
+                  <div key={c.id} className="flex items-center gap-2 rounded-xl bg-white/70 px-3 py-2 text-[12.5px]">
+                    <span className="shrink-0 rounded-full bg-[#ff9500]/15 px-1.5 py-0.5 text-[10.5px] font-semibold text-[#a85300]">{c.kind}</span>
+                    <span className="min-w-0 flex-1 truncate text-ink">
+                      第 {c.period} 节 {c.subject}
+                      <span className="ml-1.5 text-ink-secondary">{c.class_name || ''}</span>
+                      <span className="mx-1.5 text-ink-secondary/40">→</span>
+                      <span className="font-medium text-[#0071e3]">
+                        {c.kind === '停课' ? '停上'
+                          : c.kind === '调课' ? `第 ${c.new_period} 节`
+                            : c.kind === '代课' ? `${c.new_teacher || '他人'} 代课`
+                              : c.new_note || '已调整'}
+                      </span>
+                      {c.reason && <span className="ml-1.5 text-[11px] text-ink-secondary">· {c.reason}</span>}
+                    </span>
+                    <button onClick={() => removeChange(c.id)} aria-label="删除登记" title="删除登记"
+                      className="shrink-0 rounded-md p-1 text-ink-secondary/60 transition hover:bg-black/5 hover:text-[#ff3b30]">
+                      <X size={13} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* 今日课程 */}
           <div className="card mb-4 p-5">
             <div className="mb-3 flex items-center justify-between gap-2">
@@ -330,13 +448,22 @@ export default function Timetable() {
             {todayList.length ? (
               <div className="space-y-2">
                 {todayList.map(r => {
-                  const st = todayState(r.range);
+                  const chg = changeOf(r);
+                  const st = chg?.kind === '停课' ? { text: '已停课', tone: 'text-[#b3251c]' } : todayState(r.range);
                   return (
                     <button key={r.id} onClick={() => gotoClass(r)}
                       className="flex w-full items-center gap-3 rounded-xl bg-bg-light px-3 py-2.5 text-left transition hover:bg-[#0071e3]/[0.06]">
                       <span className="w-24 shrink-0 text-xs font-medium tabular-nums text-ink-secondary">{r.range.start ? `${r.range.start}-${r.range.end}` : '未设置'}</span>
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-semibold text-ink">{r.subject}<span className="ml-2 text-xs font-normal text-ink-secondary">{r.class_name}</span></span>
+                        <span className="block truncate text-sm font-semibold text-ink">
+                          {r.subject}
+                          <span className="ml-2 text-xs font-normal text-ink-secondary">{r.class_name}</span>
+                          {chg && (
+                            <span className={`ml-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${chg.kind === '停课' ? 'bg-[#ff3b30]/10 text-[#b3251c]' : 'bg-[#ff9500]/15 text-[#a85300]'}`}>
+                              {chg.kind}
+                            </span>
+                          )}
+                        </span>
                         <span className="block text-[11px] text-ink-secondary">第 {r.period} 节{r.note ? ` · ${r.note}` : ''}</span>
                       </span>
                       <span className={`shrink-0 text-xs font-medium ${st.tone}`}>{st.text}</span>
@@ -440,6 +567,95 @@ export default function Timetable() {
               {edit.id && <Button variant="danger" onClick={remove} disabled={saving}><Trash2 size={15} />删除</Button>}
               <Button variant="secondary" onClick={() => setEdit(null)} disabled={saving}>取消</Button>
               <Button onClick={save} disabled={saving || !edit.subject.trim()}>{saving ? '保存中…' : '保存'}</Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* 换课调课登记 */}
+      <Modal open={changeOpen} onClose={() => setChangeOpen(false)} title="换课调课登记" width="max-w-lg">
+        {changeForm && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <Field label="原课日期">
+                <input type="date" className={inputCls} value={changeForm.date}
+                  onChange={e => setChangeForm(f => ({ ...f, date: e.target.value, class_id: '', period: '', subject: '', teacher: '' }))} />
+              </Field>
+              <Field label="要调整的课">
+                <select className={inputCls} value={changeForm.subject ? `${changeForm.class_id}-${changeForm.period}` : ''}
+                  onChange={e => pickCourse(e.target.value)}>
+                  <option value="">请选择课程</option>
+                  {courseOptions.map(r => (
+                    <option key={r.id} value={`${r.class_id}-${r.period}`}>
+                      {wdLabel(r.weekday)} 第 {r.period} 节 · {r.subject} · {r.class_name}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            </div>
+            {!courseOptions.length && (
+              <p className="rounded-xl bg-[#ff9500]/10 px-3 py-2 text-[11.5px] text-[#a85300]">
+                这一天还没有「我的课」，请先在班级课表里把任课教师填成自己或勾选「我的课」。
+              </p>
+            )}
+
+            <Field label="调整类型">
+              <div className="flex flex-wrap gap-1.5">
+                {CHANGE_KINDS.map(k => (
+                  <button key={k} type="button" onClick={() => setChangeForm(f => ({ ...f, kind: k }))}
+                    className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${changeForm.kind === k ? 'bg-[#0071e3] text-white shadow-sm' : 'bg-black/[0.04] text-ink-secondary hover:text-ink'}`}>
+                    {k}
+                  </button>
+                ))}
+              </div>
+            </Field>
+
+            {changeForm.kind === '调课' && (
+              <Field label="调到第几节">
+                <select className={inputCls} value={changeForm.new_period}
+                  onChange={e => setChangeForm(f => ({ ...f, new_period: e.target.value }))}>
+                  <option value="">请选择节次</option>
+                  {periods.map(p => (
+                    <option key={p} value={p}>第 {p} 节 · {periodRange(slots, p).start ? `${periodRange(slots, p).start}-${periodRange(slots, p).end}` : '未设置时间'}</option>
+                  ))}
+                </select>
+              </Field>
+            )}
+
+            {changeForm.kind === '代课' && (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <Field label="代课教师">
+                  <input className={inputCls} value={changeForm.new_teacher}
+                    onChange={e => setChangeForm(f => ({ ...f, new_teacher: e.target.value }))} placeholder="如：李老师" />
+                </Field>
+                <Field label="备注（选填）">
+                  <input className={inputCls} value={changeForm.new_note}
+                    onChange={e => setChangeForm(f => ({ ...f, new_note: e.target.value }))} placeholder="如：按原进度上" />
+                </Field>
+              </div>
+            )}
+
+            {changeForm.kind === '换教室' && (
+              <Field label="新教室 / 地点">
+                <input className={inputCls} value={changeForm.new_note}
+                  onChange={e => setChangeForm(f => ({ ...f, new_note: e.target.value }))} placeholder="如：实验楼 302" />
+              </Field>
+            )}
+
+            <Field label="原因说明（选填）">
+              <textarea rows={2} className={inputCls} value={changeForm.reason}
+                onChange={e => setChangeForm(f => ({ ...f, reason: e.target.value }))}
+                placeholder="如：外出教研，与李老师对调一节" />
+            </Field>
+
+            {changeErr && <div className="rounded-xl bg-[#ff3b30]/8 px-4 py-2.5 text-sm text-[#b3251c]">{changeErr}</div>}
+
+            <div className="flex items-center justify-end gap-2 pt-1">
+              <Button variant="secondary" onClick={() => setChangeOpen(false)} disabled={changeSaving}>取消</Button>
+              <Button onClick={saveChange}
+                disabled={changeSaving || !changeForm.subject || (changeForm.kind === '调课' && !changeForm.new_period)}>
+                {changeSaving ? '登记中…' : '登记'}
+              </Button>
             </div>
           </div>
         )}

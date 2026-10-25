@@ -1,8 +1,279 @@
 import { useEffect, useState, memo } from 'react';
 import { Link } from 'react-router-dom';
-import { Users, ClipboardList, ListTodo, CalendarCheck, GraduationCap, ArrowRight, Zap, RefreshCw, MonitorPlay, PenLine, MessageSquare, BookText } from 'lucide-react';
+import { Users, ClipboardList, ListTodo, CalendarCheck, GraduationCap, ArrowRight, Zap, RefreshCw, MonitorPlay, PenLine, MessageSquare, BookText, Check, Clock3, ArrowLeftRight } from 'lucide-react';
 import { api, auth } from '../api.js';
 import { StatCard, Badge } from '../components/ui.jsx';
+import { periodRange, todayWeekday } from '../timetable.js';
+
+const localDate = (d = new Date()) => {
+  const p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+};
+
+const PRIORITY_DOT = { 高: 'bg-[#ff3b30]', 中: 'bg-[#ff9500]', 低: 'bg-[#0071e3]' };
+const PRIORITY_W = { 高: 0, 中: 1, 低: 2 };
+const KIND_TONE = {
+  调课: 'bg-[#ff9500]/15 text-[#a85300]',
+  代课: 'bg-[#0071e3]/10 text-[#0059b3]',
+  停课: 'bg-[#ff3b30]/10 text-[#b3251c]',
+  换教室: 'bg-[#5ac8fa]/15 text-[#0b6e94]',
+};
+
+/* 今日调整的文案（调课 → 新节次、代课 → 教师、停课、换教室 → 地点） */
+function changeText(c) {
+  if (!c) return '';
+  if (c.kind === '调课') return `调至第 ${c.new_period} 节${c.new_subject ? ` ${c.new_subject}` : ''}`;
+  if (c.kind === '代课') return `${c.new_teacher || '他人'} 代课`;
+  if (c.kind === '停课') return '停上';
+  if (c.kind === '换教室') return `改至 ${c.new_note || '新教室'}`;
+  return c.reason || '';
+}
+
+/* 待办到期文案：今天 / 明天 / 逾期 N 天 */
+function dueLabel(due, today) {
+  if (!due) return '';
+  if (due === today) return '今天到期';
+  const diff = Math.round((new Date(`${due}T00:00:00`) - new Date(`${today}T00:00:00`)) / 86400000);
+  if (diff < 0) return `逾期 ${-diff} 天`;
+  if (diff === 1) return '明天';
+  return due.slice(5).replace('-', '/');
+}
+
+const countText = m => (m >= 60 ? `${Math.floor(m / 60)} 小时 ${m % 60} 分` : `${m} 分钟`);
+
+/* 今日提醒面板：下一节课倒计时 + 今日课程时间线 + 今日待办 + 今日调整 */
+function TodayBoard() {
+  const [data, setData] = useState(null);
+  const [now, setNow] = useState(() => Date.now());
+  const [busy, setBusy] = useState(null);
+
+  useEffect(() => {
+    let alive = true;
+    Promise.all([
+      api.get('/todos'),
+      api.get('/timetables?mine=1'),
+      api.get('/timetable-settings'),
+      api.get(`/schedule-changes?date=${localDate()}`),
+    ]).then(([todos, rows, slots, changes]) => {
+      if (!alive) return;
+      setData({
+        todos: Array.isArray(todos) ? todos : [],
+        rows: Array.isArray(rows) ? rows : [],
+        slots,
+        changes: Array.isArray(changes) ? changes : [],
+      });
+    }).catch(() => { /* 静默：面板不因单个接口失败而打断工作台 */ });
+    const timer = setInterval(() => setNow(Date.now()), 30000);
+    return () => { alive = false; clearInterval(timer); };
+  }, []);
+
+  if (!data) return null;
+
+  const today = localDate(new Date(now));
+  const wd = todayWeekday(new Date(now));
+  const d = new Date(now);
+  const nowMin = d.getHours() * 60 + d.getMinutes() + d.getSeconds() / 60;
+
+  const lessons = data.rows
+    .filter(r => Number(r.weekday) === wd)
+    .map(r => {
+      const range = periodRange(data.slots, Number(r.period));
+      const chg = data.changes.find(c => Number(c.period) === Number(r.period)
+        && (!c.class_id || String(c.class_id) === String(r.class_id)));
+      const state = chg?.kind === '停课' ? 'stopped'
+        : range.startMin == null ? 'unknown'
+          : nowMin < range.startMin ? 'upcoming'
+            : nowMin <= range.endMin ? 'ongoing' : 'past';
+      return { ...r, range, chg, state, diff: range.startMin == null ? null : Math.round(range.startMin - nowMin), rest: range.endMin == null ? 0 : Math.round(range.endMin - nowMin) };
+    })
+    .sort((a, b) => (a.range.startMin ?? 1e9) - (b.range.startMin ?? 1e9));
+
+  const featured = lessons.find(l => l.state === 'ongoing') || lessons.find(l => l.state === 'upcoming');
+  const pending = data.todos.filter(t => !t.done)
+    .sort((a, b) => (a.due_date || '9999').localeCompare(b.due_date || '9999')
+      || ((PRIORITY_W[a.priority] ?? 1) - (PRIORITY_W[b.priority] ?? 1)));
+
+  const toggleTodo = async (id) => {
+    setBusy(id);
+    setData(prev => prev ? { ...prev, todos: prev.todos.map(t => (t.id === id ? { ...t, done: t.done ? 0 : 1 } : t)) } : prev);
+    try { await api.patch(`/todos/${id}/toggle`); }
+    catch { setData(prev => prev ? { ...prev, todos: prev.todos.map(t => (t.id === id ? { ...t, done: t.done ? 1 : 0 } : t)) } : prev); }
+    finally { setBusy(null); }
+  };
+
+  return (
+    <div>
+      <div className="mb-3 flex items-end justify-between gap-3">
+        <div>
+          <div className="eyebrow">Today</div>
+          <h3 className="display mt-1 text-[17px] font-semibold text-ink">今日提醒</h3>
+        </div>
+        <Link to="/timetable?change=1" className="inline-flex items-center gap-1 text-xs font-medium text-[#a85300] hover:underline">
+          <ArrowLeftRight size={13} />换课调课登记
+        </Link>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-[1.18fr_0.82fr]">
+        {/* 上课提醒：下一节 + 今日课程时间线 */}
+        <div className="card relative overflow-hidden p-5 sm:p-6">
+          <span className="brand-gradient pointer-events-none absolute inset-x-6 top-0 h-[2px] opacity-40" />
+          {featured ? (
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#0071e3] via-[#0a68df] to-[#0a55c8] p-4 text-white shadow-[0_16px_34px_-20px_rgba(0,113,227,0.9)]">
+              <div className="pointer-events-none absolute -right-8 -top-12 h-36 w-36 rounded-full bg-white/20 blur-2xl" />
+              <div className="pointer-events-none absolute -bottom-12 left-8 h-24 w-24 rounded-full bg-[#28cd41]/35 blur-2xl" />
+              <div className="relative flex items-center justify-between text-[11px] font-medium text-white/80">
+                <span className="inline-flex items-center gap-1.5">
+                  <Clock3 size={12} />
+                  {featured.state === 'ongoing' ? '正在上课' : '下一节课'}
+                </span>
+                <span className="num">{featured.range.start}-{featured.range.end}</span>
+              </div>
+              <div className="relative mt-2 flex items-end justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="truncate text-[20px] font-semibold leading-tight">{featured.chg?.new_subject || featured.subject}</div>
+                  <div className="mt-1 truncate text-[11.5px] text-white/80">
+                    {featured.class_name} · 第 {featured.period} 节{featured.note ? ` · ${featured.note}` : ''}
+                  </div>
+                </div>
+                <div className="shrink-0 text-right">
+                  <div className={`num font-semibold leading-none tracking-tight ${(featured.state === 'ongoing' ? featured.rest : featured.diff) >= 60 ? 'text-[17px]' : 'text-[30px]'}`}>
+                    {countText(Math.max(0, featured.state === 'ongoing' ? featured.rest : featured.diff))}
+                  </div>
+                  <div className="mt-1.5 text-[10.5px] text-white/75">{featured.state === 'ongoing' ? '后下课' : '后上课'}</div>
+                </div>
+              </div>
+              {featured.chg && (
+                <div className="relative mt-3 inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-1 text-[11px] font-medium text-white">
+                  <ArrowLeftRight size={11} />{featured.chg.kind} · {changeText(featured.chg)}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="flex items-center gap-3 rounded-2xl border border-dashed border-black/[0.08] bg-black/[0.015] px-4 py-5">
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#28cd41]/12 text-[#1a7f2b]"><Check size={16} /></span>
+              <div>
+                <div className="text-[13px] font-medium text-ink">今天没有安排上课</div>
+                <div className="mt-0.5 text-[11px] text-ink-secondary">可以整理待办，或提前备好明天的课。</div>
+              </div>
+            </div>
+          )}
+
+          <div className="mt-4 flex items-center justify-between">
+            <div className="text-[11px] font-medium text-ink-secondary">今日课程 · {lessons.length} 节</div>
+            <Link to="/timetable" className="text-[11px] font-medium text-[#0071e3] hover:underline">课程表 →</Link>
+          </div>
+
+          {lessons.length ? (
+            <div className="mt-1 space-y-0.5">
+              {lessons.slice(0, 5).map(l => {
+                const chip = l.state === 'stopped' ? { text: '停课', cls: 'bg-[#ff3b30]/10 text-[#b3251c]' }
+                  : l.state === 'ongoing' ? { text: '进行中', cls: 'bg-[#28cd41]/12 text-[#1a7f2b]' }
+                    : l.state === 'upcoming' && l.diff != null && l.diff <= 30 ? { text: `${Math.max(1, l.diff)} 分钟后`, cls: 'bg-[#ff9500]/15 text-[#a85300]' }
+                      : null;
+                return (
+                  <div key={l.id} className="flex items-center gap-3 rounded-lg px-1 py-2 transition hover:bg-black/[0.02]">
+                    <span className="num w-11 shrink-0 text-[11px] text-ink-secondary">{l.range.start || `第${l.period}节`}</span>
+                    <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${l.state === 'ongoing' ? 'bg-[#28cd41]' : l.state === 'stopped' ? 'bg-[#ff3b30]' : l.state === 'past' ? 'bg-black/15' : 'bg-[#0071e3]/70'}`} />
+                    <div className="min-w-0 flex-1">
+                      <div className={`truncate text-[13px] font-medium ${l.state === 'past' || l.state === 'stopped' ? 'text-ink-secondary line-through decoration-black/15' : 'text-ink'}`}>
+                        {l.subject}
+                      </div>
+                      <div className="truncate text-[11px] text-ink-secondary">
+                        {l.class_name} · 第 {l.period} 节{l.chg && l.state !== 'stopped' ? ` · ${changeText(l.chg)}` : ''}
+                      </div>
+                    </div>
+                    {chip && <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${chip.cls}`}>{chip.text}</span>}
+                  </div>
+                );
+              })}
+              {lessons.length > 5 && (
+                <Link to="/timetable" className="block px-1 pt-1.5 text-[11px] font-medium text-ink-secondary transition hover:text-[#0071e3]">
+                  还有 {lessons.length - 5} 节 · 查看完整课程表 →
+                </Link>
+              )}
+            </div>
+          ) : (
+            <div className="mt-2 rounded-xl bg-black/[0.02] px-3 py-4 text-center text-[11.5px] text-ink-secondary">
+              课表里还没有今天的课，<Link to="/timetable" className="font-medium text-[#0071e3] hover:underline">去排课</Link>
+            </div>
+          )}
+        </div>
+
+        <div className="space-y-4">
+          {/* 今日待办：可直接勾选完成 */}
+          <div className="card p-5">
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <div className="flex min-w-0 items-center gap-2.5">
+                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-[#ff9500]/12 text-[#a85300]"><ListTodo size={16} /></span>
+                <div className="min-w-0">
+                  <div className="truncate text-[13.5px] font-semibold text-ink">今日待办</div>
+                  <div className="text-[11px] text-ink-secondary">{pending.length ? `还有 ${pending.length} 件待处理` : '全部完成'}</div>
+                </div>
+              </div>
+              <Link to="/todos" className="shrink-0 text-[11px] font-medium text-[#0071e3] hover:underline">全部 →</Link>
+            </div>
+
+            {pending.length ? (
+              <div className="space-y-0.5">
+                {pending.slice(0, 4).map(t => {
+                  const overdue = t.due_date && t.due_date < today;
+                  return (
+                    <div key={t.id} className="flex items-start gap-2.5 rounded-lg px-1 py-1.5">
+                      <button aria-label="标记完成" title="标记完成" disabled={busy === t.id} onClick={() => toggleTodo(t.id)}
+                        className="mt-[3px] grid h-4 w-4 shrink-0 place-items-center rounded-full border border-black/20 text-transparent transition hover:border-[#28cd41] hover:bg-[#28cd41]/10 hover:text-[#1a7f2b] disabled:opacity-50">
+                        <Check size={11} />
+                      </button>
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-[12.5px] leading-snug text-ink">{t.title}</div>
+                        <div className="mt-0.5 flex items-center gap-1.5 text-[10.5px] text-ink-secondary">
+                          <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${PRIORITY_DOT[t.priority] || 'bg-black/20'}`} />
+                          <span className="shrink-0">{t.priority}优先</span>
+                          {t.category && <span className="truncate">· {t.category}</span>}
+                          {t.due_date && <span className={`shrink-0 ${overdue ? 'font-medium text-[#b3251c]' : ''}`}>· {dueLabel(t.due_date, today)}</span>}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="rounded-xl bg-black/[0.02] px-3 py-4 text-center text-[11.5px] text-ink-secondary">今日待办已清空</div>
+            )}
+          </div>
+
+          {/* 今日调整：换课 / 代课 / 停课 / 换教室 */}
+          {data.changes.length > 0 && (
+            <div className="card p-5">
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <div className="flex min-w-0 items-center gap-2.5">
+                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-[#ff9500]/12 text-[#a85300]"><ArrowLeftRight size={15} /></span>
+                  <div className="min-w-0">
+                    <div className="truncate text-[13.5px] font-semibold text-ink">今日调整</div>
+                    <div className="text-[11px] text-ink-secondary">{data.changes.length} 处临时变动</div>
+                  </div>
+                </div>
+                <Link to="/timetable?change=1" className="shrink-0 text-[11px] font-medium text-[#0071e3] hover:underline">管理 →</Link>
+              </div>
+              <div className="space-y-1">
+                {data.changes.slice(0, 3).map(c => (
+                  <div key={c.id} className="flex items-start gap-2 rounded-lg px-1 py-1.5">
+                    <span className={`mt-0.5 shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${KIND_TONE[c.kind] || 'bg-black/[0.06] text-ink-secondary'}`}>{c.kind}</span>
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-[12px] leading-snug text-ink">
+                        第 {c.period} 节 {c.subject}{c.class_name ? ` · ${c.class_name}` : ''}
+                      </div>
+                      <div className="truncate text-[10.5px] text-ink-secondary">{changeText(c)}{c.reason ? ` · ${c.reason}` : ''}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 /* 单个班级卡片（memo 避免无关重渲） */
 const ClassCard = memo(function ClassCard({ cls }) {
@@ -156,6 +427,9 @@ export default function Dashboard() {
           </div>
         </div>
       </section>
+
+      {/* 今日提醒：下一节课倒计时 + 今日待办 + 临时调课 */}
+      <TodayBoard />
 
       {/* 顶部精简：3 卡（不显示算力/课程，避免信息过载；算力在顶栏已显示） */}
       <div className="stagger grid grid-cols-3 gap-3">
