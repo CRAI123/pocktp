@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
-  Ticket, TicketCheck, TicketX, Users, Plus, Copy, Ban, Check, ShieldCheck, Link2, Zap, Sparkles, CalendarPlus,
+  Ticket, TicketCheck, TicketX, Users, Plus, Copy, Ban, Check, ShieldCheck, Link2, Zap, Sparkles, CalendarPlus, Wallet,
 } from 'lucide-react';
 import { api, todayStr } from '../api.js';
 import { BASE_URL } from '../config.js';
@@ -103,6 +103,21 @@ export default function Admin() {
 
   useEffect(() => { loadCodes().catch(e => setError(e.message)); }, [loadCodes]);
   useEffect(() => { loadTeachers().catch(() => {}); }, [loadTeachers]);
+
+  /* 功能权限：课时费与工作量（默认关闭，按教师分配） */
+  const [permBusy, setPermBusy] = useState(null);
+  const toggleFinance = async (t) => {
+    if (permBusy) return;
+    setPermBusy(t.id);
+    try {
+      const r = await api.post(`/admin/teachers/${t.id}/finance`, { enabled: !t.finance_enabled });
+      setTeachers(list => list.map(x => (x.id === t.id ? { ...x, finance_enabled: r.finance_enabled } : x)));
+    } catch (e) {
+      alert(e.message || '操作失败');
+    } finally {
+      setPermBusy(null);
+    }
+  };
 
   const generate = async (e) => {
     e.preventDefault();
@@ -365,8 +380,13 @@ export default function Admin() {
       ) : (
         /* 教师用户列表 */
         teachers.length === 0 ? <Empty text="暂无教师用户" /> : (
-          <div className="card overflow-x-auto">
-            <table className="w-full min-w-[920px] text-sm">
+          <div className="space-y-3">
+            <div className="flex items-start gap-2 rounded-xl bg-[#0071e3]/[0.05] px-4 py-3 text-xs leading-relaxed text-ink-secondary">
+              <Wallet size={14} className="mt-0.5 shrink-0 text-[#0071e3]" />
+              <span>「课时费与工作量」默认不开放（学校教师通常用不到）。点击教师行里的按钮即可开通；开通后该教师侧栏会出现入口，关闭后入口隐藏、接口也会拒绝访问。</span>
+            </div>
+            <div className="card overflow-x-auto">
+            <table className="w-full min-w-[1060px] text-sm">
               <thead>
                 <tr className="border-b border-black/5 text-left text-xs text-ink-secondary">
                   <th className="px-5 py-3 font-medium">教师</th>
@@ -374,6 +394,7 @@ export default function Admin() {
                   <th className="px-5 py-3 font-medium">状态</th>
                   <th className="px-5 py-3 font-medium">会员到期</th>
                   <th className="px-5 py-3 font-medium">算力余额</th>
+                  <th className="px-5 py-3 font-medium">功能权限</th>
                   <th className="px-5 py-3 font-medium">班级 / 学生</th>
                   <th className="px-5 py-3 font-medium">使用的激活码</th>
                   <th className="px-5 py-3 font-medium">注册时间</th>
@@ -417,6 +438,25 @@ export default function Admin() {
                         <Zap size={13} />{t.credits ?? 0}
                       </span>
                     </td>
+                    <td className="px-5 py-3">
+                      {t.is_admin ? (
+                        <Badge tone="gray">默认开放</Badge>
+                      ) : (
+                        <button
+                          onClick={() => toggleFinance(t)}
+                          disabled={permBusy === t.id}
+                          title="点击切换「课时费与工作量」功能权限"
+                          className={`btn-pill inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition ${
+                            t.finance_enabled
+                              ? 'bg-[#0071e3]/10 text-[#0071e3] hover:bg-[#0071e3]/15'
+                              : 'bg-black/[0.04] text-ink-secondary hover:bg-black/[0.07]'
+                          }`}
+                        >
+                          <Wallet size={13} />
+                          {permBusy === t.id ? '处理中…' : t.finance_enabled ? '课时费 已开通' : '课时费 未开通'}
+                        </button>
+                      )}
+                    </td>
                     <td className="px-5 py-3">{t.classes} 班 / {t.students} 人</td>
                     <td className="px-5 py-3 font-mono text-[13px]">
                       {t.used_code ? (
@@ -442,6 +482,7 @@ export default function Admin() {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         )
       )}

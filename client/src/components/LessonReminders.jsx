@@ -75,6 +75,7 @@ export default function LessonReminders() {
       for (const r of rows) {
         if (Number(r.weekday) !== wd) continue;
         const range = periodRange(slots, Number(r.period));
+        if (range.startMin == null) continue; /* 该节次未设置作息时间，不提醒 */
         const diff = range.startMin - nowMin;
         for (const k of THRESHOLDS) {
           /* 1 分钟窗口：20 秒轮询至少能命中 3 次，配合去重不会重复提醒 */
@@ -92,7 +93,7 @@ export default function LessonReminders() {
               try { new Notification(title, { body, icon: '/rayzo-logo.png', tag: key }); } catch {}
             }
             setToasts(list => [...list, { id: key, title, body }]);
-            setTimeout(() => setToasts(list => list.filter(t => t.id !== key)), 20000);
+            setTimeout(() => setToasts(list => list.filter(t => t.id !== key)), 90000);
           }
         }
       }

@@ -1,28 +1,54 @@
 @import "tailwindcss";
 
-/* 设计令牌：与主站 rayzo.cn 保持一致（Apple 风格） */
+/* 设计令牌：与主站 rayzo.cn 保持一致（Apple 风格），全局页面共用 */
 @theme {
   --color-primary-blue: #0071e3;
   --color-primary-green: #28cd41;
-  --color-bg-light: #f5f5f7;
+  --color-bg-light: #f4f4f7;
   --color-bg-white: #ffffff;
-  --color-ink: #1d1d1f;
-  --color-ink-secondary: #6e6e73;
+  --color-ink: #16161a;
+  --color-ink-secondary: #6b6b73;
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-display: "SF Pro Display", "PingFang SC", "HarmonyOS Sans SC", "MiSans", "Microsoft YaHei UI", sans-serif;
 }
 
 html {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 body {
   background-color: var(--color-bg-light);
   color: var(--color-ink);
+  letter-spacing: -0.01em;
 }
 
-/* 全站环境氛围背景：极淡的品牌色极光 + 细网格，固定于视口（打印时自动隐藏） */
+/* 标题字族：更紧凑的字距，形成编辑级排版层次 */
+.display {
+  font-family: var(--font-display);
+  letter-spacing: -0.03em;
+  font-feature-settings: "ss01" on;
+}
+
+/* 数字：等宽数字 + 紧凑字距，让统计值更整齐 */
+.num {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
+  font-family: var(--font-display);
+}
+
+/* 小标签：全站区块的「眉标」 */
+.eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--color-ink-secondary) 72%, transparent);
+}
+
+/* 全站环境氛围背景：柔和品牌极光 + 细网格，固定于视口（打印时自动隐藏） */
 body::before {
   content: '';
   position: fixed;
@@ -30,10 +56,10 @@ body::before {
   z-index: -1;
   pointer-events: none;
   background:
-    radial-gradient(900px 420px at 12% -8%, rgba(0, 113, 227, 0.07), transparent 60%),
-    radial-gradient(760px 380px at 88% 6%, rgba(40, 205, 65, 0.06), transparent 55%),
-    radial-gradient(820px 460px at 50% 112%, rgba(175, 82, 222, 0.05), transparent 60%),
-    var(--color-bg-light);
+    radial-gradient(1100px 520px at 6% -12%, rgba(0, 113, 227, 0.10), transparent 62%),
+    radial-gradient(900px 460px at 94% -2%, rgba(40, 205, 65, 0.075), transparent 58%),
+    radial-gradient(1000px 640px at 52% 118%, rgba(175, 82, 222, 0.06), transparent 62%),
+    linear-gradient(180deg, #f7f7fa 0%, #f3f3f7 58%, #f1f1f5 100%);
 }
 body::after {
   content: '';
@@ -41,38 +67,39 @@ body::after {
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  background-image: radial-gradient(rgba(0, 0, 0, 0.035) 1px, transparent 1px);
-  background-size: 26px 26px;
-  mask-image: radial-gradient(1200px 600px at 50% 0%, rgba(0,0,0,.5), transparent 75%);
-  -webkit-mask-image: radial-gradient(1200px 600px at 50% 0%, rgba(0,0,0,.5), transparent 75%);
+  background-image: radial-gradient(rgba(0, 0, 0, 0.03) 1px, transparent 1px);
+  background-size: 28px 28px;
+  mask-image: radial-gradient(1200px 600px at 50% 0%, rgba(0,0,0,.45), transparent 72%);
+  -webkit-mask-image: radial-gradient(1200px 600px at 50% 0%, rgba(0,0,0,.45), transparent 72%);
 }
 
 /* 文本选中色：品牌蓝 */
 ::selection { background: rgba(0, 113, 227, 0.18); }
 
-/* 玻璃拟态（主站导航同款） */
+/* 玻璃拟态（主站导航同款）：更通透的白 + 顶部高光 */
 .glass {
-  background: rgba(255, 255, 255, 0.72);
-  backdrop-filter: saturate(180%) blur(20px);
-  -webkit-backdrop-filter: saturate(180%) blur(20px);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.02), 0 4px 16px rgba(0, 0, 0, 0.035);
+  background: rgba(255, 255, 255, 0.74);
+  backdrop-filter: saturate(180%) blur(24px);
+  -webkit-backdrop-filter: saturate(180%) blur(24px);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.055);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 1px 0 rgba(0, 0, 0, 0.02), 0 8px 24px -18px rgba(16, 24, 40, 0.28);
 }
 
-/* 登录 / 激活等入口页背景：极淡的品牌色光晕，增加层次感 */
+/* 登录 / 激活等入口页背景：品牌色光晕 + 极细网格，增加纵深 */
 .auth-bg {
   background:
-    radial-gradient(1100px 480px at 50% -12%, rgba(0, 113, 227, 0.09), transparent 62%),
-    radial-gradient(900px 420px at 92% 108%, rgba(40, 205, 65, 0.08), transparent 60%),
-    var(--color-bg-light);
+    radial-gradient(1200px 560px at 50% -14%, rgba(0, 113, 227, 0.12), transparent 62%),
+    radial-gradient(980px 480px at 94% 110%, rgba(40, 205, 65, 0.09), transparent 60%),
+    radial-gradient(700px 380px at 4% 96%, rgba(175, 82, 222, 0.06), transparent 60%),
+    linear-gradient(180deg, #f8f9fc 0%, #f3f4f8 100%);
 }
 
 /* 品牌 LOGO 容器：统一圆角、细描边与投影，保证各尺寸下边缘干净 */
 .brand-logo {
   object-fit: cover;
   background: #fff;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 4px 12px rgba(0, 113, 227, 0.10);
-  outline: 1px solid rgba(0, 0, 0, 0.05);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 8px 24px -8px rgba(0, 113, 227, 0.22);
+  outline: 1px solid rgba(255, 255, 255, 0.7);
   outline-offset: -1px;
 }
 
@@ -89,18 +116,40 @@ body::after {
 
 /* 卡片：悬浮感白卡（细描边 + 分层阴影），hover 微浮起 */
 .card {
+  position: relative;
   background: rgba(255, 255, 255, 0.86);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(0, 0, 0, 0.05);
-  border-radius: 1.4rem;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03), 0 10px 30px rgba(0, 0, 0, 0.045);
-  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(0, 0, 0, 0.055);
+  border-radius: 1.35rem;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 1px 2px rgba(16, 24, 40, 0.035),
+    0 10px 28px -18px rgba(16, 24, 40, 0.18),
+    0 28px 64px -48px rgba(16, 24, 40, 0.28);
+  transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.28s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.28s ease;
 }
 .card-hover:hover {
-  transform: translateY(-3px);
-  border-color: rgba(0, 113, 227, 0.14);
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.04), 0 20px 44px rgba(0, 113, 227, 0.10);
+  transform: translateY(-2px);
+  border-color: rgba(0, 113, 227, 0.16);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 2px 4px rgba(16, 24, 40, 0.04),
+    0 14px 34px -18px rgba(0, 113, 227, 0.22),
+    0 32px 72px -48px rgba(16, 24, 40, 0.3);
+}
+
+/* 内嵌浅色面板：用于列表行、提示块，统一圆角与描边 */
+.panel {
+  border-radius: 1rem;
+  background: rgba(0, 0, 0, 0.025);
+  border: 1px solid rgba(0, 0, 0, 0.035);
+}
+
+/* 细分隔线：区块之间更克制的层次 */
+.hairline {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(0, 0, 0, 0.09), transparent);
 }
 
 /* 药丸按钮：按下回弹 */
@@ -109,6 +158,25 @@ body::after {
   transition: all 0.2s ease;
 }
 .btn-pill:active { transform: scale(0.96); }
+button:focus-visible, a:focus-visible {
+  outline: 2px solid rgba(0, 113, 227, 0.55);
+  outline-offset: 2px;
+}
+
+/* 侧栏当前项：白色浮起 + 左侧品牌渐变指示条 + 蓝色图标 */
+.nav-active { position: relative; }
+.nav-active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  height: 18px;
+  width: 3px;
+  transform: translateY(-50%);
+  border-radius: 9999px;
+  background-image: linear-gradient(180deg, #0071e3, #28cd41);
+}
+.nav-active svg { color: #0071e3; }
 
 /* 弹窗进场：上浮 + 缩放 */
 @keyframes modal-in {
@@ -144,7 +212,9 @@ body::after {
 }
 
 ::-webkit-scrollbar { width: 8px; height: 8px; }
-::-webkit-scrollbar-thumb { background: rgba(0,0,0,.15); border-radius: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(0,0,0,.13); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,.24); }
 
 /* ===========================================================
  * 教学专项练习 · 打印样式

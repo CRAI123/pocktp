@@ -13,6 +13,8 @@ const { ah } = require('./util');
 
 const SECRET = process.env.APP_SECRET || 'teacher-workbench-demo-secret';
 const TOKEN_TTL = 7 * 24 * 3600 * 1000;
+/** 勾选「记住登录」后的有效期：桌面版下次打开可免密直接进入 */
+const REMEMBER_TTL = 180 * 24 * 3600 * 1000;
 
 function hashPassword(password, salt = crypto.randomBytes(16).toString('hex')) {
   return { salt, hash: crypto.scryptSync(password, salt, 64).toString('hex') };
@@ -24,8 +26,8 @@ function verifyPassword(password, salt, hash) {
   return h.length === stored.length && crypto.timingSafeEqual(h, stored);
 }
 
-function signToken(teacherId) {
-  const payload = Buffer.from(JSON.stringify({ tid: teacherId, exp: Date.now() + TOKEN_TTL })).toString('base64url');
+function signToken(teacherId, ttl = TOKEN_TTL) {
+  const payload = Buffer.from(JSON.stringify({ tid: teacherId, exp: Date.now() + ttl })).toString('base64url');
   const sig = crypto.createHmac('sha256', SECRET).update(payload).digest('base64url');
   return `${payload}.${sig}`;
 }
@@ -96,6 +98,29 @@ const activatedRequired = ah(async (req, res, next) => {
 /** 在激活码续费 / 兑换成功后立即清掉缓存，让下一次请求拿到最新状态 */
 function invalidateActivation(tid) { activationCache.delete(tid); }
 
+/** 功能权限（课时费与工作量）：默认关闭，由管理员在后台按教师分配
+ *  加 60s 内存缓存，避免每次请求都取一次教师记录 */
+const featureCache = new Map(); // tid -> { ts, finance }
+const FEATURE_TTL = 60_000;
+function invalidateFeatures(tid) { featureCache.delete(tid); }
+
+const financeRequired = ah(async (req, res, next) => {
+  const tid = req.teacherId;
+  const cached = featureCache.get(tid);
+  let t;
+  if (cached && Date.now() - cached.ts < FEATURE_TTL) {
+    t = { finance_enabled: cached.finance, is_admin: cached.admin };
+  } else {
+    t = await db.get('SELECT finance_enabled, is_admin FROM teachers WHERE id = ?', [tid]);
+    if (t) featureCache.set(tid, { ts: Date.now(), finance: t.finance_enabled, admin: t.is_admin });
+  }
+  if (!t) return res.status(401).json({ error: '账号不存在' });
+  if (!t.finance_enabled && !t.is_admin) {
+    return res.status(403).json({ error: '未开通「课时费与工作量」功能，请联系管理员开通', featureDenied: 'finance' });
+  }
+  next();
+});
+
 /** 数据归属校验（异步） */
 const own = {
   class: async (tid, id) => !!(await db.get('SELECT 1 FROM classes WHERE id = ? AND teacher_id = ?', [id, tid])),
@@ -120,6 +145,7 @@ const authRouter = express.Router();
 
 authRouter.post('/login', ah(async (req, res) => {
   const { phone, password, name } = req.body || {};
+  const remember = req.body?.remember === true || req.body?.remember === 1 || req.body?.remember === '1';
   if (!phone || !password) return res.status(400).json({ error: '手机号与密码必填' });
   const normalized = String(phone).trim();
   if (!/^1\d{10}$/.test(normalized)) return res.status(400).json({ error: '请输入 11 位有效手机号' });
@@ -144,12 +170,22 @@ authRouter.post('/login', ah(async (req, res) => {
     isNew = true;
   }
 
+  const ttl = remember ? REMEMBER_TTL : TOKEN_TTL;
   res.json({
-    token: signToken(teacher.id),
+    token: signToken(teacher.id, ttl),
     teacher: publicTeacher(teacher),
     isNew,
+    remember,
+    expires_at: new Date(Date.now() + ttl).toISOString(),
   });
 }));
+
+/** 续期：静默延长登录状态（每次打开桌面版调用，免密登录窗口随之前移） */
+authRouter.post('/refresh', authRequired, (req, res) => {
+  const remember = !!req.body?.remember;
+  const ttl = remember ? REMEMBER_TTL : TOKEN_TTL;
+  res.json({ token: signToken(req.teacherId, ttl), expires_at: new Date(Date.now() + ttl).toISOString() });
+});
 
 authRouter.get('/me', authRequired, ah(async (req, res) => {
   const t = await db.get('SELECT * FROM teachers WHERE id = ?', [req.teacherId]);
@@ -165,10 +201,11 @@ function publicTeacher(t) {
     phone: t.phone,
     activated: !!t.activated,
     is_admin: !!t.is_admin,
+    finance_enabled: !!t.finance_enabled,
     credits: t.credits ?? 0,
     membership_expires_at: t.membership_expires_at || '',
     created_at: t.created_at,
   };
 }
 
-module.exports = { authRouter, authRequired, activatedRequired, own, invalidateActivation };
+module.exports = { authRouter, authRequired, activatedRequired, financeRequired, own, invalidateActivation, invalidateFeatures };

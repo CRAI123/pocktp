@@ -1,6 +1,6 @@
 import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { auth, isMembershipActive } from './api.js';
+import { auth, api, isMembershipActive, canUseFinance } from './api.js';
 import Layout, { isDesktopApp, DesktopTitlebar } from './components/Layout.jsx';
 import { syncCloseToTray } from './desktop.js';
 import UpdateDialog from './components/UpdateDialog.jsx';
@@ -36,7 +36,6 @@ import Finance from './pages/Finance.jsx';
 import Notifications from './pages/Notifications.jsx';
 import Todos from './pages/Todos.jsx';
 import Comments from './pages/Comments.jsx';
-import AiWriter from './pages/AiWriter.jsx';
 import AiTools from './pages/AiTools.jsx';
 import Timetable from './pages/Timetable.jsx';
 import Journals from './pages/Journals.jsx';
@@ -61,8 +60,28 @@ function RequireAdmin() {
   return <Admin />;
 }
 
+/** 路由守卫：课时费与工作量（管理员在后台分配后才可访问） */
+function RequireFinance() {
+  if (!canUseFinance()) return <Navigate to="/" replace />;
+  return <Finance />;
+}
+
 export default function App() {
   const [updateOpen, setUpdateOpen] = useState(false);
+  /* 教师信息刷新计数：管理后台改权限后，重新拉取使导航与路由守卫即时生效 */
+  const [, setMeTick] = useState(0);
+
+  useEffect(() => {
+    if (!auth.token) return;
+    /* 免密登录续期 */
+    api.post('/auth/refresh', { remember: auth.remember })
+      .then(r => { if (r?.token) auth.save(r.token, auth.teacher, auth.remember); })
+      .catch(() => {});
+    /* 同步最新的账号信息（功能权限等） */
+    api.get('/auth/me')
+      .then(t => { auth.save(auth.token, t, auth.remember); setMeTick(v => v + 1); })
+      .catch(() => {});
+  }, []);
 
   /* 桌面端检查更新：壳内 F5 热键 → 事件通知 → 打开应用内弹窗；
    * 网页端不注册，保持浏览器默认刷新 */
@@ -156,11 +175,10 @@ export default function App() {
           <Route path="classes/new" element={<Classes />} />
           <Route path="classes/:id" element={<ClassDetail />} />
           <Route path="attendance" element={<Attendance />} />
-          <Route path="finance" element={<Finance />} />
+          <Route path="finance" element={<RequireFinance />} />
           <Route path="notifications" element={<Notifications />} />
           <Route path="todos" element={<Todos />} />
           <Route path="comments" element={<Comments />} />
-          <Route path="ai-writer" element={<AiWriter />} />
           <Route path="ai-tools" element={<AiTools />} />
           <Route path="timetable" element={<Timetable />} />
           <Route path="journals" element={<Journals />} />

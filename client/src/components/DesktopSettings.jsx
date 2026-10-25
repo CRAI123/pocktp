@@ -70,7 +70,7 @@ export default function DesktopSettings({ onClose }) {
         <Row icon={PanelTopClose} title="关闭窗口时最小化到托盘" desc="关闭后不退出程序，点击托盘图标随时唤起；关闭则直接退出">
           <Toggle on={toTray} onChange={changeTray} />
         </Row>
-        <Row icon={Bell} title="完成提醒" desc="AI 出卷、周报生成完成后发送系统通知">
+        <Row icon={Bell} title="系统通知" desc="AI 出卷/周报生成完成、上课前 10 / 5 分钟提醒均通过系统通知弹出">
           <Toggle on={notify} onChange={changeNotify} />
         </Row>
       </div>

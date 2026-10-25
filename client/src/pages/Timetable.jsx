@@ -4,7 +4,7 @@ import { CalendarDays, Download, Upload, Plus, Trash2, Loader2, BellRing, Settin
 import { api, auth } from '../api.js';
 import { SectionHeader, Button, Modal, Field, inputCls, Empty } from '../components/ui.jsx';
 import { classRemindEnabled, setClassRemindEnabled } from '../components/LessonReminders.jsx';
-import { DEFAULT_SLOTS, periodRange, todayWeekday, wdLabel, WEEKDAY_LABELS } from '../timetable.js';
+import { DEFAULT_SLOTS, periodRange, todayWeekday, wdLabel, WEEKDAY_LABELS, fmtMin } from '../timetable.js';
 
 const WEEKDAYS = WEEKDAY_LABELS.map((l, i) => ({ v: i + 1, l }));
 const COMMON_SUBJECTS = ['语文', '数学', '英语', '物理', '化学', '生物', '历史', '地理', '道德与法治', '科学', '信息技术', '体育', '音乐', '美术', '班会', '自习'];
@@ -100,7 +100,7 @@ export default function Timetable() {
     const wd = todayWeekday(new Date());
     return mineRows.filter(r => Number(r.weekday) === wd)
       .map(r => ({ ...r, range: periodRange(slots, Number(r.period)) }))
-      .sort((a, b) => a.range.startMin - b.range.startMin);
+      .sort((a, b) => (a.range.startMin ?? 1e9) - (b.range.startMin ?? 1e9));
   }, [mineRows, slots]);
 
   const openCell = (weekday, period) => {
@@ -200,6 +200,7 @@ export default function Timetable() {
   /* 今日课程状态文案 */
   const nowMin = (() => { const d = new Date(tick); return d.getHours() * 60 + d.getMinutes() + d.getSeconds() / 60; })();
   const todayState = (range) => {
+    if (range.startMin == null) return { text: '未设置时间', tone: 'text-[#ff9500]' };
     if (nowMin < range.startMin) return { text: `距上课 ${Math.max(1, Math.ceil(range.startMin - nowMin))} 分钟`, tone: 'text-[#0071e3]' };
     if (nowMin < range.endMin) return { text: '正在上课', tone: 'text-[#1f9e33]' };
     return { text: '已结束', tone: 'text-ink-secondary/60' };
@@ -272,7 +273,7 @@ export default function Timetable() {
                       <tr key={p}>
                         <td className="rounded-xl bg-black/[0.04] px-2 py-1.5 text-center">
                           <div className="text-xs font-medium text-ink-secondary">第 {p} 节</div>
-                          <div className="text-[10px] tabular-nums text-ink-secondary/60">{pr.start}-{pr.end}</div>
+                          <div className="text-[10px] tabular-nums text-ink-secondary/60">{pr.start ? `${pr.start}-${pr.end}` : '未设置'}</div>
                         </td>
                         {WEEKDAYS.map(w => {
                           const r = cellMap.get(`${w.v}-${p}`);
@@ -333,7 +334,7 @@ export default function Timetable() {
                   return (
                     <button key={r.id} onClick={() => gotoClass(r)}
                       className="flex w-full items-center gap-3 rounded-xl bg-bg-light px-3 py-2.5 text-left transition hover:bg-[#0071e3]/[0.06]">
-                      <span className="w-24 shrink-0 text-xs font-medium tabular-nums text-ink-secondary">{r.range.start}-{r.range.end}</span>
+                      <span className="w-24 shrink-0 text-xs font-medium tabular-nums text-ink-secondary">{r.range.start ? `${r.range.start}-${r.range.end}` : '未设置'}</span>
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm font-semibold text-ink">{r.subject}<span className="ml-2 text-xs font-normal text-ink-secondary">{r.class_name}</span></span>
                         <span className="block text-[11px] text-ink-secondary">第 {r.period} 节{r.note ? ` · ${r.note}` : ''}</span>
@@ -367,7 +368,7 @@ export default function Timetable() {
                       <tr key={p}>
                         <td className="rounded-xl bg-black/[0.04] px-2 py-1.5 text-center">
                           <div className="text-xs font-medium text-ink-secondary">第 {p} 节</div>
-                          <div className="text-[10px] tabular-nums text-ink-secondary/60">{pr.start}-{pr.end}</div>
+                          <div className="text-[10px] tabular-nums text-ink-secondary/60">{pr.start ? `${pr.start}-${pr.end}` : '未设置'}</div>
                         </td>
                         {WEEKDAYS.map(w => {
                           const list = mineMap.get(`${w.v}-${p}`) || [];
@@ -451,21 +452,78 @@ export default function Timetable() {
   );
 }
 
+/* 各校作息不同：以逐节起止时间为主，模板（节数/开始/时长/课间）只用于一键填充 */
+const toMin = (t) => { const [h, m] = String(t).split(':').map(Number); return (h || 0) * 60 + (m || 0); };
+const genRows = ({ periods = 8, start_time = '08:00', class_minutes = 40, break_minutes = 10 }) => {
+  const base = toMin(start_time);
+  const cm = Math.max(10, Number(class_minutes) || 40);
+  const bm = Math.max(0, Number(break_minutes) || 0);
+  const step = cm + bm;
+  const count = Math.min(15, Math.max(1, Number(periods) || 8));
+  return Array.from({ length: count }, (_, i) => ({
+    start: fmtMin(base + i * step),
+    end: fmtMin(base + i * step + cm),
+  }));
+};
+function rowsFromSlots(s) {
+  const list = Array.isArray(s?.slots) ? s.slots : [];
+  if (list.length) return list.map(x => ({ start: x.start, end: x.end }));
+  return genRows(s || {});
+}
+
 function SettingsModal({ open, onClose, slots, onSaved }) {
-  const [form, setForm] = useState(slots);
+  const [rows, setRows] = useState([]);
+  const [tpl, setTpl] = useState(DEFAULT_SLOTS);
   const [remind, setRemind] = useState(classRemindEnabled());
   const [notifyState, setNotifyState] = useState(typeof Notification !== 'undefined' ? Notification.permission : 'unsupported');
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
 
-  useEffect(() => { if (open) { setForm(slots); setRemind(classRemindEnabled()); setErr(''); } }, [open, slots]);
+  useEffect(() => {
+    if (!open) return;
+    setRows(rowsFromSlots(slots));
+    setTpl({
+      periods: Number(slots?.periods) || DEFAULT_SLOTS.periods,
+      start_time: slots?.start_time || DEFAULT_SLOTS.start_time,
+      class_minutes: Number(slots?.class_minutes) || DEFAULT_SLOTS.class_minutes,
+      break_minutes: Number(slots?.break_minutes ?? DEFAULT_SLOTS.break_minutes),
+    });
+    setRemind(classRemindEnabled());
+    setErr('');
+  }, [open, slots]);
+
+  const setRow = (i, key, v) => setRows(list => list.map((r, idx) => (idx === i ? { ...r, [key]: v } : r)));
+
+  const addRow = () => {
+    if (rows.length >= 15) return;
+    const last = rows[rows.length - 1];
+    const breakMin = Math.max(0, Number(tpl.break_minutes) || 10);
+    const classMin = Math.max(10, Number(tpl.class_minutes) || 40);
+    if (!last?.end) { setRows(list => [...list, { start: tpl.start_time || '08:00', end: fmtMin(toMin(tpl.start_time || '08:00') + classMin) }]); return; }
+    const startMin = toMin(last.end) + breakMin;
+    setRows(list => [...list, { start: fmtMin(startMin), end: fmtMin(startMin + classMin) }]);
+  };
+
+  const removeRow = (i) => setRows(list => list.filter((_, idx) => idx !== i));
+
+  const fillByTemplate = () => {
+    setRows(genRows({ ...tpl, periods: Number(tpl.periods) || rows.length || 8 }));
+  };
 
   const save = async () => {
+    if (!rows.length) { setErr('至少需要填写一节课的时间'); return; }
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i];
+      if (!r.start || !r.end) { setErr(`第 ${i + 1} 节请填写完整的上课与下课时间`); return; }
+      if (toMin(r.end) <= toMin(r.start)) { setErr(`第 ${i + 1} 节的下课时间需晚于上课时间`); return; }
+    }
     setSaving(true); setErr('');
     try {
-      const d = await api.put('/timetable-settings', form);
+      const d = await api.put('/timetable-settings', {
+        slots: rows.map((r, i) => ({ period: i + 1, start: r.start, end: r.end })),
+      });
       setClassRemindEnabled(remind);
-      onSaved({ ...form, ...d, periods: Number(form.periods), class_minutes: Number(form.class_minutes), break_minutes: Number(form.break_minutes) });
+      onSaved(d);
     } catch (e) { setErr(e.message || '保存失败'); } finally { setSaving(false); }
   };
 
@@ -474,33 +532,74 @@ function SettingsModal({ open, onClose, slots, onSaved }) {
     try { setNotifyState(await Notification.requestPermission()); } catch {}
   };
 
-  const preview = [1, 2, 3].map(p => periodRange({ ...form, start_time: form.start_time }, p));
-
   return (
-    <Modal open={open} onClose={onClose} title="作息时间与上课提醒" width="max-w-md">
+    <Modal open={open} onClose={onClose} title="作息时间与上课提醒" width="max-w-lg">
       <div className="space-y-4">
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="每天节数">
-            <input type="number" min="1" max="15" className={inputCls} value={form.periods}
-              onChange={e => setForm(f => ({ ...f, periods: e.target.value }))} />
-          </Field>
-          <Field label="第 1 节开始">
-            <input type="time" className={inputCls} value={form.start_time}
-              onChange={e => setForm(f => ({ ...f, start_time: e.target.value }))} />
-          </Field>
-          <Field label="每节时长（分钟）">
-            <input type="number" min="10" max="120" className={inputCls} value={form.class_minutes}
-              onChange={e => setForm(f => ({ ...f, class_minutes: e.target.value }))} />
-          </Field>
-          <Field label="课间休息（分钟）">
-            <input type="number" min="0" max="60" className={inputCls} value={form.break_minutes}
-              onChange={e => setForm(f => ({ ...f, break_minutes: e.target.value }))} />
-          </Field>
+        <div className="rounded-xl bg-bg-light px-3.5 py-2.5 text-xs leading-relaxed text-ink-secondary">
+          各校作息不同，请按本校实际时间<strong className="text-ink">逐节填写上课与下课时间</strong>。提醒按这里的时间计算，未填写的节次不做提醒。
         </div>
 
-        <div className="rounded-xl bg-bg-light px-3.5 py-2.5 text-xs text-ink-secondary">
-          时间预览：{preview.map((p, i) => `第 ${i + 1} 节 ${p.start}-${p.end}`).join(' · ')} …
+        {/* 按模板一键填充（可选，填完仍可逐节修改） */}
+        <div className="rounded-xl border border-black/[0.06]">
+          <div className="px-3.5 pt-2.5 text-xs font-medium text-ink">按模板快速填充</div>
+          <div className="grid grid-cols-2 gap-2.5 p-3.5 sm:grid-cols-4">
+            <Field label="每天节数">
+              <input type="number" min="1" max="15" className={inputCls} value={tpl.periods}
+                onChange={e => setTpl(f => ({ ...f, periods: e.target.value }))} />
+            </Field>
+            <Field label="第 1 节开始">
+              <input type="time" className={inputCls} value={tpl.start_time}
+                onChange={e => setTpl(f => ({ ...f, start_time: e.target.value }))} />
+            </Field>
+            <Field label="每节时长">
+              <input type="number" min="10" max="120" className={inputCls} value={tpl.class_minutes}
+                onChange={e => setTpl(f => ({ ...f, class_minutes: e.target.value }))} />
+            </Field>
+            <Field label="课间休息">
+              <input type="number" min="0" max="60" className={inputCls} value={tpl.break_minutes}
+                onChange={e => setTpl(f => ({ ...f, break_minutes: e.target.value }))} />
+            </Field>
+          </div>
+          <div className="flex items-center justify-between gap-2 border-t border-black/[0.06] px-3.5 py-2">
+            <span className="text-[11px] text-ink-secondary">填充后可继续逐节调整（如大课间、午休）</span>
+            <Button variant="secondary" onClick={fillByTemplate}>填充到下方</Button>
+          </div>
         </div>
+
+        {/* 逐节时间 */}
+        <div className="max-h-[42vh] space-y-2 overflow-y-auto pr-0.5">
+          <div className="flex items-center justify-between text-xs font-medium text-ink-secondary">
+            <span>逐节作息（共 {rows.length} 节）</span>
+            <span className="font-normal text-ink-secondary/70">24 小时制</span>
+          </div>
+          {rows.map((r, i) => {
+            const bad = r.start && r.end && toMin(r.end) <= toMin(r.start);
+            return (
+              <div key={i} className={`flex items-center gap-2 rounded-xl border px-2.5 py-2 ${bad ? 'border-[#ff3b30]/40 bg-[#ff3b30]/[0.04]' : 'border-black/[0.06] bg-white'}`}>
+                <span className="w-12 shrink-0 text-xs font-medium text-ink-secondary">第 {i + 1} 节</span>
+                <input type="time" className={`${inputCls} min-w-0 flex-1`} value={r.start}
+                  onChange={e => setRow(i, 'start', e.target.value)} />
+                <span className="text-xs text-ink-secondary/60">至</span>
+                <input type="time" className={`${inputCls} min-w-0 flex-1`} value={r.end}
+                  onChange={e => setRow(i, 'end', e.target.value)} />
+                <button aria-label={`删除第 ${i + 1} 节`} title="删除本节" onClick={() => removeRow(i)}
+                  className="shrink-0 rounded-lg p-1.5 text-ink-secondary/50 transition hover:bg-[#ff3b30]/10 hover:text-[#ff3b30]">
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            );
+          })}
+          {!rows.length && (
+            <div className="rounded-xl bg-bg-light px-3.5 py-4 text-center text-xs text-ink-secondary">
+              还没有节次，先「按模板填充」或点下方「添加一节」
+            </div>
+          )}
+        </div>
+
+        <button onClick={addRow} disabled={rows.length >= 15}
+          className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-black/15 py-2 text-xs font-medium text-ink-secondary transition hover:border-[#0071e3]/40 hover:text-[#0071e3] disabled:opacity-40">
+          <Plus size={14} />添加一节
+        </button>
 
         <button onClick={() => setRemind(v => !v)}
           className={`flex w-full items-center gap-3 rounded-xl border px-3.5 py-3 text-left transition ${remind ? 'border-[#0071e3]/40 bg-[#0071e3]/[0.06]' : 'border-black/10 bg-bg-light'}`}>

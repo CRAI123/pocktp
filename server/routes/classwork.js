@@ -302,15 +302,47 @@ router.post('/timetables/bulk', ah(async (req, res) => {
   res.json({ ok: true, count: list.length });
 }));
 
-/* ---------- 作息时间（上课提醒依据） ---------- */
+/* ---------- 作息时间（上课提醒依据） ----------
+ * 各校作息不同：以老师自填的「逐节起止时间」为准（slots JSON）。
+ * 旧字段（节数/第1节开始/时长/课间）仅作模板填充与兼容回退。 */
 const SLOT_DEFAULTS = { periods: 8, start_time: '08:00', class_minutes: 40, break_minutes: 10 };
+const HHMM = /^([01]?\d|2[0-3]):[0-5]\d$/;
+const toMin = (t) => { const [h, m] = String(t).split(':').map(Number); return h * 60 + m; };
+const fmtMin = (n) => {
+  const t = ((Math.round(n) % 1440) + 1440) % 1440;
+  return `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`;
+};
+
+/* 按「第1节开始 + 每节时长 + 课间」生成模板时间表 */
+function genSlots({ periods = 8, start_time = '08:00', class_minutes = 40, break_minutes = 10 }) {
+  const base = toMin(start_time);
+  const step = class_minutes + break_minutes;
+  const out = [];
+  for (let i = 0; i < periods; i++) {
+    const s = base + i * step;
+    out.push({ period: i + 1, start: fmtMin(s), end: fmtMin(s + class_minutes) });
+  }
+  return out;
+}
+function parseSlots(raw) {
+  try {
+    const arr = JSON.parse(raw);
+    if (!Array.isArray(arr)) return [];
+    return arr.map((s, i) => ({
+      period: i + 1,
+      start: HHMM.test(String(s?.start || '')) ? String(s.start) : '',
+      end: HHMM.test(String(s?.end || '')) ? String(s.end) : '',
+    })).filter(s => s.start && s.end).slice(0, 15);
+  } catch { return []; }
+}
 function normSlots(r) {
-  return {
-    periods: Number(r?.periods) || SLOT_DEFAULTS.periods,
-    start_time: /^\d{1,2}:\d{2}$/.test(String(r?.start_time || '')) ? String(r.start_time) : SLOT_DEFAULTS.start_time,
-    class_minutes: Number(r?.class_minutes) || SLOT_DEFAULTS.class_minutes,
-    break_minutes: Number(r?.break_minutes) >= 0 ? Number(r.break_minutes) : SLOT_DEFAULTS.break_minutes,
-  };
+  const periods = Math.min(15, Math.max(1, Number(r?.periods) || SLOT_DEFAULTS.periods));
+  const startTime = HHMM.test(String(r?.start_time || '')) ? String(r.start_time) : SLOT_DEFAULTS.start_time;
+  const classMinutes = Math.min(120, Math.max(10, Number(r?.class_minutes) || SLOT_DEFAULTS.class_minutes));
+  const breakMinutes = Number(r?.break_minutes) >= 0 ? Number(r.break_minutes) : SLOT_DEFAULTS.break_minutes;
+  const saved = parseSlots(r?.slots);
+  const slots = saved.length ? saved : genSlots({ periods, start_time: startTime, class_minutes: classMinutes, break_minutes: breakMinutes });
+  return { periods: slots.length, start_time: startTime, class_minutes: classMinutes, break_minutes: breakMinutes, slots };
 }
 
 router.get('/timetable-settings', ah(async (req, res) => {
@@ -320,20 +352,40 @@ router.get('/timetable-settings', ah(async (req, res) => {
 
 router.put('/timetable-settings', ah(async (req, res) => {
   const body = req.body || {};
-  const periods = Math.min(15, Math.max(1, Number(body.periods) || SLOT_DEFAULTS.periods));
-  const startTime = String(body.start_time || '').trim();
-  if (!/^([01]?\d|2[0-3]):[0-5]\d$/.test(startTime)) return res.status(400).json({ error: '开始时间格式应为 HH:MM' });
-  const classMinutes = Math.min(120, Math.max(10, Number(body.class_minutes) || SLOT_DEFAULTS.class_minutes));
-  const breakMinutes = Math.min(60, Math.max(0, Number(body.break_minutes ?? SLOT_DEFAULTS.break_minutes) || 0));
+  let slots;
+  if (Array.isArray(body.slots) && body.slots.length) {
+    slots = [];
+    for (const s of body.slots.slice(0, 15)) {
+      const st = String(s?.start || '').trim();
+      const en = String(s?.end || '').trim();
+      if (!HHMM.test(st) || !HHMM.test(en)) return res.status(400).json({ error: '每节课的起止时间格式应为 HH:MM' });
+      if (toMin(en) <= toMin(st)) return res.status(400).json({ error: '第 ' + (slots.length + 1) + ' 节的下课时间需晚于上课时间' });
+      slots.push({ start: st, end: en });
+    }
+    slots = slots.map((s, i) => ({ period: i + 1, ...s }));
+  } else {
+    /* 兼容旧调用：按模板生成 */
+    const periods = Math.min(15, Math.max(1, Number(body.periods) || SLOT_DEFAULTS.periods));
+    const startTime = String(body.start_time || '').trim();
+    if (!HHMM.test(startTime)) return res.status(400).json({ error: '开始时间格式应为 HH:MM' });
+    slots = genSlots({
+      periods, start_time: startTime,
+      class_minutes: Math.min(120, Math.max(10, Number(body.class_minutes) || SLOT_DEFAULTS.class_minutes)),
+      break_minutes: Math.min(60, Math.max(0, Number(body.break_minutes ?? SLOT_DEFAULTS.break_minutes) || 0)),
+    });
+  }
+  /* 旧字段同步回写：取第 1 节起止与该节时长、首末节间课间 */
+  const classMinutes = toMin(slots[0].end) - toMin(slots[0].start);
+  const breakMinutes = slots.length > 1 ? Math.max(0, toMin(slots[1].start) - toMin(slots[0].end)) : SLOT_DEFAULTS.break_minutes;
   await db.run(`
-    INSERT INTO timetable_settings (teacher_id, periods, start_time, class_minutes, break_minutes)
-    VALUES (?,?,?,?,?)
+    INSERT INTO timetable_settings (teacher_id, periods, start_time, class_minutes, break_minutes, slots)
+    VALUES (?,?,?,?,?,?)
     ON CONFLICT(teacher_id) DO UPDATE SET periods = excluded.periods, start_time = excluded.start_time,
-      class_minutes = excluded.class_minutes, break_minutes = excluded.break_minutes,
+      class_minutes = excluded.class_minutes, break_minutes = excluded.break_minutes, slots = excluded.slots,
       updated_at = to_char(now() AT TIME ZONE 'Asia/Shanghai','YYYY-MM-DD HH24:MI:SS')
     RETURNING teacher_id
-  `, [req.teacherId, periods, startTime, classMinutes, breakMinutes]);
-  res.json({ ok: true, ...normSlots({ periods, start_time: startTime, class_minutes: classMinutes, break_minutes: breakMinutes }) });
+  `, [req.teacherId, slots.length, slots[0].start, classMinutes, breakMinutes, JSON.stringify(slots)]);
+  res.json({ ok: true, ...normSlots({ periods: slots.length, start_time: slots[0].start, class_minutes: classMinutes, break_minutes: breakMinutes, slots: JSON.stringify(slots) }) });
 }));
 
 module.exports = router;
