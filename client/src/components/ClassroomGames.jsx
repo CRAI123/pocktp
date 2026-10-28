@@ -26,26 +26,23 @@ const PALETTE = ['#0a84ff', '#30d158', '#ff9f0a', '#bf5af2', '#ff375f', '#64d2ff
 
 export default function ClassroomGames({ students = [] }) {
   const [active, setActive] = useState('spinner');
-  const current = GAMES.find(g => g.id === active);
 
   return (
-    <div className="rounded-3xl bg-[#1d1d1f] p-5 text-white shadow-2xl sm:p-7">
-      <div className="mb-5 flex flex-wrap items-center gap-2">
-        <h2 className="text-xl font-bold tracking-tight">课堂游戏</h2>
-        <span className="text-xs text-white/40">6 款 · 投屏即玩 · 自动同步桌面端</span>
+    <div className="flex h-full flex-col rounded-2xl border border-white/10 bg-white/[0.04] p-3.5">
+      <div className="mb-2.5 flex flex-wrap items-center gap-1.5">
+        <h2 className="text-base font-bold tracking-tight">课堂游戏</h2>
+        <span className="text-[10px] text-white/40">6 款 · 投屏即玩</span>
+        <div className="ml-auto flex flex-wrap gap-1">
+          {GAMES.map(g => (
+            <button key={g.id} onClick={() => setActive(g.id)}
+              className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium transition ${active === g.id ? 'bg-[#0a84ff] text-white shadow-lg shadow-blue-500/30' : 'bg-white/10 text-white/60 hover:bg-white/15'}`}>
+              <g.icon size={12} />{g.name}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* 游戏选择条 */}
-      <div className="mb-5 flex flex-wrap gap-2">
-        {GAMES.map(g => (
-          <button key={g.id} onClick={() => setActive(g.id)}
-            className={`flex items-center gap-1.5 rounded-full px-3.5 py-2 text-sm font-medium transition ${active === g.id ? 'bg-[#0a84ff] text-white shadow-lg shadow-blue-500/30' : 'bg-white/10 text-white/60 hover:bg-white/15'}`}>
-            <g.icon size={15} />{g.name}
-          </button>
-        ))}
-      </div>
-
-      <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-7">
+      <div className="min-h-0 flex-1 overflow-y-auto pr-1">
         {active === 'spinner' && <SpinnerGame students={students} />}
         {active === 'memory' && <MemoryGame />}
         {active === 'quiz' && <QuizGame />}
@@ -104,32 +101,31 @@ function SpinnerGame({ students }) {
   const circumference = 2 * Math.PI * R;
 
   return (
-    <div>
-      <div className="mb-4 flex flex-wrap items-center gap-3">
+    <div className="h-full">
+      <div className="mb-3 flex flex-wrap items-center gap-2">
         <div className="flex gap-1.5">
           <button onClick={() => setMode('students')}
-            className={`rounded-full px-3 py-1 text-xs font-medium transition ${mode === 'students' ? 'bg-[#0a84ff] text-white' : 'bg-white/10 text-white/50'}`}>
+            className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition ${mode === 'students' ? 'bg-[#0a84ff] text-white' : 'bg-white/10 text-white/50'}`}>
             学生名单
           </button>
           <button onClick={() => setMode('custom')}
-            className={`rounded-full px-3 py-1 text-xs font-medium transition ${mode === 'custom' ? 'bg-[#0a84ff] text-white' : 'bg-white/10 text-white/50'}`}>
+            className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition ${mode === 'custom' ? 'bg-[#0a84ff] text-white' : 'bg-white/10 text-white/50'}`}>
             自定义
           </button>
         </div>
         {mode === 'custom' && (
           <input value={custom} onChange={e => setCustom(e.target.value)}
             placeholder="用逗号分隔选项"
-            className="flex-1 min-w-[200px] rounded-full bg-white/10 px-4 py-1.5 text-sm text-white placeholder-white/30 outline-none focus:ring-2 focus:ring-[#0a84ff]/40" />
+            className="flex-1 min-w-[160px] rounded-full bg-white/10 px-3 py-1 text-xs text-white placeholder-white/30 outline-none focus:ring-2 focus:ring-[#0a84ff]/40" />
         )}
-        <span className="text-xs text-white/30">共 {segments.length} 项</span>
+        <span className="text-[10px] text-white/30">共 {segments.length} 项</span>
       </div>
 
-      <div className="flex flex-col items-center gap-5 py-4">
+      <div className="flex flex-col items-center gap-3">
         <div className="relative">
-          {/* 指针 */}
-          <div className="absolute left-1/2 top-[-8px] z-10 -translate-x-1/2"
-            style={{ width: 0, height: 0, borderLeft: '14px solid transparent', borderRight: '14px solid transparent', borderTop: '26px solid #ff375f' }} />
-          <svg width="320" height="320" viewBox="0 0 320 320"
+          <div className="absolute left-1/2 top-[-6px] z-10 -translate-x-1/2"
+            style={{ width: 0, height: 0, borderLeft: '10px solid transparent', borderRight: '10px solid transparent', borderTop: '20px solid #ff375f' }} />
+          <svg width="200" height="200" viewBox="0 0 320 320"
             style={{ transform: `rotate(${rotation}deg)`, transition: spinning ? 'transform 4.2s cubic-bezier(.17,.67,.2,1)' : 'none' }}>
             {segments.map((seg, i) => {
               const start = (i / segments.length) * 2 * Math.PI - Math.PI / 2;
@@ -146,10 +142,10 @@ function SpinnerGame({ students }) {
                 <g key={i}>
                   <path d={`M160,160 L${x1},${y1} A${R},${R} 0 ${large} 1 ${x2},${y2} Z`}
                     fill={seg.color} stroke="#1d1d1f" strokeWidth="2" />
-                  <text x={tx} y={ty} fill="#fff" fontSize="15" fontWeight="700"
+                  <text x={tx} y={ty} fill="#fff" fontSize="16" fontWeight="700"
                     textAnchor="middle" dominantBaseline="middle"
                     transform={`rotate(${(mid + Math.PI / 2) * 180 / Math.PI}, ${tx}, ${ty})`}>
-                    {seg.label.length > 6 ? seg.label.slice(0, 6) + '…' : seg.label}
+                    {seg.label.length > 5 ? seg.label.slice(0, 5) + '…' : seg.label}
                   </text>
                 </g>
               );
@@ -161,16 +157,16 @@ function SpinnerGame({ students }) {
 
         {result && !spinning && (
           <div className="text-center">
-            <div className="text-sm text-white/40">抽中</div>
-            <div className="text-5xl font-bold" style={{ textShadow: '0 0 40px rgba(10,132,255,.6)' }}>{result}</div>
+            <div className="text-[11px] text-white/40">抽中</div>
+            <div className="text-3xl font-bold" style={{ textShadow: '0 0 30px rgba(10,132,255,.6)' }}>{result}</div>
           </div>
         )}
 
         <button onClick={spin} disabled={spinning || segments.length < 2}
-          className="rounded-full bg-[#0a84ff] px-10 py-3 text-lg font-semibold shadow-lg shadow-blue-500/30 transition hover:bg-[#2f94ff] disabled:opacity-40">
+          className="rounded-full bg-[#0a84ff] px-7 py-2 text-sm font-semibold shadow-lg shadow-blue-500/30 transition hover:bg-[#2f94ff] disabled:opacity-40">
           {spinning ? '转动中…' : result ? '再来一次' : '开始转动'}
         </button>
-        {segments.length < 2 && <p className="text-xs text-white/30">至少需要 2 个选项</p>}
+        {segments.length < 2 && <p className="text-[10px] text-white/30">至少需要 2 个选项</p>}
       </div>
     </div>
   );
@@ -246,37 +242,36 @@ function MemoryGame() {
   useEffect(() => { if (done) clearInterval(timerRef.current); }, [done]);
 
   return (
-    <div>
-      <div className="mb-4 flex flex-wrap items-center gap-3 text-sm">
-        <span className="rounded-full bg-white/10 px-3 py-1 text-white/70">步数 {moves}</span>
-        <span className="rounded-full bg-white/10 px-3 py-1 text-white/70">⏱ {seconds}s</span>
+    <div className="h-full">
+      <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
+        <span className="rounded-full bg-white/10 px-2.5 py-1 text-white/70">步数 {moves}</span>
+        <span className="rounded-full bg-white/10 px-2.5 py-1 text-white/70">⏱ {seconds}s</span>
         <button onClick={() => setTeamMode(t => !t)}
-          className={`rounded-full px-3 py-1 text-xs font-medium transition ${teamMode ? 'bg-[#0a84ff] text-white' : 'bg-white/10 text-white/50'}`}>
+          className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition ${teamMode ? 'bg-[#0a84ff] text-white' : 'bg-white/10 text-white/50'}`}>
           {teamMode ? '双人模式' : '单人模式'}
         </button>
         {teamMode && (
-          <span className="flex items-center gap-2">
+          <span className="flex items-center gap-2 text-[11px]">
             <span className={team === 0 ? 'text-[#0a84ff] font-bold' : 'text-white/40'}>蓝队 {scores[0]}</span>
             <span className="text-white/20">vs</span>
             <span className={team === 1 ? 'text-[#ff9f0a] font-bold' : 'text-white/40'}>橙队 {scores[1]}</span>
           </span>
         )}
-        <button onClick={deal} className="ml-auto flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-xs text-white/70 hover:bg-white/15">
-          <RotateCcw size={13} /> 重新发牌
+        <button onClick={deal} className="ml-auto flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-1 text-[11px] text-white/70 hover:bg-white/15">
+          <RotateCcw size={12} /> 重新发牌
         </button>
       </div>
 
-      <div className="grid grid-cols-4 gap-3 sm:grid-cols-4">
+      <div className="mx-auto grid max-w-md grid-cols-4 gap-2">
         {cards.map(card => {
           const isOpen = flipped.find(f => f.id === card.id) || matched.includes(card.pair);
           const isMatched = matched.includes(card.pair);
           return (
             <button key={card.id} onClick={() => flip(card)}
-              className="aspect-[3/4] rounded-2xl text-2xl font-bold transition-all duration-300"
+              className="aspect-[3/4] rounded-xl text-lg font-bold transition-all duration-300"
               style={{
                 background: isOpen ? (isMatched ? '#30d158' : '#0a84ff') : 'rgba(255,255,255,.08)',
-                transform: isOpen ? 'rotateY(0deg)' : 'rotateY(0deg)',
-                boxShadow: isOpen ? '0 0 30px rgba(10,132,255,.3)' : 'inset 0 0 0 2px rgba(255,255,255,.06)',
+                boxShadow: isOpen ? '0 0 20px rgba(10,132,255,.3)' : 'inset 0 0 0 2px rgba(255,255,255,.06)',
                 color: '#fff',
               }}>
               {isOpen ? card.text : '?'}
@@ -286,10 +281,10 @@ function MemoryGame() {
       </div>
 
       {done && (
-        <div className="mt-5 rounded-2xl bg-[#30d158]/15 p-4 text-center">
-          <Trophy size={28} className="mx-auto text-[#30d158]" />
-          <div className="mt-1 text-lg font-bold">全部配对完成！</div>
-          <div className="text-sm text-white/60">用时 {seconds} 秒 · {moves} 步</div>
+        <div className="mt-3 rounded-xl bg-[#30d158]/15 p-3 text-center">
+          <Trophy size={20} className="mx-auto text-[#30d158]" />
+          <div className="mt-1 text-sm font-bold">全部配对完成！</div>
+          <div className="text-[11px] text-white/60">用时 {seconds} 秒 · {moves} 步</div>
         </div>
       )}
     </div>
@@ -297,22 +292,61 @@ function MemoryGame() {
 }
 
 /* ==================== 抢答对战 ==================== */
+const SUBJECTS = ['综合', '语文', '数学', '英语', '科学', '常识'];
 const QUIZ_BANK = [
-  { q: '「床前明月光」的下一句是？', opts: ['疑是地上霜', '低头思故乡', '举头望明月', '夜来风雨声'], a: 0 },
-  { q: '一年有多少天（平年）？', opts: ['364', '365', '366', '360'], a: 1 },
-  { q: '水的化学式是？', opts: ['CO2', 'O2', 'H2O', 'NaCl'], a: 2 },
-  { q: '中国的首都是？', opts: ['上海', '北京', '广州', '深圳'], a: 1 },
-  { q: '太阳从哪个方向升起？', opts: ['东', '西', '南', '北'], a: 0 },
-  { q: '1 公里等于多少米？', opts: ['100', '500', '1000', '10000'], a: 2 },
-  { q: '彩虹有几种颜色？', opts: ['5', '6', '7', '8'], a: 2 },
-  { q: '「鹅鹅鹅」的作者是？', opts: ['李白', '骆宾王', '杜甫', '白居易'], a: 1 },
-  { q: '地球绕什么公转？', opts: ['月亮', '太阳', '火星', '金星'], a: 1 },
-  { q: '三角形内角和是多少度？', opts: ['90°', '180°', '270°', '360°'], a: 1 },
-  { q: '人体内最大的器官是？', opts: ['心脏', '肝脏', '皮肤', '肺'], a: 2 },
-  { q: '光的速度大约是每秒？', opts: ['3 万公里', '30 万公里', '300 万公里', '3000 公里'], a: 1 },
+  /* 语文 */
+  { subject: '语文', q: '「床前明月光」的下一句是？', opts: ['疑是地上霜', '低头思故乡', '举头望明月', '夜来风雨声'], a: 0 },
+  { subject: '语文', q: '「鹅鹅鹅」的作者是？', opts: ['李白', '骆宾王', '杜甫', '白居易'], a: 1 },
+  { subject: '语文', q: '「春眠不觉晓」出自哪首诗？', opts: ['静夜思', '春晓', '登鹳雀楼', '悯农'], a: 1 },
+  { subject: '语文', q: '「锄禾日当午」的下一句是？', opts: ['汗滴禾下土', '粒粒皆辛苦', '谁知盘中餐', '四海无闲田'], a: 0 },
+  { subject: '语文', q: '下列哪个字是后鼻音？', opts: ['山', '水', '风', '云'], a: 2 },
+  { subject: '语文', q: '「画蛇添足」告诉我们什么道理？', opts: ['做事要坚持', '多此一举反而坏事', '团结力量大', '知错能改'], a: 1 },
+  { subject: '语文', q: '「百家姓」中排在第一位的姓是？', opts: ['李', '王', '赵', '孙'], a: 2 },
+  { subject: '语文', q: '「一日之计在于晨」的下一句是？', opts: ['一年之计在于春', '一生之计在于勤', '一家之计在于和', '以上都对'], a: 0 },
+
+  /* 数学 */
+  { subject: '数学', q: '一年有多少天（平年）？', opts: ['364', '365', '366', '360'], a: 1 },
+  { subject: '数学', q: '1 公里等于多少米？', opts: ['100', '500', '1000', '10000'], a: 2 },
+  { subject: '数学', q: '三角形内角和是多少度？', opts: ['90°', '180°', '270°', '360°'], a: 1 },
+  { subject: '数学', q: '一个正方形边长 5cm，周长是？', opts: ['10cm', '15cm', '20cm', '25cm'], a: 2 },
+  { subject: '数学', q: '7 × 8 = ?', opts: ['54', '56', '64', '48'], a: 1 },
+  { subject: '数学', q: '下列哪个是质数？', opts: ['9', '15', '17', '21'], a: 2 },
+  { subject: '数学', q: '一个圆的直径是 4cm，半径是？', opts: ['1cm', '2cm', '4cm', '8cm'], a: 1 },
+  { subject: '数学', q: '3/4 + 1/4 = ?', opts: ['4/8', '1', '4/4', '2/4'], a: 1 },
+
+  /* 英语 */
+  { subject: '英语', q: '"Apple" 的中文意思是？', opts: ['香蕉', '苹果', '橙子', '葡萄'], a: 1 },
+  { subject: '英语', q: '"星期一" 的英文是？', opts: ['Monday', 'Sunday', 'Friday', 'Tuesday'], a: 0 },
+  { subject: '英语', q: '"红色" 的英文是？', opts: ['Blue', 'Green', 'Red', 'Yellow'], a: 2 },
+  { subject: '英语', q: '"I ___ a student." 应填？', opts: ['is', 'am', 'are', 'be'], a: 1 },
+  { subject: '英语', q: '"Book" 的复数是？', opts: ['Book', 'Books', 'Bookes', 'Bookies'], a: 1 },
+  { subject: '英语', q: '"Good morning" 的意思是？', opts: ['晚安', '早上好', '下午好', '再见'], a: 1 },
+  { subject: '英语', q: '数字 "12" 的英文是？', opts: ['Twenty', 'Twelve', 'Two', 'Ten'], a: 1 },
+  { subject: '英语', q: '"Teacher" 的意思是？', opts: ['学生', '老师', '医生', '工人'], a: 1 },
+
+  /* 科学 */
+  { subject: '科学', q: '水的化学式是？', opts: ['CO2', 'O2', 'H2O', 'NaCl'], a: 2 },
+  { subject: '科学', q: '地球绕什么公转？', opts: ['月亮', '太阳', '火星', '金星'], a: 1 },
+  { subject: '科学', q: '人体内最大的器官是？', opts: ['心脏', '肝脏', '皮肤', '肺'], a: 2 },
+  { subject: '科学', q: '光的速度大约是每秒？', opts: ['3 万公里', '30 万公里', '300 万公里', '3000 公里'], a: 1 },
+  { subject: '科学', q: '彩虹有几种颜色？', opts: ['5', '6', '7', '8'], a: 2 },
+  { subject: '科学', q: '下列哪种动物是哺乳动物？', opts: ['鳄鱼', '鲨鱼', '鲸鱼', '乌龟'], a: 2 },
+  { subject: '科学', q: '植物进行光合作用需要什么？', opts: ['氧气', '阳光', '氮气', '二氧化碳'], a: 1 },
+  { subject: '科学', q: '太阳系中最大的行星是？', opts: ['地球', '火星', '木星', '土星'], a: 2 },
+
+  /* 常识 */
+  { subject: '常识', q: '中国的首都是？', opts: ['上海', '北京', '广州', '深圳'], a: 1 },
+  { subject: '常识', q: '太阳从哪个方向升起？', opts: ['东', '西', '南', '北'], a: 0 },
+  { subject: '常识', q: '一年有几个季节？', opts: ['2', '3', '4', '5'], a: 2 },
+  { subject: '常识', q: '一周有几天？', opts: ['5', '6', '7', '8'], a: 2 },
+  { subject: '常识', q: '火警电话是？', opts: ['110', '120', '119', '122'], a: 2 },
+  { subject: '常识', q: '中国有多少个省级行政区？', opts: ['32', '34', '36', '30'], a: 1 },
+  { subject: '常识', q: '端午节是农历几月几日？', opts: ['五月初五', '八月十五', '正月初一', '九月初九'], a: 0 },
+  { subject: '常识', q: '奥运会几年举办一次？', opts: ['2 年', '3 年', '4 年', '5 年'], a: 2 },
 ];
 
 function QuizGame() {
+  const [subject, setSubject] = useState('综合');
   const [idx, setIdx] = useState(0);
   const [scores, setScores] = useState([0, 0]);
   const [buzzed, setBuzzed] = useState(null); // null / 0 / 1
@@ -320,13 +354,16 @@ function QuizGame() {
   const [showResult, setShowResult] = useState(false);
   const [bank, setBank] = useState([]);
 
-  const shuffle = () => {
-    const b = [...QUIZ_BANK];
+  const shuffle = (subj = subject) => {
+    const pool = subj === '综合' ? QUIZ_BANK : QUIZ_BANK.filter(q => q.subject === subj);
+    const b = [...pool];
     for (let i = b.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; }
     setBank(b);
     setIdx(0); setScores([0, 0]); reset();
   };
-  useEffect(() => { shuffle(); }, []);
+  useEffect(() => { shuffle('综合'); }, []);
+
+  const switchSubject = (s) => { setSubject(s); shuffle(s); };
 
   const reset = () => { setBuzzed(null); setAnswered(null); setShowResult(false); };
 
@@ -338,7 +375,6 @@ function QuizGame() {
     if (optI === q.a) {
       setScores(s => { const n = [...s]; n[buzzed]++; return n; });
     } else {
-      /* 答错给对方队加分 */
       setScores(s => { const n = [...s]; n[buzzed === 0 ? 1 : 0]++; return n; });
     }
     setAnswered(optI);
@@ -350,23 +386,35 @@ function QuizGame() {
   };
 
   return (
-    <div>
+    <div className="h-full">
+      {/* 学科选择 */}
+      <div className="mb-3 flex flex-wrap items-center gap-1.5">
+        <span className="text-[11px] text-white/50">学科：</span>
+        {SUBJECTS.map(s => (
+          <button key={s} onClick={() => switchSubject(s)}
+            className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium transition ${subject === s ? 'bg-[#0a84ff] text-white' : 'bg-white/10 text-white/50 hover:bg-white/15'}`}>
+            {s}
+          </button>
+        ))}
+        <span className="ml-auto text-[10px] text-white/30">共 {bank.length} 题</span>
+      </div>
+
       {/* 比分板 */}
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <div className={`flex-1 rounded-2xl p-4 text-center transition ${buzzed === 0 ? 'bg-[#0a84ff]/30 ring-2 ring-[#0a84ff]' : 'bg-white/5'}`}>
-          <div className="text-xs text-white/50">蓝队</div>
-          <div className="text-4xl font-bold tabular-nums">{scores[0]}</div>
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div className={`flex-1 rounded-2xl p-3 text-center transition ${buzzed === 0 ? 'bg-[#0a84ff]/30 ring-2 ring-[#0a84ff]' : 'bg-white/5'}`}>
+          <div className="text-[10px] text-white/50">蓝队</div>
+          <div className="text-3xl font-bold tabular-nums">{scores[0]}</div>
           <button onClick={() => buzz(0)} disabled={buzzed !== null}
-            className="mt-2 rounded-full bg-[#0a84ff] px-6 py-2 text-sm font-semibold disabled:opacity-40">
+            className="mt-1 rounded-full bg-[#0a84ff] px-4 py-1 text-xs font-semibold disabled:opacity-40">
             蓝队抢答
           </button>
         </div>
-        <div className="text-2xl font-bold text-white/30">VS</div>
-        <div className={`flex-1 rounded-2xl p-4 text-center transition ${buzzed === 1 ? 'bg-[#ff9f0a]/30 ring-2 ring-[#ff9f0a]' : 'bg-white/5'}`}>
-          <div className="text-xs text-white/50">橙队</div>
-          <div className="text-4xl font-bold tabular-nums">{scores[1]}</div>
+        <div className="text-xl font-bold text-white/30">VS</div>
+        <div className={`flex-1 rounded-2xl p-3 text-center transition ${buzzed === 1 ? 'bg-[#ff9f0a]/30 ring-2 ring-[#ff9f0a]' : 'bg-white/5'}`}>
+          <div className="text-[10px] text-white/50">橙队</div>
+          <div className="text-3xl font-bold tabular-nums">{scores[1]}</div>
           <button onClick={() => buzz(1)} disabled={buzzed !== null}
-            className="mt-2 rounded-full bg-[#ff9f0a] px-6 py-2 text-sm font-semibold text-white disabled:opacity-40">
+            className="mt-1 rounded-full bg-[#ff9f0a] px-4 py-1 text-xs font-semibold text-white disabled:opacity-40">
             橙队抢答
           </button>
         </div>
@@ -374,10 +422,13 @@ function QuizGame() {
 
       {/* 题目 */}
       {q && (
-        <div className="rounded-2xl bg-white/[0.06] p-5">
-          <div className="mb-1 text-xs text-white/40">第 {idx + 1} / {bank.length} 题</div>
-          <div className="mb-4 text-xl font-bold sm:text-2xl">{q.q}</div>
-          <div className="grid grid-cols-2 gap-3">
+        <div className="rounded-2xl bg-white/[0.06] p-4">
+          <div className="mb-1 flex items-center justify-between text-[10px] text-white/40">
+            <span>第 {idx + 1} / {bank.length} 题</span>
+            {q.subject && q.subject !== '综合' && <span className="rounded bg-white/10 px-1.5 py-0.5">{q.subject}</span>}
+          </div>
+          <div className="mb-3 text-lg font-bold sm:text-xl">{q.q}</div>
+          <div className="grid grid-cols-2 gap-2">
             {q.opts.map((opt, i) => {
               let bg = 'bg-white/5 hover:bg-white/10';
               if (showResult) {
@@ -386,23 +437,23 @@ function QuizGame() {
               }
               return (
                 <button key={i} onClick={() => answer(i)} disabled={buzzed === null || showResult}
-                  className={`rounded-xl p-4 text-left text-base font-medium transition ${bg} disabled:cursor-not-allowed`}>
-                  <span className="mr-2 opacity-60">{String.fromCharCode(65 + i)}.</span>{opt}
+                  className={`rounded-xl p-3 text-left text-sm font-medium transition ${bg} disabled:cursor-not-allowed`}>
+                  <span className="mr-1.5 opacity-60">{String.fromCharCode(65 + i)}.</span>{opt}
                 </button>
               );
             })}
           </div>
           {showResult && (
-            <div className="mt-4 flex items-center justify-between">
-              <span className="text-sm text-white/60">
+            <div className="mt-3 flex items-center justify-between">
+              <span className="text-xs text-white/60">
                 {answered === q.a ? '答对了！' : `答错了，正确答案是 ${String.fromCharCode(65 + q.a)}`}
               </span>
-              <button onClick={next} className="flex items-center gap-1.5 rounded-full bg-[#0a84ff] px-5 py-2 text-sm font-semibold">
-                下一题 <ChevronRight size={16} />
+              <button onClick={next} className="flex items-center gap-1 rounded-full bg-[#0a84ff] px-4 py-1.5 text-xs font-semibold">
+                下一题 <ChevronRight size={14} />
               </button>
             </div>
           )}
-          {buzzed === null && <p className="mt-3 text-center text-xs text-white/40">先点击上方「抢答」按钮，再选择答案</p>}
+          {buzzed === null && <p className="mt-2 text-center text-[10px] text-white/40">先点击上方「抢答」按钮，再选择答案</p>}
         </div>
       )}
     </div>
@@ -432,42 +483,62 @@ const CARD_DECK = [
 function CardGame() {
   const [drawn, setDrawn] = useState(null);
   const [flipping, setFlipping] = useState(false);
+  const [filter, setFilter] = useState('全部');
+
+  const categories = ['全部', ...Array.from(new Set(CARD_DECK.map(c => c.cat)))];
+  const pool = filter === '全部' ? CARD_DECK : CARD_DECK.filter(c => c.cat === filter);
 
   const draw = () => {
     setFlipping(true);
     setTimeout(() => {
-      setDrawn(CARD_DECK[Math.floor(Math.random() * CARD_DECK.length)]);
+      setDrawn(pool[Math.floor(Math.random() * pool.length)]);
       setFlipping(false);
     }, 500);
   };
 
+  const changeFilter = (f) => { setFilter(f); setDrawn(null); };
+
   return (
-    <div className="flex flex-col items-center py-6">
-      <p className="mb-4 text-sm text-white/50">点击卡片抽取一道题目或任务</p>
-      <div style={{ perspective: '1000px' }}>
-        <div className={`relative h-72 w-56 transition-transform duration-500 ${flipping ? 'animate-spin' : ''}`}
-          style={{ transformStyle: 'preserve-3d' }}>
-          {drawn ? (
-            <div className="flex h-full w-full flex-col items-center justify-center rounded-3xl p-6 text-center shadow-2xl"
-              style={{ background: drawn.color }}>
-              <div className="mb-3 rounded-full bg-black/20 px-3 py-1 text-xs font-semibold">{drawn.cat}</div>
-              <div className="text-xl font-bold leading-relaxed">{drawn.text}</div>
-            </div>
-          ) : (
-            <button onClick={draw}
-              className="flex h-full w-full flex-col items-center justify-center rounded-3xl bg-gradient-to-br from-[#0a84ff] to-[#bf5af2] shadow-2xl transition hover:scale-105">
-              <CreditCard size={48} className="mb-3" />
-              <div className="text-lg font-bold">点击抽卡</div>
-              <div className="mt-1 text-xs opacity-70">共 {CARD_DECK.length} 张</div>
-            </button>
-          )}
-        </div>
+    <div className="flex h-full flex-col py-2">
+      {/* 学科/分类选择 */}
+      <div className="mb-3 flex flex-wrap items-center gap-1.5">
+        <span className="text-[11px] text-white/50">分类：</span>
+        {categories.map(c => (
+          <button key={c} onClick={() => changeFilter(c)}
+            className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium transition ${filter === c ? 'bg-[#0a84ff] text-white' : 'bg-white/10 text-white/50 hover:bg-white/15'}`}>
+            {c}
+          </button>
+        ))}
+        <span className="ml-auto text-[10px] text-white/30">共 {pool.length} 张</span>
       </div>
-      {drawn && !flipping && (
-        <button onClick={draw} className="mt-6 flex items-center gap-1.5 rounded-full bg-white/10 px-6 py-2.5 text-sm font-medium hover:bg-white/15">
-          <RotateCcw size={15} /> 再抽一张
-        </button>
-      )}
+
+      <div className="flex flex-1 flex-col items-center justify-center">
+        <p className="mb-3 text-xs text-white/50">点击卡片抽取一道题目或任务</p>
+        <div style={{ perspective: '1000px' }}>
+          <div className={`relative h-48 w-40 transition-transform duration-500 ${flipping ? 'animate-spin' : ''}`}
+            style={{ transformStyle: 'preserve-3d' }}>
+            {drawn ? (
+              <div className="flex h-full w-full flex-col items-center justify-center rounded-2xl p-4 text-center shadow-2xl"
+                style={{ background: drawn.color }}>
+                <div className="mb-2 rounded-full bg-black/20 px-2.5 py-0.5 text-[10px] font-semibold">{drawn.cat}</div>
+                <div className="text-base font-bold leading-relaxed">{drawn.text}</div>
+              </div>
+            ) : (
+              <button onClick={draw}
+                className="flex h-full w-full flex-col items-center justify-center rounded-2xl bg-gradient-to-br from-[#0a84ff] to-[#bf5af2] shadow-2xl transition hover:scale-105">
+                <CreditCard size={36} className="mb-2" />
+                <div className="text-sm font-bold">点击抽卡</div>
+                <div className="mt-0.5 text-[10px] opacity-70">共 {pool.length} 张</div>
+              </button>
+            )}
+          </div>
+        </div>
+        {drawn && !flipping && (
+          <button onClick={draw} className="mt-4 flex items-center gap-1.5 rounded-full bg-white/10 px-5 py-2 text-xs font-medium hover:bg-white/15">
+            <RotateCcw size={13} /> 再抽一张
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -493,38 +564,38 @@ function FlashGame() {
   };
 
   return (
-    <div className="flex flex-col items-center py-4">
-      <div className="mb-3 flex items-center gap-3 text-sm text-white/50">
+    <div className="flex h-full flex-col items-center justify-center py-2">
+      <div className="mb-3 flex items-center gap-3 text-xs text-white/50">
         <span>第 {idx + 1} / {FLASH_DECK.length} 张</span>
         <span className="text-[#30d158]">已掌握 {known}</span>
       </div>
 
       <div style={{ perspective: '1000px' }}>
-        <div className="relative h-64 w-80 cursor-pointer transition-transform duration-500"
+        <div className="relative h-44 w-64 cursor-pointer transition-transform duration-500"
           style={{ transformStyle: 'preserve-3d', transform: showZh ? 'rotateY(180deg)' : '' }}
           onClick={() => setShowZh(s => !s)}>
-          <div className="absolute inset-0 flex flex-col items-center justify-center rounded-3xl bg-[#0a84ff] shadow-2xl"
+          <div className="absolute inset-0 flex flex-col items-center justify-center rounded-2xl bg-[#0a84ff] shadow-2xl"
             style={{ backfaceVisibility: 'hidden' }}>
-            <div className="text-xs uppercase tracking-widest opacity-60">English</div>
-            <div className="mt-2 text-5xl font-bold">{card.en}</div>
-            <div className="mt-4 text-xs opacity-50">点击翻面看释义</div>
+            <div className="text-[10px] uppercase tracking-widest opacity-60">English</div>
+            <div className="mt-1.5 text-3xl font-bold">{card.en}</div>
+            <div className="mt-3 text-[10px] opacity-50">点击翻面看释义</div>
           </div>
-          <div className="absolute inset-0 flex flex-col items-center justify-center rounded-3xl bg-[#30d158] shadow-2xl"
+          <div className="absolute inset-0 flex flex-col items-center justify-center rounded-2xl bg-[#30d158] shadow-2xl"
             style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}>
-            <div className="text-xs uppercase tracking-widest opacity-60">中文</div>
-            <div className="mt-2 text-5xl font-bold">{card.zh}</div>
+            <div className="text-[10px] uppercase tracking-widest opacity-60">中文</div>
+            <div className="mt-1.5 text-3xl font-bold">{card.zh}</div>
           </div>
         </div>
       </div>
 
-      <div className="mt-6 flex gap-3">
+      <div className="mt-4 flex gap-2.5">
         <button onClick={() => next(false)}
-          className="flex items-center gap-1.5 rounded-full bg-white/10 px-6 py-2.5 text-sm font-medium text-white/70 hover:bg-white/15">
-          不认识 <ChevronRight size={15} />
+          className="flex items-center gap-1 rounded-full bg-white/10 px-5 py-2 text-xs font-medium text-white/70 hover:bg-white/15">
+          不认识 <ChevronRight size={13} />
         </button>
         <button onClick={() => next(true)}
-          className="flex items-center gap-1.5 rounded-full bg-[#30d158] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#34d961]">
-          认识 <ChevronRight size={15} />
+          className="flex items-center gap-1 rounded-full bg-[#30d158] px-5 py-2 text-xs font-semibold text-white hover:bg-[#34d961]">
+          认识 <ChevronRight size={13} />
         </button>
       </div>
     </div>
@@ -583,13 +654,13 @@ function MathGame() {
   };
 
   return (
-    <div className="flex flex-col items-center py-4">
+    <div className="flex h-full flex-col items-center justify-center py-2">
       {!running && score === 0 && (
-        <div className="mb-5 flex items-center gap-3">
-          <span className="text-sm text-white/50">难度：</span>
+        <div className="mb-4 flex items-center gap-2">
+          <span className="text-xs text-white/50">难度：</span>
           {[10, 20, 50].map(n => (
             <button key={n} onClick={() => setMaxNum(n)}
-              className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${maxNum === n ? 'bg-[#0a84ff] text-white' : 'bg-white/10 text-white/50'}`}>
+              className={`rounded-full px-3 py-1 text-xs font-medium transition ${maxNum === n ? 'bg-[#0a84ff] text-white' : 'bg-white/10 text-white/50'}`}>
               {n} 以内
             </button>
           ))}
@@ -598,35 +669,35 @@ function MathGame() {
 
       {running ? (
         <>
-          <div className="mb-4 flex items-center gap-6 text-lg">
-            <span className="flex items-center gap-1.5"><Clock3 size={18} className="text-[#ffd60a]" /> <b className="tabular-nums">{left}s</b></span>
-            <span className="flex items-center gap-1.5"><Trophy size={18} className="text-[#30d158]" /> <b>{score}</b> 分</span>
+          <div className="mb-4 flex items-center gap-5 text-base">
+            <span className="flex items-center gap-1.5"><Clock3 size={15} className="text-[#ffd60a]" /> <b className="tabular-nums">{left}s</b></span>
+            <span className="flex items-center gap-1.5"><Trophy size={15} className="text-[#30d158]" /> <b>{score}</b> 分</span>
           </div>
           {problem && (
-            <form onSubmit={submit} className="flex items-center gap-3 text-5xl font-bold tabular-nums">
+            <form onSubmit={submit} className="flex items-center gap-2 text-3xl font-bold tabular-nums">
               <span>{problem.a}</span>
               <span className="text-white/60">{problem.op}</span>
               <span>{problem.b}</span>
               <span className="text-white/60">=</span>
               <input ref={inputRef} value={ans} onChange={e => setAns(e.target.value)}
-                className="w-28 rounded-xl bg-white/10 px-3 py-2 text-center outline-none focus:ring-2 focus:ring-[#0a84ff]" />
-              <span className={`w-8 text-center ${feedback === '✓' ? 'text-[#30d158]' : 'text-[#ff453a]'}`}>{feedback}</span>
+                className="w-20 rounded-lg bg-white/10 px-2 py-1 text-center outline-none focus:ring-2 focus:ring-[#0a84ff]" />
+              <span className={`w-6 text-center text-2xl ${feedback === '✓' ? 'text-[#30d158]' : 'text-[#ff453a]'}`}>{feedback}</span>
             </form>
           )}
-          <p className="mt-4 text-xs text-white/40">输入答案后按回车提交</p>
+          <p className="mt-3 text-[10px] text-white/40">输入答案后按回车提交</p>
         </>
       ) : (
         <div className="text-center">
           {score > 0 && (
-            <div className="mb-4">
-              <Trophy size={40} className="mx-auto text-[#ffd60a]" />
-              <div className="mt-2 text-3xl font-bold">{score} 分</div>
-              <div className="text-sm text-white/50">60 秒内答对 {score} 题</div>
+            <div className="mb-3">
+              <Trophy size={32} className="mx-auto text-[#ffd60a]" />
+              <div className="mt-1 text-2xl font-bold">{score} 分</div>
+              <div className="text-xs text-white/50">60 秒内答对 {score} 题</div>
             </div>
           )}
           <button onClick={start}
-            className="flex items-center gap-2 rounded-full bg-[#0a84ff] px-8 py-3 text-lg font-semibold shadow-lg shadow-blue-500/30 hover:bg-[#2f94ff]">
-            <Play size={18} /> {score > 0 ? '再来一局' : '开始挑战'}
+            className="flex items-center gap-2 rounded-full bg-[#0a84ff] px-6 py-2.5 text-base font-semibold shadow-lg shadow-blue-500/30 hover:bg-[#2f94ff]">
+            <Play size={16} /> {score > 0 ? '再来一局' : '开始挑战'}
           </button>
         </div>
       )}
