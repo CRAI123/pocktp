@@ -28,15 +28,15 @@ export default function Classroom() {
   }, [classId]);
 
   return (
-    <div className="rounded-3xl bg-[#1d1d1f] p-5 text-white shadow-2xl sm:p-7">
+    <div className="flex h-[calc(100dvh-175px)] flex-col gap-3 overflow-hidden rounded-3xl bg-[#1d1d1f] p-4 text-white shadow-2xl">
       {/* 头部：标题 + 班级切换 */}
-      <div className="mb-6 flex flex-wrap items-center gap-3">
-        <h2 className="text-xl font-bold tracking-tight">课堂小助手</h2>
-        <span className="text-xs text-white/40">投屏可用 · 数据实时保存</span>
-        <div className="ml-auto flex flex-wrap gap-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <h2 className="text-lg font-bold tracking-tight">课堂小助手</h2>
+        <span className="text-[11px] text-white/40">投屏可用 · 数据实时保存</span>
+        <div className="ml-auto flex flex-wrap gap-1.5">
           {classes.map(c => (
             <button key={c.id} onClick={() => setClassId(String(c.id))}
-              className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${classId === String(c.id) ? 'bg-[#0a84ff] text-white shadow-lg shadow-blue-500/30' : 'bg-white/10 text-white/60 hover:bg-white/15'}`}>
+              className={`rounded-full px-3 py-1 text-xs font-medium transition ${classId === String(c.id) ? 'bg-[#0a84ff] text-white shadow-lg shadow-blue-500/30' : 'bg-white/10 text-white/60 hover:bg-white/15'}`}>
               {c.name}
             </button>
           ))}
@@ -44,20 +44,20 @@ export default function Classroom() {
             <>
               <button onClick={() => openClassroomWindow(false).catch(e => alert(e.message))}
                 title="在独立窗口打开大屏，可拖到投影仪"
-                className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3.5 py-1.5 text-sm font-medium text-white/80 transition hover:bg-white/20">
-                <MonitorUp size={15} /> 独立投屏
+                className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-1 text-xs font-medium text-white/80 transition hover:bg-white/20">
+                <MonitorUp size={13} /> 独立投屏
               </button>
               <button onClick={() => openClassroomWindow(true).catch(e => alert(e.message))}
                 title="主窗口与小助手左右各占半屏"
-                className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3.5 py-1.5 text-sm font-medium text-white/80 transition hover:bg-white/20">
-                <Columns2 size={15} /> 分屏并排
+                className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-1 text-xs font-medium text-white/80 transition hover:bg-white/20">
+                <Columns2 size={13} /> 分屏并排
               </button>
             </>
           )}
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+      <div className="grid grid-cols-2 gap-3">
         <RollCall students={students} />
         <Countdown />
         <QuickScore classId={classId} students={students} groups={groups} />
@@ -65,7 +65,7 @@ export default function Classroom() {
       </div>
 
       {/* 课堂游戏：6 款投影即玩的互动游戏，桌面端网页端通用 */}
-      <div className="mt-5">
+      <div className="min-h-0 flex-1">
         <ClassroomGames students={students} />
       </div>
     </div>
@@ -109,19 +109,19 @@ function RollCall({ students }) {
   useEffect(() => { setPicked([]); setName(''); }, [students]);
 
   return (
-    <div className="flex flex-col rounded-3xl border border-white/10 bg-white/5 p-6">
-      <div className="mb-4 flex items-center gap-2 text-white/70">
-        <Dices size={18} /><span className="text-sm font-medium">随机点名</span>
-        <span className="ml-auto text-xs text-white/30">已点 {picked.length}/{students.length}</span>
+    <div className="flex flex-col rounded-2xl border border-white/10 bg-white/5 p-3.5">
+      <div className="mb-2 flex items-center gap-2 text-white/70">
+        <Dices size={16} /><span className="text-xs font-medium">随机点名</span>
+        <span className="ml-auto text-[10px] text-white/30">已点 {picked.length}/{students.length}</span>
       </div>
-      <div className="flex flex-1 items-center justify-center py-6">
-        <div className={`text-center text-6xl font-bold tracking-widest transition sm:text-7xl ${rolling ? 'text-white/50' : 'text-white'}`}
-          style={rolling ? { filter: 'blur(1px)' } : { textShadow: '0 0 40px rgba(10,132,255,.6)' }}>
+      <div className="flex flex-1 items-center justify-center py-2">
+        <div className={`text-center text-4xl font-bold tracking-widest transition sm:text-5xl ${rolling ? 'text-white/50' : 'text-white'}`}
+          style={rolling ? { filter: 'blur(1px)' } : { textShadow: '0 0 30px rgba(10,132,255,.6)' }}>
           {name || (students.length ? '准备好了吗' : '暂无学生')}
         </div>
       </div>
       <button onClick={roll} disabled={rolling || !students.length}
-        className="mx-auto rounded-full bg-[#0a84ff] px-10 py-3 text-lg font-semibold shadow-lg shadow-blue-500/30 transition hover:bg-[#2f94ff] disabled:opacity-40">
+        className="mx-auto rounded-full bg-[#0a84ff] px-6 py-2 text-sm font-semibold shadow-lg shadow-blue-500/30 transition hover:bg-[#2f94ff] disabled:opacity-40">
         {rolling ? '点名中…' : '开始点名'}
       </button>
     </div>
@@ -166,35 +166,34 @@ function Countdown() {
   const pct = total ? left / total : 0;
 
   return (
-    <div className="flex flex-col rounded-3xl border border-white/10 bg-white/5 p-6">
-      <div className="mb-4 flex items-center gap-2 text-white/70">
-        <Timer size={18} /><span className="text-sm font-medium">倒计时</span>
-        <div className="ml-auto flex gap-1.5">
+    <div className="flex flex-col rounded-2xl border border-white/10 bg-white/5 p-3.5">
+      <div className="mb-2 flex items-center gap-2 text-white/70">
+        <Timer size={16} /><span className="text-xs font-medium">倒计时</span>
+        <div className="ml-auto flex gap-1">
           {PRESETS.map(m => (
             <button key={m} onClick={() => setMinutes(m)}
-              className={`rounded-full px-3 py-1 text-xs font-medium transition ${total === m * 60 ? 'bg-[#0a84ff] text-white' : 'bg-white/10 text-white/50 hover:bg-white/15'}`}>
-              {m} 分钟
+              className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium transition ${total === m * 60 ? 'bg-[#0a84ff] text-white' : 'bg-white/10 text-white/50 hover:bg-white/15'}`}>
+              {m}′
             </button>
           ))}
         </div>
       </div>
-      <div className="flex flex-1 flex-col items-center justify-center py-4">
-        <div className={`font-mono text-7xl font-bold tabular-nums sm:text-8xl ${urgent ? 'animate-pulse text-[#ff453a]' : left === 0 ? 'text-[#ff453a]' : 'text-white'}`}>
+      <div className="flex flex-1 flex-col items-center justify-center py-1">
+        <div className={`font-mono text-4xl font-bold tabular-nums sm:text-5xl ${urgent ? 'animate-pulse text-[#ff453a]' : left === 0 ? 'text-[#ff453a]' : 'text-white'}`}>
           {mm}:{ss}
         </div>
-        {/* 进度条 */}
-        <div className="mt-5 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+        <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-white/10">
           <div className={`h-full rounded-full transition-all duration-1000 ${urgent ? 'bg-[#ff453a]' : 'bg-[#0a84ff]'}`} style={{ width: `${pct * 100}%` }} />
         </div>
       </div>
-      <div className="flex justify-center gap-3">
+      <div className="flex justify-center gap-2">
         <button onClick={() => setRunning(r => !r)} disabled={left === 0}
-          className="flex items-center gap-2 rounded-full bg-[#0a84ff] px-8 py-2.5 font-semibold shadow-lg shadow-blue-500/30 transition hover:bg-[#2f94ff] disabled:opacity-40">
-          {running ? <Pause size={17} /> : <Play size={17} />}{running ? '暂停' : '开始'}
+          className="flex items-center gap-1.5 rounded-full bg-[#0a84ff] px-5 py-1.5 text-sm font-semibold shadow-lg shadow-blue-500/30 transition hover:bg-[#2f94ff] disabled:opacity-40">
+          {running ? <Pause size={14} /> : <Play size={14} />}{running ? '暂停' : '开始'}
         </button>
         <button onClick={() => { setRunning(false); setLeft(total); }}
-          className="flex items-center gap-2 rounded-full bg-white/10 px-6 py-2.5 font-medium text-white/70 transition hover:bg-white/15">
-          <RotateCcw size={15} />重置
+          className="flex items-center gap-1.5 rounded-full bg-white/10 px-4 py-1.5 text-sm font-medium text-white/70 transition hover:bg-white/15">
+          <RotateCcw size={13} />重置
         </button>
       </div>
     </div>
@@ -225,51 +224,50 @@ function QuickScore({ classId, students, groups }) {
   const renderStu = (s) => {
     const v = tally[s.id] || 0;
     return (
-      <div key={s.id} className="flex items-center gap-2 rounded-2xl bg-white/[0.06] px-3 py-2">
-        <span className="min-w-0 flex-1 truncate text-sm font-medium">{s.name}</span>
+      <div key={s.id} className="flex items-center gap-1.5 rounded-xl bg-white/[0.06] px-2 py-1.5">
+        <span className="min-w-0 flex-1 truncate text-xs font-medium">{s.name}</span>
         {v !== 0 && (
-          <span className={`w-9 text-center text-sm font-bold tabular-nums ${v > 0 ? 'text-[#30d158]' : 'text-[#ff453a]'}`}>
+          <span className={`w-7 text-center text-xs font-bold tabular-nums ${v > 0 ? 'text-[#30d158]' : 'text-[#ff453a]'}`}>
             {v > 0 ? `+${v}` : v}
           </span>
         )}
         <button onClick={() => add(s, 1)} title="加 1 分"
-          className="flex h-10 w-10 items-center justify-center rounded-full bg-[#30d158]/20 text-[#30d158] transition hover:bg-[#30d158]/35 active:scale-90">
-          <Plus size={17} />
+          className="flex h-7 w-7 items-center justify-center rounded-full bg-[#30d158]/20 text-[#30d158] transition hover:bg-[#30d158]/35 active:scale-90">
+          <Plus size={14} />
         </button>
         <button onClick={() => add(s, -1)} title="扣 1 分"
-          className="flex h-10 w-10 items-center justify-center rounded-full bg-[#ff453a]/15 text-[#ff453a] transition hover:bg-[#ff453a]/30 active:scale-90">
-          <Minus size={17} />
+          className="flex h-7 w-7 items-center justify-center rounded-full bg-[#ff453a]/15 text-[#ff453a] transition hover:bg-[#ff453a]/30 active:scale-90">
+          <Minus size={14} />
         </button>
       </div>
     );
   };
 
   return (
-    <div className="flex flex-col rounded-3xl border border-white/10 bg-white/5 p-6">
-      <div className="mb-4 flex items-center gap-2 text-white/70">
-        <Zap size={18} /><span className="text-sm font-medium">课堂加减分</span>
-        <span className="text-xs text-white/30">自动计入德育量化</span>
+    <div className="flex flex-col rounded-2xl border border-white/10 bg-white/5 p-3.5">
+      <div className="mb-2 flex items-center gap-2 text-white/70">
+        <Zap size={16} /><span className="text-xs font-medium">课堂加减分</span>
         <div className="ml-auto flex gap-1.5">
           {groups.length > 0 && (
             <button onClick={() => setView(v => v === 'group' ? 'all' : 'group')}
-              className="flex items-center gap-1 rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-white/60 transition hover:bg-white/15">
-              <Users size={12} />{view === 'group' ? '按学生' : '按小组'}
+              className="flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-0.5 text-[11px] font-medium text-white/60 transition hover:bg-white/15">
+              <Users size={11} />{view === 'group' ? '按学生' : '按小组'}
             </button>
           )}
         </div>
       </div>
-      <div className="max-h-72 flex-1 space-y-3 overflow-y-auto pr-1">
-        {students.length === 0 && <p className="py-8 text-center text-sm text-white/30">该班级暂无学生</p>}
+      <div className="max-h-44 flex-1 space-y-1.5 overflow-y-auto pr-1">
+        {students.length === 0 && <p className="py-4 text-center text-xs text-white/30">该班级暂无学生</p>}
         {view === 'group' && groups.length > 0
           ? groups.map(g => (
             <div key={g.id}>
-              <div className="mb-1.5 text-xs font-semibold text-white/40">{g.name}</div>
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <div className="mb-1 text-[10px] font-semibold text-white/40">{g.name}</div>
+              <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
                 {(g.members || []).map(m => renderStu({ id: m.id, name: m.name }))}
               </div>
             </div>
           ))
-          : <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">{students.map(renderStu)}</div>}
+          : <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">{students.map(renderStu)}</div>}
       </div>
     </div>
   );
@@ -322,36 +320,35 @@ function DecibelMeter() {
   const label = level < 40 ? '安静' : level < 70 ? '适中' : '偏吵';
 
   return (
-    <div className="flex flex-col rounded-3xl border border-white/10 bg-white/5 p-6">
-      <div className="mb-4 flex items-center gap-2 text-white/70">
-        <Volume2 size={18} /><span className="text-sm font-medium">课堂分贝</span>
-        <span className="ml-auto text-xs text-white/30">需麦克风权限</span>
+    <div className="flex flex-col rounded-2xl border border-white/10 bg-white/5 p-3.5">
+      <div className="mb-2 flex items-center gap-2 text-white/70">
+        <Volume2 size={16} /><span className="text-xs font-medium">课堂分贝</span>
+        <span className="ml-auto text-[10px] text-white/30">需麦克风权限</span>
       </div>
-      <div className="flex flex-1 flex-col items-center justify-center gap-4 py-4">
-        <div className="font-mono text-7xl font-bold tabular-nums" style={{ color: on ? tone : 'rgba(255,255,255,.25)' }}>
+      <div className="flex flex-1 flex-col items-center justify-center gap-2 py-1">
+        <div className="font-mono text-4xl font-bold tabular-nums" style={{ color: on ? tone : 'rgba(255,255,255,.25)' }}>
           {on ? level : '--'}
         </div>
-        <span className="rounded-full px-3 py-1 text-xs font-semibold" style={{ background: `${tone}22`, color: on ? tone : 'rgba(255,255,255,.3)' }}>
+        <span className="rounded-full px-2.5 py-0.5 text-[11px] font-semibold" style={{ background: `${tone}22`, color: on ? tone : 'rgba(255,255,255,.3)' }}>
           {on ? label : '未开启'}
         </span>
-        {/* 音量柱 */}
-        <div className="flex h-20 w-full items-end justify-center gap-1">
-          {Array.from({ length: 24 }).map((_, i) => {
-            const threshold = ((i + 1) / 24) * 100;
+        <div className="flex h-10 w-full items-end justify-center gap-0.5">
+          {Array.from({ length: 20 }).map((_, i) => {
+            const threshold = ((i + 1) / 20) * 100;
             return (
-              <div key={i} className="w-2.5 rounded-full transition-all duration-75"
+              <div key={i} className="w-2 rounded-full transition-all duration-75"
                 style={{
-                  height: `${20 + (i / 24) * 80}%`,
+                  height: `${20 + (i / 20) * 80}%`,
                   background: on && level >= threshold ? (threshold < 40 ? '#30d158' : threshold < 70 ? '#ffd60a' : '#ff453a') : 'rgba(255,255,255,.08)',
                 }} />
             );
           })}
         </div>
-        {error && <p className="text-xs text-[#ff453a]">{error}</p>}
+        {error && <p className="text-[10px] text-[#ff453a]">{error}</p>}
       </div>
       <button onClick={on ? stop : start}
-        className={`mx-auto flex items-center gap-2 rounded-full px-8 py-2.5 font-semibold shadow-lg transition ${on ? 'bg-white/10 text-white/70 hover:bg-white/15' : 'bg-[#0a84ff] text-white shadow-blue-500/30 hover:bg-[#2f94ff]'}`}>
-        {on ? <MicOff size={16} /> : <Mic size={16} />}{on ? '停止监听' : '开始监听'}
+        className={`mx-auto flex items-center gap-1.5 rounded-full px-5 py-1.5 text-sm font-semibold shadow-lg transition ${on ? 'bg-white/10 text-white/70 hover:bg-white/15' : 'bg-[#0a84ff] text-white shadow-blue-500/30 hover:bg-[#2f94ff]'}`}>
+        {on ? <MicOff size={14} /> : <Mic size={14} />}{on ? '停止' : '开始监听'}
       </button>
     </div>
   );
