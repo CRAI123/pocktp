@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Dices, Timer, Zap, Volume2, Play, Pause, RotateCcw, Mic, MicOff, Plus, Minus, Users, MonitorUp, Columns2 } from 'lucide-react';
 import { api, todayStr } from '../api.js';
 import { isDesktopApp, openClassroomWindow } from '../desktop.js';
+import ClassroomGames from '../components/ClassroomGames.jsx';
 
 /**
  * 课堂小助手（大屏深色风）：随机点名 / 倒计时 / 课堂加减分 / 分贝计
@@ -61,6 +62,11 @@ export default function Classroom() {
         <Countdown />
         <QuickScore classId={classId} students={students} groups={groups} />
         <DecibelMeter />
+      </div>
+
+      {/* 课堂游戏：6 款投影即玩的互动游戏，桌面端网页端通用 */}
+      <div className="mt-5">
+        <ClassroomGames students={students} />
       </div>
     </div>
   );

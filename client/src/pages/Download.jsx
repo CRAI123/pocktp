@@ -7,14 +7,37 @@ import { Link } from 'react-router-dom';
 import {
   MonitorDown, Check, X, ShieldCheck, ArrowLeft, Sparkles,
   MonitorSmartphone, Globe, Zap, RefreshCw, Trash2, Lock, Package,
+  AlertTriangle, MousePointerClick, Shield, Copy, CheckCheck,
 } from 'lucide-react';
 import { BrandFooter } from '../components/ui.jsx';
 import { isDesktopApp } from '../components/Layout.jsx';
 
 const EXE_URL = '/desktop/teacher-workbench-setup.exe';
 const EXE_NAME = '教师工作台-安装包.exe';
-const VERSION = 'v2.0.0';
-const SIZE = '约 55 MB';
+const VERSION = 'v2.0.3';
+const SIZE = '约 71 MB';
+const SHA256 = 'E372BE957D8FA534CA273E49FD00F6E1654A1C9C4D5529D2377F38E75D142A9F';
+
+/* 安装步骤：双击 → SmartScreen 放行 → 完成 */
+const INSTALL_STEPS = [
+  {
+    icon: MousePointerClick,
+    title: '双击安装包',
+    desc: '下载完成后双击 .exe 文件，按提示选择安装位置（可免管理员权限）。',
+  },
+  {
+    icon: AlertTriangle,
+    title: '若提示「Windows 已保护你的电脑」',
+    desc: '这是 SmartScreen 对未签名新应用的常规提示，并非病毒。点击「更多信息」→「仍要运行」即可继续。',
+    tone: 'amber',
+  },
+  {
+    icon: ShieldCheck,
+    title: '完成安装',
+    desc: '安装结束后双击桌面图标即可使用。若仍被拦截，可右键安装包 →「属性」→ 勾选「解除锁定」。',
+  },
+];
+
 
 /* 干净承诺：安装与运行全程透明 */
 const CLEAN_PROMISES = [
@@ -50,6 +73,7 @@ export default function Download() {
   /* 自动下载：3 秒倒计时，可取消 */
   const [countdown, setCountdown] = useState(desktop ? null : 3);
   const [started, setStarted] = useState(false);
+  const [copied, setCopied] = useState(false);
   const timerRef = useRef(null);
 
   const startDownload = () => {
@@ -61,6 +85,14 @@ export default function Download() {
     document.body.appendChild(a);
     a.click();
     a.remove();
+  };
+
+  const copyHash = async () => {
+    try {
+      await navigator.clipboard.writeText(SHA256);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {}
   };
 
   useEffect(() => {
@@ -137,6 +169,61 @@ export default function Download() {
                 <span className="text-[13px] leading-relaxed text-[#3a3a3c]">{text}</span>
               </div>
             ))}
+          </div>
+        </section>
+
+        {/* 安装说明：SmartScreen 放行 + SHA-256 校验 */}
+        <section className="mt-12">
+          <div className="mb-5 flex items-center gap-2">
+            <Shield size={18} className="text-[#0071e3]" />
+            <h2 className="text-base font-bold sm:text-lg">安装说明</h2>
+          </div>
+
+          {/* SmartScreen 提示说明 */}
+          <div className="card mb-4 flex items-start gap-3 border-l-[3px] border-l-[#ff9500] p-5">
+            <AlertTriangle size={20} className="mt-0.5 shrink-0 text-[#ff9500]" />
+            <div>
+              <div className="text-[13.5px] font-semibold text-[#1d1d1f]">如果看到「Windows 已保护你的电脑」</div>
+              <p className="mt-1 text-[12.5px] leading-relaxed text-[#6e6e73]">
+                这是 Windows SmartScreen 对未签名新应用的<span className="font-medium text-[#1d1d1f]">常规提示</span>，并非检测到病毒。
+                安装包无捆绑、无后台服务、可一键卸载，请放心安装。点击提示页的「更多信息」→「仍要运行」即可继续。
+              </p>
+            </div>
+          </div>
+
+          {/* 三步安装 */}
+          <div className="grid gap-3 sm:grid-cols-3">
+            {INSTALL_STEPS.map((s, i) => (
+              <div key={s.title} className="card flex flex-col gap-2.5 p-4">
+                <div className="flex items-center gap-2">
+                  <span className="grid h-7 w-7 place-items-center rounded-full bg-[#0071e3]/10 text-[#0071e3]">
+                    <s.icon size={15} />
+                  </span>
+                  <span className="text-[13px] font-semibold text-[#1d1d1f]">{i + 1}. {s.title}</span>
+                </div>
+                <p className="text-[12px] leading-relaxed text-[#6e6e73]">{s.desc}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* SHA-256 校验值 */}
+          <div className="card mt-4 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Lock size={15} className="text-[#28cd41]" />
+                <span className="text-[13px] font-semibold text-[#1d1d1f]">SHA-256 校验值</span>
+                <span className="text-[11px] text-[#86868b]">· 下载后可比对，确认文件完整未被篡改</span>
+              </div>
+              <button
+                onClick={copyHash}
+                className="inline-flex items-center gap-1 rounded-full border border-black/[0.08] px-3 py-1.5 text-[12px] font-medium text-[#1d1d1f] transition hover:border-[#0071e3]/30 hover:bg-[#0071e3]/[0.04]"
+              >
+                {copied ? <><CheckCheck size={13} className="text-[#28cd41]" /> 已复制</> : <><Copy size={13} /> 复制</>}
+              </button>
+            </div>
+            <div className="mt-2.5 overflow-x-auto rounded-lg bg-black/[0.03] px-3 py-2.5">
+              <code className="break-all font-mono text-[11.5px] text-[#3a3a3c] select-all">{SHA256}</code>
+            </div>
           </div>
         </section>
 
