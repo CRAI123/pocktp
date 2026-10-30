@@ -7,6 +7,7 @@ const { authRouter, authRequired, activatedRequired } = require('./auth');
 const teachingRouter = require('./routes/teaching');
 const classworkRouter = require('./routes/classwork');
 const activationRouter = require('./routes/activation');
+const deliveryRouter = require('./routes/delivery');
 const adminRouter = require('./routes/admin');
 const aiRouter = require('./routes/ai');
 const classadminRouter = require('./routes/classadmin');
@@ -21,6 +22,9 @@ app.use('/api/auth', authRouter);
 
 /* 激活码兑换（需登录，不要求已激活） */
 app.use('/api/activation', authRequired, activationRouter);
+
+/* 自动发货（第三方卡密平台调用，密钥校验，无需登录） */
+app.use('/api/delivery', deliveryRouter);
 
 /* 管理后台（路由内部校验管理员身份） */
 app.use('/api/admin', authRequired, adminRouter);
