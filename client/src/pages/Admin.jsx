@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
-  Ticket, TicketCheck, TicketX, Users, Plus, Copy, Ban, Check, ShieldCheck, Link2, Zap, Sparkles, CalendarPlus, Wallet,
+  Ticket, TicketCheck, TicketX, Users, Plus, Copy, Ban, Check, ShieldCheck, Link2, Zap, Sparkles, CalendarPlus, Wallet, CheckSquare,
 } from 'lucide-react';
 import { api, todayStr } from '../api.js';
 import { BASE_URL } from '../config.js';
@@ -68,12 +68,14 @@ export default function Admin() {
   const [generated, setGenerated] = useState(null); // 新生成的码（弹窗展示）
   const [copied, setCopied] = useState('');
   const [error, setError] = useState('');
+  const [selected, setSelected] = useState([]); // 列表勾选的激活码 id
 
   const loadCodes = useCallback(async () => {
     const qs = new URLSearchParams();
     if (statusFilter) qs.set('status', statusFilter);
     if (batchFilter) qs.set('batch', batchFilter);
     setCodes(await api.get(`/admin/codes?${qs}`));
+    setSelected([]);
   }, [statusFilter, batchFilter]);
 
   const loadTeachers = useCallback(async () => setTeachers(await api.get('/admin/teachers')), []);
@@ -160,6 +162,12 @@ export default function Admin() {
 
   const stats = codes.stats;
   const total = (stats.unused || 0) + (stats.used || 0) + (stats.revoked || 0);
+
+  /* 列表勾选：全选 / 单行；批量复制仅取当前勾选项 */
+  const allSelected = codes.list.length > 0 && selected.length === codes.list.length;
+  const toggleAll = () => setSelected(allSelected ? [] : codes.list.map(c => c.id));
+  const toggleOne = (id) => setSelected(s => (s.includes(id) ? s.filter(x => x !== id) : [...s, id]));
+  const pickedRows = codes.list.filter(c => selected.includes(c.id));
 
   return (
     <div className="space-y-6">
@@ -282,7 +290,7 @@ export default function Admin() {
             {error && <div className="mt-3 rounded-xl bg-[#ff3b30]/8 px-4 py-2.5 text-sm text-[#ff3b30]">{error}</div>}
           </div>
 
-          {/* 筛选 */}
+          {/* 筛选 + 批量操作 */}
           <div className="flex flex-wrap items-center gap-3">
             <select className={`${inputCls} w-auto`} value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
               <option value="">全部状态</option>
@@ -294,7 +302,31 @@ export default function Admin() {
               <option value="">全部批次</option>
               {codes.batches.map(b => <option key={b} value={b}>{b}</option>)}
             </select>
-            <span className="text-sm text-ink-secondary">共 {codes.list.length} 条</span>
+            <span className="text-sm text-ink-secondary">共 {codes.list.length} 条 · 已选 {selected.length} 条</span>
+            <div className="ml-auto flex items-center gap-2">
+              <Button
+                variant="secondary"
+                onClick={toggleAll}
+                disabled={codes.list.length === 0}
+              >
+                <CheckSquare size={15} />{allSelected ? '取消全选' : '全选'}
+              </Button>
+              <Button
+                onClick={() => doCopy(pickedRows.map(c => fmtCode(c.code)).join('\n'), 'picked-codes')}
+                disabled={selected.length === 0}
+              >
+                {copied === 'picked-codes' ? <Check size={15} /> : <Copy size={15} />}
+                {copied === 'picked-codes' ? '已复制' : `批量复制激活码`}
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={() => doCopy(pickedRows.map(c => `一键激活网址：${redeemUrl(c.code)}\t激活码：${fmtCode(c.code)}`).join('\n\n'), 'picked-links')}
+                disabled={selected.length === 0}
+              >
+                {copied === 'picked-links' ? <Check size={15} /> : <Link2 size={15} />}
+                {copied === 'picked-links' ? '已复制' : '批量复制网址+码'}
+              </Button>
+            </div>
           </div>
 
           {/* 激活码列表 */}
@@ -303,6 +335,15 @@ export default function Admin() {
               <table className="w-full min-w-[920px] text-sm">
                 <thead>
                   <tr className="border-b border-black/5 text-left text-xs text-ink-secondary">
+                    <th className="w-10 px-4 py-3">
+                      <input
+                        type="checkbox"
+                        checked={allSelected}
+                        onChange={toggleAll}
+                        title="全选当前列表"
+                        className="h-4 w-4 cursor-pointer accent-[#0071e3]"
+                      />
+                    </th>
                     <th className="px-5 py-3 font-medium">激活码</th>
                     <th className="px-5 py-3 font-medium">批次 / 备注</th>
                     <th className="px-5 py-3 font-medium">算力</th>
@@ -317,7 +358,15 @@ export default function Admin() {
                   {codes.list.map(c => {
                     const [label, tone] = STATUS_MAP[c.status] || [c.status, 'gray'];
                     return (
-                      <tr key={c.id} className="border-b border-black/[0.04] last:border-0 hover:bg-black/[0.015]">
+                      <tr key={c.id} className={`border-b border-black/[0.04] last:border-0 hover:bg-black/[0.015] ${selected.includes(c.id) ? 'bg-[#0071e3]/[0.04]' : ''}`}>
+                        <td className="px-4 py-3">
+                          <input
+                            type="checkbox"
+                            checked={selected.includes(c.id)}
+                            onChange={() => toggleOne(c.id)}
+                            className="h-4 w-4 cursor-pointer accent-[#0071e3]"
+                          />
+                        </td>
                         <td className="px-5 py-3 font-mono text-[13px] tracking-wider">{fmtCode(c.code)}</td>
                         <td className="px-5 py-3">
                           {c.batch && <div className="font-medium">{c.batch}</div>}
@@ -501,10 +550,9 @@ export default function Admin() {
       } width="max-w-xl">
         <div className="mb-3 flex flex-wrap justify-end gap-2">
           <Button
-            variant="secondary"
             onClick={() => doCopy(generated.codes.map(c => `一键激活网址：${redeemUrl(c)}\t激活码：${fmtCode(c)}`).join('\n\n\n'), 'all-links')}
           >
-            {copied === 'all-links' ? <Check size={15} className="text-[#28cd41]" /> : <Link2 size={15} />}
+            {copied === 'all-links' ? <Check size={15} /> : <Link2 size={15} />}
             {copied === 'all-links' ? '已复制' : '一键复制网址+激活码'}
           </Button>
           <Button
