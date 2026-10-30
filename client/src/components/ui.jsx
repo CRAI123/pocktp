@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import { X, ShieldCheck, Inbox } from 'lucide-react';
 
 /** 统计卡片：眉标 + 大数字 + 右侧色调图标；悬停轻微上浮 */
@@ -69,7 +70,9 @@ export function Badge({ children, tone = 'gray' }) {
 /** 弹窗：遮罩淡入 + 面板缩放上浮；窄屏从底部弹出更顺手 */
 export function Modal({ open, onClose, title, children, width = 'max-w-lg' }) {
   if (!open) return null;
-  return (
+  /* 用 Portal 挂到 body：避免被页面的 transform/filter 祖先（如 .page-enter 入场动画）
+   * 变成 fixed 定位的包含块，导致弹窗跑到页面内容中部甚至屏幕外 */
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-end justify-center p-3 sm:items-center sm:p-4">
       <div className="fade-in absolute inset-0 bg-[#12141a]/40 backdrop-blur-md" onClick={onClose} />
       <div className={`modal-in card relative w-full ${width} max-h-[88vh] overflow-y-auto p-5 sm:p-6`}>
@@ -82,7 +85,8 @@ export function Modal({ open, onClose, title, children, width = 'max-w-lg' }) {
         <div className="hairline mb-5" />
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
