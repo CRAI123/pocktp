@@ -53,11 +53,11 @@ export default function SubjectIndex() {
             <div className="min-w-0 flex-1">
               <h3 className="flex flex-wrap items-center gap-2 text-xl font-semibold tracking-tight">
                 综合测试
-                <span className="rounded-full bg-[#ff9500]/10 px-2 py-0.5 text-xs font-medium text-[#ff9500]">仿中考题型</span>
+                <span className="rounded-full bg-[#ff9500]/10 px-2 py-0.5 text-xs font-medium text-[#ff9500]">仿中高考题型</span>
                 <span className="rounded-full bg-[#0071e3]/10 px-2 py-0.5 text-xs font-medium text-[#0071e3]">逐科独立生成</span>
               </h3>
               <p className="mt-1.5 text-sm leading-relaxed text-ink-secondary">
-                语文 / 数学 / 英语 分开出题、分开管理、分开组卷：题型完整覆盖阅读理解、完形填空、作文；全年级 + 中考新风向。
+                语文 / 数学 / 英语 分开出题、分开管理、分开组卷：题型完整覆盖阅读理解、完形填空、作文；小学至高中 + 中高考新风向。
               </p>
             </div>
             <span className="inline-flex items-center gap-1 rounded-full bg-[#0071e3]/10 px-4 py-2 text-sm font-medium text-[#0071e3] transition group-hover:bg-[#0071e3] group-hover:text-white">

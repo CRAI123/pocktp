@@ -8,7 +8,7 @@ const meta = {
   title: '单词听写专项',
   subtitle: '看中文释义写出对应英文单词（课本核心词汇）',
 };
-const DEFAULTS = { grade: '4', difficulty: 'medium', count: 10, keyword: '小学英语课本核心词汇' };
+const DEFAULTS = { grade: '10', difficulty: 'medium', count: 10, keyword: '高中英语核心词汇' };
 
 export default function EnglishDictation() {
   const [cfg, setCfg] = useState(DEFAULTS);

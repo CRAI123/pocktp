@@ -9,7 +9,10 @@ const GRADES = [
   { v: '1', l: '一年级' }, { v: '2', l: '二年级' }, { v: '3', l: '三年级' },
   { v: '4', l: '四年级' }, { v: '5', l: '五年级' }, { v: '6', l: '六年级' },
   { v: '7', l: '七年级' }, { v: '8', l: '八年级' }, { v: '9', l: '九年级' }, { v: 'zk', l: '中考' },
+  { v: '10', l: '高一' }, { v: '11', l: '高二' }, { v: '12', l: '高三' }, { v: 'gk', l: '高考' },
 ];
+/* 高中档（含高考）：命题风向文案切换为高考 */
+const isHigh = (v) => v === 'gk' || Number(v) >= 10;
 const SUBJECT_OPTIONS = ['语文', '数学', '英语', '物理', '化学', '生物', '历史', '地理', '道德与法治', '科学', '信息技术', '心理健康', '音乐', '美术', '体育与健康'];
 const QTYPE_OPTIONS = ['选择题', '填空题', '判断题', '简答题', '论述题', '计算题', '应用题', '连线题', '排序题', '作图题', '翻译题', '写作题'];
 const LETTERS = ['A', 'B', 'C', 'D'];
@@ -50,7 +53,7 @@ function splitBatches(items, cap = 38) {
 
 export default function ClassroomPractice() {
   /* ---- 表单 ---- */
-  const [form, setForm] = useState({ subject: '语文', grade: '7', topic: '', knowledge: '' });
+  const [form, setForm] = useState({ subject: '语文', grade: '10', topic: '', knowledge: '' });
   const [trend, setTrend] = useState(true);
   const [items, setItems] = useState([{ qtype: '选择题', count: 2 }, { qtype: '填空题', count: 3 }]);
   /* ---- 描述词（自动生成后可编辑） ---- */
@@ -78,7 +81,7 @@ export default function ClassroomPractice() {
     return `请为《${form.topic}》命制一份${gradeLabel}${form.subject}课堂练习。
 本节课知识点：${form.knowledge || '本节课核心内容'}。
 题型与数量：${list}。
-要求：紧扣本节课知识点，难度适中，适合课堂即时检测；题干表述清晰规范，选择题提供四个选项，所有题目附答案与简要解析。${trend ? '\n命题风向：融入中考新风向——真实情境化、跨学科融合、开放性设问，题量允许时至少 1 道新风向题。' : ''}`;
+要求：紧扣本节课知识点，难度适中，适合课堂即时检测；题干表述清晰规范，选择题提供四个选项，所有题目附答案与简要解析。${trend ? `\n命题风向：融入${isHigh(form.grade) ? '高考' : '中考'}新风向——真实情境化、跨学科融合、开放性设问，题量允许时至少 1 道新风向题。` : ''}`;
   };
 
   const genDraft = () => {
@@ -173,7 +176,7 @@ export default function ClassroomPractice() {
                 className={`inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-medium transition active:scale-95 ${
                   trend ? 'bg-[#ff9500] text-white' : 'bg-black/[0.05] text-ink-secondary hover:bg-black/10'
                 }`}>
-                <TrendingUp size={13} />中考新风向
+                <TrendingUp size={13} />{isHigh(form.grade) ? '高考' : '中考'}新风向
               </button>
             </div>
           </div>

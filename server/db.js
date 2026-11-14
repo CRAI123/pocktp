@@ -484,6 +484,124 @@ CREATE TABLE IF NOT EXISTS device_codes (
   remember INTEGER NOT NULL DEFAULT 1,
   created_at BIGINT NOT NULL
 );
+
+/* ==================== 语文备考（古诗文 / 作文 / 好题 / 复习要点 / 备考） ==================== */
+
+/* 古诗文必背篇目检查：status 未查/背诵/默写过关；unmem 为未背过学生姓名（顿号分隔） */
+CREATE TABLE IF NOT EXISTS cp_poems (
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  teacher_id INTEGER NOT NULL REFERENCES teachers(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  author TEXT DEFAULT '',
+  status TEXT NOT NULL DEFAULT '未查',
+  class_id INTEGER REFERENCES classes(id) ON DELETE SET NULL,   -- 未背过学生所属班（空=未分班）
+  unmem TEXT DEFAULT '',
+  created_at TEXT DEFAULT (to_char(now() AT TIME ZONE 'Asia/Shanghai','YYYY-MM-DD HH24:MI:SS'))
+);
+CREATE INDEX IF NOT EXISTS idx_cp_poems_teacher ON cp_poems(teacher_id, id);
+
+/* 作文素材库 */
+CREATE TABLE IF NOT EXISTS cp_essay_materials (
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  teacher_id INTEGER NOT NULL REFERENCES teachers(id) ON DELETE CASCADE,
+  type TEXT NOT NULL DEFAULT '课本素材',
+  content TEXT NOT NULL,
+  theme TEXT DEFAULT '',
+  created_at TEXT DEFAULT (to_char(now() AT TIME ZONE 'Asia/Shanghai','YYYY-MM-DD HH24:MI:SS'))
+);
+CREATE INDEX IF NOT EXISTS idx_cp_materials_teacher ON cp_essay_materials(teacher_id, id);
+
+/* 作文训练题目与解析范文 */
+CREATE TABLE IF NOT EXISTS cp_essay_trainings (
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  teacher_id INTEGER NOT NULL REFERENCES teachers(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  target TEXT DEFAULT '',
+  fanwen TEXT DEFAULT '',
+  date TEXT DEFAULT '',
+  created_at TEXT DEFAULT (to_char(now() AT TIME ZONE 'Asia/Shanghai','YYYY-MM-DD HH24:MI:SS'))
+);
+CREATE INDEX IF NOT EXISTS idx_cp_trainings_teacher ON cp_essay_trainings(teacher_id, id);
+
+/* 好题本：subject 考点/题型，master 未掌握/复习中/已掌握 */
+CREATE TABLE IF NOT EXISTS cp_good_questions (
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  teacher_id INTEGER NOT NULL REFERENCES teachers(id) ON DELETE CASCADE,
+  subject TEXT NOT NULL DEFAULT '',
+  q TEXT DEFAULT '',
+  a TEXT DEFAULT '',
+  master TEXT NOT NULL DEFAULT '未掌握',
+  created_at TEXT DEFAULT (to_char(now() AT TIME ZONE 'Asia/Shanghai','YYYY-MM-DD HH24:MI:SS'))
+);
+CREATE INDEX IF NOT EXISTS idx_cp_good_teacher ON cp_good_questions(teacher_id, id);
+
+/* 复习要点：section 版块 */
+CREATE TABLE IF NOT EXISTS cp_review_points (
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  teacher_id INTEGER NOT NULL REFERENCES teachers(id) ON DELETE CASCADE,
+  section TEXT NOT NULL DEFAULT '',
+  content TEXT NOT NULL,
+  note TEXT DEFAULT '',
+  date TEXT DEFAULT '',
+  created_at TEXT DEFAULT (to_char(now() AT TIME ZONE 'Asia/Shanghai','YYYY-MM-DD HH24:MI:SS'))
+);
+CREATE INDEX IF NOT EXISTS idx_cp_points_teacher ON cp_review_points(teacher_id, id);
+
+/* 作业登记（按班级）：应交/实交/未交学生 */
+CREATE TABLE IF NOT EXISTS cp_homework_logs (
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  teacher_id INTEGER NOT NULL REFERENCES teachers(id) ON DELETE CASCADE,
+  class_id INTEGER REFERENCES classes(id) ON DELETE SET NULL,
+  name TEXT NOT NULL,
+  date TEXT DEFAULT '',
+  should_count INTEGER NOT NULL DEFAULT 0,
+  done_count INTEGER NOT NULL DEFAULT 0,
+  absent_names TEXT DEFAULT '',
+  created_at TEXT DEFAULT (to_char(now() AT TIME ZONE 'Asia/Shanghai','YYYY-MM-DD HH24:MI:SS'))
+);
+CREATE INDEX IF NOT EXISTS idx_cp_homework_teacher ON cp_homework_logs(teacher_id, id);
+
+/* 特殊学生任务：repeat_mode 每日/单次；scope_type all/class/group */
+CREATE TABLE IF NOT EXISTS cp_special_tasks (
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  teacher_id INTEGER NOT NULL REFERENCES teachers(id) ON DELETE CASCADE,
+  content TEXT NOT NULL,
+  target TEXT DEFAULT '',
+  scope_type TEXT NOT NULL DEFAULT 'all',
+  class_id INTEGER REFERENCES classes(id) ON DELETE SET NULL,
+  group_name TEXT DEFAULT '',
+  repeat_mode TEXT NOT NULL DEFAULT '每日',
+  date TEXT DEFAULT '',
+  done INTEGER NOT NULL DEFAULT 0,
+  done_date TEXT DEFAULT '',
+  created_at TEXT DEFAULT (to_char(now() AT TIME ZONE 'Asia/Shanghai','YYYY-MM-DD HH24:MI:SS'))
+);
+CREATE INDEX IF NOT EXISTS idx_cp_special_teacher ON cp_special_tasks(teacher_id, id);
+
+/* 近五年高考真题分类汇编 */
+CREATE TABLE IF NOT EXISTS cp_exam_questions (
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  teacher_id INTEGER NOT NULL REFERENCES teachers(id) ON DELETE CASCADE,
+  section TEXT NOT NULL DEFAULT '',
+  year INTEGER,
+  title TEXT NOT NULL,
+  q TEXT DEFAULT '',
+  a TEXT DEFAULT '',
+  created_at TEXT DEFAULT (to_char(now() AT TIME ZONE 'Asia/Shanghai','YYYY-MM-DD HH24:MI:SS'))
+);
+CREATE INDEX IF NOT EXISTS idx_cp_exams_teacher ON cp_exam_questions(teacher_id, id);
+
+/* 五册课本原创题目 */
+CREATE TABLE IF NOT EXISTS cp_text_questions (
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  teacher_id INTEGER NOT NULL REFERENCES teachers(id) ON DELETE CASCADE,
+  volume TEXT NOT NULL DEFAULT '',
+  piece TEXT DEFAULT '',
+  q TEXT DEFAULT '',
+  a TEXT DEFAULT '',
+  created_at TEXT DEFAULT (to_char(now() AT TIME ZONE 'Asia/Shanghai','YYYY-MM-DD HH24:MI:SS'))
+);
+CREATE INDEX IF NOT EXISTS idx_cp_texts_teacher ON cp_text_questions(teacher_id, id);
 `);
 
   /* 兼容旧库：补列（IF NOT EXISTS 幂等） */
@@ -520,6 +638,7 @@ ALTER TABLE notifications ADD COLUMN IF NOT EXISTS status TEXT DEFAULT '待发�
 ALTER TABLE notifications ADD COLUMN IF NOT EXISTS sent_at TEXT;                    -- 标记已发送的时间
 ALTER TABLE timetables ADD COLUMN IF NOT EXISTS is_mine INTEGER NOT NULL DEFAULT 0;  -- 1=我的课（教师课表 / 上课提醒）
 ALTER TABLE timetable_settings ADD COLUMN IF NOT EXISTS slots TEXT DEFAULT '';       -- 逐节作息时间 JSON：[{period,start,end}]（各校作息不同，由老师自填）
+ALTER TABLE students ADD COLUMN IF NOT EXISTS cp_group TEXT DEFAULT '';             -- 语文备考分组：拓展组/普通组/基础组（空=未分组）
 CREATE UNIQUE INDEX IF NOT EXISTS idx_teachers_phone ON teachers(phone);
 `);
 

@@ -12,6 +12,7 @@ const GRADES = [
   { v: '1', l: '一年级' }, { v: '2', l: '二年级' }, { v: '3', l: '三年级' },
   { v: '4', l: '四年级' }, { v: '5', l: '五年级' }, { v: '6', l: '六年级' },
   { v: '7', l: '七年级' }, { v: '8', l: '八年级' }, { v: '9', l: '九年级' }, { v: 'zk', l: '中考' },
+  { v: '10', l: '高一' }, { v: '11', l: '高二' }, { v: '12', l: '高三' }, { v: 'gk', l: '高考' },
 ];
 const SUBJECTS = ['语文', '数学', '英语', '物理', '化学', '生物', '历史', '地理', '道德与法治', '科学', '信息技术', '音乐', '美术', '体育与健康'];
 const TONES = ['温暖鼓励', '严谨中肯', '幽默亲切', '简明扼要'];
@@ -158,7 +159,7 @@ function SettingsModal({ open, onClose, st, reload }) {
 
 /* ==================== 备课助手 ==================== */
 function LessonPanel({ disabled }) {
-  const [form, setForm] = useState({ subject: '语文', grade: '7', topic: '', duration: 1, textbook: '', style: '' });
+  const [form, setForm] = useState({ subject: '语文', grade: '10', topic: '', duration: 1, textbook: '', style: '' });
   const [plan, setPlan] = useState(null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState('');
@@ -332,7 +333,7 @@ function ListCard({ title, items, tone }) {
 
 /* ==================== 作业提效 ==================== */
 function HomeworkPanel({ disabled }) {
-  const [form, setForm] = useState({ subject: '数学', grade: '7', topic: '', count: 5, difficulty: 'medium', types: '' });
+  const [form, setForm] = useState({ subject: '数学', grade: '10', topic: '', count: 5, difficulty: 'medium', types: '' });
   const [list, setList] = useState([]);
   const [showAns, setShowAns] = useState({});
   const [loading, setLoading] = useState(false);

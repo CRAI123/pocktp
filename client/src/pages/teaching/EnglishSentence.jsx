@@ -8,7 +8,7 @@ const meta = {
   title: '句子填空专项',
   subtitle: '根据时态/句型/语法补全句子（一般现在时/进行时/完成时/情态动词）',
 };
-const DEFAULTS = { grade: '4', difficulty: 'medium', count: 10, keyword: '小学英语核心句型' };
+const DEFAULTS = { grade: '10', difficulty: 'medium', count: 10, keyword: '高中英语核心句型' };
 
 export default function EnglishSentence() {
   const [cfg, setCfg] = useState(DEFAULTS);

@@ -7,7 +7,7 @@ const meta = {
   title: '选词填空专项',
   subtitle: '从词表中选出恰当的词填入短文对应空号（点击词表中的词，再点击空号填入）',
 };
-const DEFAULTS = { grade: '4', difficulty: 'medium', count: 8, keyword: '小学英语短文选词填空' };
+const DEFAULTS = { grade: '10', difficulty: 'medium', count: 8, keyword: '高中英语选词填空' };
 
 function PassageWithBlanks({ q, picks, setPicks, submitted }) {
   const re = /____(\d+)____/g;

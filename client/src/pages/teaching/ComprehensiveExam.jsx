@@ -1,5 +1,5 @@
-/** 综合测试：仿中考题型结构的语/数/英综合卷
- *  - 全年级覆盖（1-9 年级 + 中考），题型仿中考、难度适配所选年级
+/** 综合测试：仿中高考题型结构的语/数/英综合卷
+ *  - 全年级覆盖（1-12 年级 + 中考/高考），题型仿中高考、难度适配所选年级
  *  - 新题型新风向默认开启（情境化 / 跨学科 / 开放性设问）；数学不出画图题
  *  - 生成后逐题勾选入卷；不满意的题可输入改进提示词单题重出（扣 1 算力）
  *  - PDF：A4 分页题目卷 + 独立答案页
@@ -22,7 +22,10 @@ const GRADES = [
   { v: '1', l: '一年级' }, { v: '2', l: '二年级' }, { v: '3', l: '三年级' }, { v: '4', l: '四年级' },
   { v: '5', l: '五年级' }, { v: '6', l: '六年级' }, { v: '7', l: '初一' }, { v: '8', l: '初二' },
   { v: '9', l: '初三' }, { v: 'zk', l: '中考' },
+  { v: '10', l: '高一' }, { v: '11', l: '高二' }, { v: '12', l: '高三' }, { v: 'gk', l: '高考' },
 ];
+/* 高中档（含高考）：题型与文案切换为高考 */
+const isHigh = (v) => v === 'gk' || Number(v) >= 10;
 const DIFFS = [
   { v: 'easy', l: '基础' }, { v: 'medium', l: '中等' }, { v: 'hard', l: '拔高' },
 ];
@@ -55,7 +58,7 @@ const FULL_QTYPES = {
 };
 const MODES = [
   { key: 'lean', label: '精练', desc: '同类型只留一题，全题型覆盖' },
-  { key: 'full', label: '整卷 23 题', desc: '仿中考结构，全题型真实配比' },
+  { key: 'full', label: '整卷 23 题', desc: '仿中高考结构，全题型真实配比' },
   { key: 'custom', label: '自定义', desc: '手动题量，超过 4 题自动分批' },
 ];
 /* 题型耗时权重（秒，按实测校准：数学3题22s/语文4题31s/数学10选择82s），
@@ -122,7 +125,7 @@ function EssayGrid() {
 export default function ComprehensiveExam() {
   /* ---- 配置 ---- */
   const [cfg, setCfg] = useState({
-    grade: '9', difficulty: 'medium', trend: true, keyword: '',
+    grade: '10', difficulty: 'medium', trend: true, keyword: '',
     subjects: { chinese: 4, math: 4, english: 4 },
   });
   /* 每科出题模式：lean 精练 / full 整卷 23 题 / custom 自定义 */
@@ -427,7 +430,7 @@ export default function ComprehensiveExam() {
 
   return (
     <div className="space-y-5 pb-32">
-      <SectionHeader title="综合测试" desc="语数英逐科独立生成 · 精练 / 整卷 23 题 / 自定义三种模式 · 仿中考题型 · 逐题勾选 · 单题重出 · A4 打印" />
+      <SectionHeader title="综合测试" desc={`语数英逐科独立生成 · 精练 / 整卷 23 题 / 自定义三种模式 · 仿${isHigh(cfg.grade) ? '高考' : '中考'}题型 · 逐题勾选 · 单题重出 · A4 打印`} />
 
       {/* ============ 组卷配置卡：三科独立生成 ============ */}
       <div className="card space-y-4 p-5">
@@ -438,7 +441,7 @@ export default function ComprehensiveExam() {
           {DIFFS.map(d => <Chip key={d.v} active={cfg.difficulty === d.v} onClick={() => setCfg(f => ({ ...f, difficulty: d.v }))}>{d.l}</Chip>)}
           <span className="mx-1 h-4 w-px bg-black/10" />
           <Chip active={cfg.trend} tone="orange" onClick={() => setCfg(f => ({ ...f, trend: !f.trend }))}>
-            <span className="inline-flex items-center gap-1"><TrendingUp size={13} />中考新题型 · 新风向</span>
+            <span className="inline-flex items-center gap-1"><TrendingUp size={13} />{isHigh(cfg.grade) ? '高考' : '中考'}新题型 · 新风向</span>
           </Chip>
         </div>
         {cfg.trend && (
@@ -457,7 +460,7 @@ export default function ComprehensiveExam() {
             const modeInfo = mode === 'lean'
               ? `精练卷 · 全题型各 1 题（共 ${LEAN_QTYPES[s.key].length} 题）`
               : mode === 'full'
-                ? `仿中考整卷 · ${FULL_QTYPES[s.key].length} 题全题型（${batches.length} 批生成）`
+                ? `仿${isHigh(cfg.grade) ? '高考' : '中考'}整卷 · ${FULL_QTYPES[s.key].length} 题全题型（${batches.length} 批生成）`
                 : `自定义 · ${n} 题${batches.length > 1 ? `（${batches.length} 批生成）` : ''}`;
             return (
               <div key={s.key}
@@ -517,7 +520,7 @@ export default function ComprehensiveExam() {
         </div>
         <p className="text-xs leading-relaxed text-ink-secondary">
           三种出题模式：<span className="font-medium text-ink">精练</span> 同类型只留一题、全题型覆盖；
-          <span className="font-medium text-ink">整卷 23 题</span> 仿中考结构全题型真实配比；
+          <span className="font-medium text-ink">整卷 23 题</span> 仿{isHigh(cfg.grade) ? '高考' : '中考'}结构全题型真实配比；
           <span className="font-medium text-ink">自定义</span> 手动 1-25 题。
           题量大时自动分批生成、逐批到账（每批扣 2 算力，稳过平台时限）；三科独立管理，跨科勾选汇总导出 A4 整卷。
         </p>
@@ -531,7 +534,7 @@ export default function ComprehensiveExam() {
           </div>
           <h2 className="text-xl font-semibold tracking-tight">选好模式，逐科生成综合测试卷</h2>
           <p className="max-w-md text-sm leading-relaxed text-ink-secondary">
-            每科三种模式：精练（同类型只留一题）、整卷 23 题（仿中考全题型）、自定义题量；
+            每科三种模式：精练（同类型只留一题）、整卷 23 题（仿{isHigh(cfg.grade) ? '高考' : '中考'}全题型）、自定义题量；
             数学不含画图题，语文含阅读理解与作文，英语含完形填空与书面表达——三科就绪后逐题勾选，一键导出 A4 整卷
           </p>
         </div>
@@ -648,7 +651,7 @@ export default function ComprehensiveExam() {
                 <div className="print-header">
                   <h1>{title}</h1>
                   <div className="print-sub">
-                    {DIFFS.find(d => d.v === cfg.difficulty)?.l}难度{cfg.trend ? ' · 含新题型新风向' : ''} · 仿中考题型结构
+                    {DIFFS.find(d => d.v === cfg.difficulty)?.l}难度{cfg.trend ? ' · 含新题型新风向' : ''} · 仿{isHigh(cfg.grade) ? '高考' : '中考'}题型结构
                   </div>
                   <div className="print-meta">
                     <span>姓名：____________</span>

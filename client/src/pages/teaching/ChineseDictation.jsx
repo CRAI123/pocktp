@@ -10,7 +10,7 @@ const meta = {
   subtitle: '看清词语，默写出对应的汉字（拼音题 / 易错字）',
 };
 
-const DEFAULTS = { grade: '3', difficulty: 'medium', count: 10, keyword: '小学常见易错字' };
+const DEFAULTS = { grade: '10', difficulty: 'medium', count: 10, keyword: '高中常见易错字词' };
 
 export default function ChineseDictation() {
   const [cfg, setCfg] = useState(DEFAULTS);
