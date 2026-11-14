@@ -24,6 +24,13 @@ import EnglishReading from './pages/teaching/EnglishReading.jsx';
 import EnglishDictation from './pages/teaching/EnglishDictation.jsx';
 import ComprehensiveExam from './pages/teaching/ComprehensiveExam.jsx';
 import ClassroomPractice from './pages/teaching/ClassroomPractice.jsx';
+import Recite from './pages/prep/Recite.jsx';
+import Essay from './pages/prep/Essay.jsx';
+import GoodQuestions from './pages/prep/GoodQuestions.jsx';
+import ReviewPoints from './pages/prep/ReviewPoints.jsx';
+import ExamPrep from './pages/prep/ExamPrep.jsx';
+import HomeworkLog from './pages/HomeworkLog.jsx';
+import SpecialTasks from './pages/SpecialTasks.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import ClassDetail from './pages/ClassDetail.jsx';
 import Classes from './pages/Classes.jsx';
@@ -185,6 +192,13 @@ export default function App() {
           <Route path="teaching/english/dictation" element={<EnglishDictation />} />
           <Route path="teaching/exam" element={<ComprehensiveExam />} />
           <Route path="teaching/classroom-practice" element={<ClassroomPractice />} />
+          <Route path="prep/recite" element={<Recite />} />
+          <Route path="prep/essay" element={<Essay />} />
+          <Route path="prep/good" element={<GoodQuestions />} />
+          <Route path="prep/points" element={<ReviewPoints />} />
+          <Route path="prep/exam" element={<ExamPrep />} />
+          <Route path="homework-log" element={<HomeworkLog />} />
+          <Route path="special-tasks" element={<SpecialTasks />} />
           <Route path="students" element={<Students />} />
           <Route path="classes" element={<Classes />} />
           <Route path="classes/new" element={<Classes />} />

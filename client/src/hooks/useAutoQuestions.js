@@ -20,7 +20,7 @@ export function useAutoQuestions(type, defaults = {}) {
 
   useEffect(() => {
     let cancelled = false;
-    const { grade = '3', difficulty = 'medium', count = 10, keyword = '综合练习' } = cfgRef.current || {};
+    const { grade = '10', difficulty = 'medium', count = 10, keyword = '综合练习' } = cfgRef.current || {};
     setLoading(true);
     setError('');
     ai.generate({ type, grade, difficulty, count, keyword })

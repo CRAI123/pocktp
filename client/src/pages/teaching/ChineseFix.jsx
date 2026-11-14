@@ -8,7 +8,7 @@ const meta = {
   title: '病句修改专项',
   subtitle: '找出语病并订正（主语残缺 / 前后矛盾 / 搭配不当 / 成分赘余）',
 };
-const DEFAULTS = { grade: '4', difficulty: 'medium', count: 10, keyword: '小学常见病句类型' };
+const DEFAULTS = { grade: '10', difficulty: 'medium', count: 10, keyword: '高中常见病句类型' };
 
 export default function ChineseFix() {
   const [cfg, setCfg] = useState(DEFAULTS);

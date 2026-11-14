@@ -1,6 +1,6 @@
 import { useEffect, useState, memo } from 'react';
 import { Link } from 'react-router-dom';
-import { Users, ClipboardList, ListTodo, CalendarCheck, GraduationCap, ArrowRight, Zap, RefreshCw, MonitorPlay, PenLine, MessageSquare, BookText, Check, Clock3, ArrowLeftRight, Heart } from 'lucide-react';
+import { Users, ClipboardList, ListTodo, CalendarCheck, GraduationCap, ArrowRight, Zap, RefreshCw, MonitorPlay, PenLine, MessageSquare, BookText, Check, Clock3, ArrowLeftRight, Heart, BookMarked, PenTool, ListChecks, ScrollText, Target } from 'lucide-react';
 import { api, auth } from '../api.js';
 import { StatCard, Badge } from '../components/ui.jsx';
 import { periodRange, todayWeekday } from '../timetable.js';
@@ -275,6 +275,132 @@ function TodayBoard() {
   );
 }
 
+/* ==================== 语文备考看板：高考倒计时 + 古诗文过关率 + 今日特殊任务 ==================== */
+const GAOKAO_DAY = (() => {
+  const now = new Date();
+  let y = now.getFullYear();
+  if (now > new Date(y, 5, 7, 23, 59, 59)) y += 1;
+  return `${y}-06-07`;
+})();
+
+function PrepBoard() {
+  const [summary, setSummary] = useState(null);
+  const [today, setToday] = useState(null);
+  const [busy, setBusy] = useState(null);
+
+  const load = () => Promise.all([api.get('/cp/summary'), api.get('/cp/today')])
+    .then(([s, t]) => { setSummary(s); setToday(t); })
+    .catch(() => { /* 静默：未使用该模块也不影响总览 */ });
+
+  useEffect(() => { load(); }, []);
+  if (!summary || !today) return null;
+
+  const days = Math.ceil((new Date(`${GAOKAO_DAY}T00:00:00`) - new Date(`${localDate()}T00:00:00`)) / 86400000);
+  const items = today.items || [];
+  const rate = summary.poems.rate;
+
+  const complete = async (id) => {
+    setBusy(id);
+    try { await api.patch(`/cp/special/${id}/done`); await load(); }
+    finally { setBusy(null); }
+  };
+
+  const quick = [
+    { to: '/prep/recite', icon: BookMarked, label: '古诗文背诵', desc: `过关 ${summary.poems.pass}/${summary.poems.total} 篇`, chip: 'bg-[#0071e3]/10 text-[#0059b3]' },
+    { to: '/prep/essay', icon: PenTool, label: '作文素材', desc: `${summary.materials} 条素材 · ${summary.trainings} 组训练`, chip: 'bg-[#af52de]/10 text-[#7a2fa3]' },
+    { to: '/prep/good', icon: ListChecks, label: '好题本', desc: `${summary.good} 道好题`, chip: 'bg-[#28cd41]/12 text-[#1a7f2b]' },
+    { to: '/prep/points', icon: ScrollText, label: '复习要点', desc: `${summary.points} 条要点`, chip: 'bg-[#ff9500]/12 text-[#a85300]' },
+    { to: '/prep/exam', icon: GraduationCap, label: '高考备考', desc: `${summary.exams} 道真题 · ${summary.texts} 道原创`, chip: 'bg-[#5856d6]/10 text-[#3b398f]' },
+  ];
+
+  return (
+    <div>
+      <div className="mb-3 flex items-end justify-between gap-3">
+        <div>
+          <div className="eyebrow">Chinese Exam Prep</div>
+          <h3 className="display mt-1 text-[17px] font-semibold text-ink">语文备考</h3>
+        </div>
+        <Link to="/special-tasks" className="inline-flex items-center gap-1 text-xs font-medium text-[#0071e3] hover:underline">
+          <Target size={13} />管理特殊任务
+        </Link>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-[0.85fr_1.15fr]">
+        {/* 倒计时 + 古诗文过关率 */}
+        <div className="card flex items-center gap-5 p-5 sm:p-6">
+          <div className="min-w-0 flex-1">
+            <div className="eyebrow">距 {GAOKAO_DAY.slice(0, 4)} 高考</div>
+            <div className="mt-1 flex items-end gap-1.5">
+              <span className="num text-[38px] font-semibold leading-none tracking-tight text-ink">{days}</span>
+              <span className="pb-1 text-xs text-ink-secondary">天</span>
+            </div>
+            <div className="mt-1.5 text-[11.5px] text-ink-secondary">考试日期 {GAOKAO_DAY}</div>
+          </div>
+          <Link to="/prep/recite" className="flex shrink-0 flex-col items-center gap-1.5">
+            <div className="grid h-[72px] w-[72px] place-items-center rounded-full"
+              style={{ background: `conic-gradient(#0071e3 ${rate}%, rgba(0,0,0,0.06) 0)` }}>
+              <div className="grid h-[56px] w-[56px] place-items-center rounded-full bg-white">
+                <span className="num text-[14px] font-semibold text-ink">{rate}%</span>
+              </div>
+            </div>
+            <span className="text-[10.5px] text-ink-secondary">古诗文过关率</span>
+          </Link>
+        </div>
+
+        {/* 今天要处理：特殊学生任务 */}
+        <div className="card p-5">
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <div className="flex min-w-0 items-center gap-2.5">
+              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-[#ff9500]/12 text-[#a85300]"><Target size={16} /></span>
+              <div className="min-w-0">
+                <div className="truncate text-[13.5px] font-semibold text-ink">今天要处理</div>
+                <div className="text-[11px] text-ink-secondary">{items.length ? `还有 ${items.length} 项特殊任务` : '今日特殊任务已完成'}</div>
+              </div>
+            </div>
+            <Link to="/special-tasks" className="shrink-0 text-[11px] font-medium text-[#0071e3] hover:underline">全部 →</Link>
+          </div>
+          {items.length ? (
+            <div className="space-y-0.5">
+              {items.slice(0, 4).map(t => (
+                <div key={t.id} className="flex items-start gap-2.5 rounded-lg px-1 py-1.5">
+                  <button aria-label="标记完成" title="标记完成" disabled={busy === t.id} onClick={() => complete(t.id)}
+                    className="mt-[3px] grid h-4 w-4 shrink-0 place-items-center rounded-full border border-black/20 text-transparent transition hover:border-[#28cd41] hover:bg-[#28cd41]/10 hover:text-[#1a7f2b] disabled:opacity-50">
+                    <Check size={11} />
+                  </button>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-[12.5px] leading-snug text-ink">{t.content}</div>
+                    <div className="mt-0.5 flex items-center gap-1.5 text-[10.5px] text-ink-secondary">
+                      <span className="shrink-0">{t.repeat_mode}</span>
+                      <span className="truncate">· {t.scope_type === 'class' ? (t.class_name || '指定班级') : t.scope_type === 'group' ? t.group_name : '全班'}</span>
+                      {t.target && <span className="truncate">· {t.target}</span>}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-xl bg-black/[0.02] px-3 py-4 text-center text-[11.5px] text-ink-secondary">今天没有待完成的特殊任务</div>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-5">
+        {quick.map(t => (
+          <Link key={t.to} to={t.to} className="card card-hover group flex items-center gap-2.5 p-3.5 active:scale-[0.98]">
+            <div className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl ring-1 ring-inset ring-black/[0.04] ${t.chip}`}>
+              <t.icon size={16} />
+            </div>
+            <div className="min-w-0">
+              <div className="truncate text-[12.5px] font-semibold text-ink">{t.label}</div>
+              <div className="truncate text-[10.5px] text-ink-secondary">{t.desc}</div>
+            </div>
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /* 单个班级卡片（memo 避免无关重渲） */
 const ClassCard = memo(function ClassCard({ cls }) {
   const rate = cls.student_count > 0 ? Math.round((cls.today_present / cls.student_count) * 100) : 0;
@@ -448,6 +574,9 @@ export default function Dashboard() {
 
       {/* 今日提醒：下一节课倒计时 + 今日待办 + 临时调课 */}
       <TodayBoard />
+
+      {/* 语文备考：高考倒计时 + 古诗文过关率 + 今日特殊任务 */}
+      <PrepBoard />
 
       {/* 顶部精简：3 卡（不显示算力/课程，避免信息过载；算力在顶栏已显示） */}
       <div className="stagger grid grid-cols-3 gap-3">

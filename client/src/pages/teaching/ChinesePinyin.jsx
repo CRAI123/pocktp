@@ -8,7 +8,7 @@ const meta = {
   title: '看拼音写汉字',
   subtitle: '根据拼音写出对应的汉字（翘舌音/前后鼻音/多音字重点突破）',
 };
-const DEFAULTS = { grade: '3', difficulty: 'medium', count: 10, keyword: '小学常见易错拼音' };
+const DEFAULTS = { grade: '10', difficulty: 'medium', count: 10, keyword: '高中常见易错拼音' };
 
 export default function ChinesePinyin() {
   const [cfg, setCfg] = useState(DEFAULTS);

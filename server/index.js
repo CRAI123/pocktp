@@ -12,6 +12,7 @@ const adminRouter = require('./routes/admin');
 const aiRouter = require('./routes/ai');
 const classadminRouter = require('./routes/classadmin');
 const financeRouter = require('./routes/finance');
+const chinesePrepRouter = require('./routes/chinesePrep');
 
 const app = express();
 app.use(cors());
@@ -34,6 +35,7 @@ app.use('/api', authRequired, activatedRequired, teachingRouter);
 app.use('/api', authRequired, activatedRequired, classworkRouter);
 app.use('/api', authRequired, activatedRequired, classadminRouter);
 app.use('/api', authRequired, activatedRequired, financeRouter);
+app.use('/api/cp', authRequired, activatedRequired, chinesePrepRouter);
 
 /* AI 出题 / 自动批改（已激活即可使用，按调用扣算力） */
 app.use('/api/ai', authRequired, activatedRequired, aiRouter);

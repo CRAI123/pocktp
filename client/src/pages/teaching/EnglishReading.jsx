@@ -7,7 +7,7 @@ const meta = {
   title: '阅读理解专项',
   subtitle: '读短文做选择（主旨 / 细节 / 推断 / 词义）',
 };
-const DEFAULTS = { grade: '5', difficulty: 'medium', count: 5, keyword: '校园生活 / 友谊故事' };
+const DEFAULTS = { grade: '10', difficulty: 'medium', count: 5, keyword: '校园生活 / 友谊故事' };
 
 const LETTERS = ['A', 'B', 'C', 'D'];
 

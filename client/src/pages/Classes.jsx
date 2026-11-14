@@ -5,7 +5,7 @@ import { GraduationCap, Plus, Users, ArrowRight, RefreshCw } from 'lucide-react'
 import { api } from '../api.js';
 import { Badge, Modal, Field, inputCls, Empty, SkeletonList } from '../components/ui.jsx';
 
-const GRADES = ['一年级', '二年级', '三年级', '四年级', '五年级', '六年级', '七年级', '八年级', '九年级'];
+const GRADES = ['一年级', '二年级', '三年级', '四年级', '五年级', '六年级', '七年级', '八年级', '九年级', '高一', '高二', '高三'];
 
 export default function Classes() {
   const { pathname } = useLocation();

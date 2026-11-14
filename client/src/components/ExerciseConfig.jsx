@@ -17,7 +17,10 @@ const GRADES = [
   { v: '1', l: '一年级' }, { v: '2', l: '二年级' }, { v: '3', l: '三年级' }, { v: '4', l: '四年级' },
   { v: '5', l: '五年级' }, { v: '6', l: '六年级' }, { v: '7', l: '初一' }, { v: '8', l: '初二' },
   { v: '9', l: '初三' }, { v: 'zk', l: '中考' },
+  { v: '10', l: '高一' }, { v: '11', l: '高二' }, { v: '12', l: '高三' }, { v: 'gk', l: '高考' },
 ];
+/* 高中档（含高考）：命题风向文案切换为高考 */
+const isHigh = (v) => v === 'gk' || Number(v) >= 10;
 const DIFFS = [
   { v: 'easy', l: '基础' }, { v: 'medium', l: '中等' }, { v: 'hard', l: '拔高' },
 ];
@@ -69,7 +72,7 @@ export default function ExerciseConfig({ open, onClose, type, subject = 'chinese
   const [tab, setTab] = useState('ai');
 
   /* 出题配置 */
-  const [form, setForm] = useState({ grade: '3', difficulty: 'medium', count: 10, keyword: '', trend: false });
+  const [form, setForm] = useState({ grade: '10', difficulty: 'medium', count: 10, keyword: '', trend: false });
   /* AI 板块 */
   const [aiQs, setAiQs] = useState(null);
   const [aiSel, setAiSel] = useState([]);
@@ -104,7 +107,7 @@ export default function ExerciseConfig({ open, onClose, type, subject = 'chinese
   useEffect(() => {
     if (!open) return;
     setForm(f => ({
-      grade: initial.grade || '3',
+      grade: initial.grade || '10',
       difficulty: initial.difficulty === 'manual' ? 'medium' : (initial.difficulty || 'medium'),
       count: initial.count || 10,
       keyword: initial.keyword || '',
@@ -288,7 +291,7 @@ export default function ExerciseConfig({ open, onClose, type, subject = 'chinese
             {DIFFS.map(d => <Chip key={d.v} active={form.difficulty === d.v} onClick={() => setForm(f => ({ ...f, difficulty: d.v }))}>{d.l}</Chip>)}
             <span className="mx-1 h-4 w-px bg-black/10" />
             <Chip active={form.trend} tone="orange" onClick={() => setForm(f => ({ ...f, trend: !f.trend }))}
-            ><span className="inline-flex items-center gap-1"><TrendingUp size={13} />中考新题型 · 新风向</span></Chip>
+            ><span className="inline-flex items-center gap-1"><TrendingUp size={13} />{isHigh(form.grade) ? '高考' : '中考'}新题型 · 新风向</span></Chip>
           </div>
           <div className="flex items-center gap-2">
             <span className="shrink-0 text-xs text-ink-secondary">数量</span>
@@ -301,7 +304,7 @@ export default function ExerciseConfig({ open, onClose, type, subject = 'chinese
           </div>
           {form.trend && (
             <p className="rounded-xl bg-[#ff9500]/10 px-3 py-2 text-xs leading-relaxed text-[#c77700]">
-              已开启新风向：AI 将按最新中考命题趋势出题——真实情境化、跨学科融合、开放性设问、新材料新题型。
+              已开启新风向：AI 将按最新{isHigh(form.grade) ? '高考' : '中考'}命题趋势出题——真实情境化、跨学科融合、开放性设问、新材料新题型。
             </p>
           )}
           <div className="flex items-center gap-3">

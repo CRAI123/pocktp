@@ -8,7 +8,7 @@ const meta = {
   title: '古诗默写专项',
   subtitle: '给出古诗上句写下句 / 给出题目默写关键句（课标必背篇目）',
 };
-const DEFAULTS = { grade: '5', difficulty: 'medium', count: 10, keyword: '小学课标必背古诗' };
+const DEFAULTS = { grade: '10', difficulty: 'medium', count: 10, keyword: '高中必背古诗文' };
 
 export default function ChinesePoem() {
   const [cfg, setCfg] = useState(DEFAULTS);
