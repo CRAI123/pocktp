@@ -821,6 +821,83 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_teachers_phone ON teachers(phone);
     console.log('[db] 种子数据初始化完成');
   }
 
+  /* ---------------- 管理员测试数据（管理员账号下没有课程时才写入） ---------------- */
+  const adminRow = await get('SELECT id FROM teachers WHERE is_admin = 1 ORDER BY id LIMIT 1');
+  if (adminRow) {
+    const adminCourses = await get('SELECT COUNT(*) AS c FROM courses WHERE teacher_id = ?', [adminRow.id]);
+    if (Number(adminCourses?.c || 0) === 0) {
+      await transaction(async (tx) => {
+        /* 复用管理员已有班级（没有则新建测试班） */
+        const cls = await tx.get('SELECT id FROM classes WHERE teacher_id = ? ORDER BY id LIMIT 1', [adminRow.id]);
+        const cid = cls?.id || (await tx.run(
+          'INSERT INTO classes (teacher_id, name, grade, description) VALUES (?,?,?,?)',
+          [adminRow.id, '测试班(管理员)', '八年级', '管理员功能测试用示例班级']
+        )).lastInsertRowid;
+
+        /* 复用班级学生（没有则建 12 人名单） */
+        const sids = (await tx.all('SELECT id FROM students WHERE class_id = ? ORDER BY id', [cid])).map(r => r.id);
+        if (!sids.length) {
+          const names = ['张一鸣', '李思彤', '王浩然', '赵佳怡', '刘博文', '陈雨萱', '杨子轩', '周若曦', '吴嘉豪', '徐梦琪', '孙志强', '马诗涵'];
+          for (const [i, n] of names.entries()) {
+            sids.push((await tx.run(
+              'INSERT INTO students (class_id, name, gender, student_no, parent_phone, parent_wechat) VALUES (?,?,?,?,?,?)',
+              [cid, n, i % 2 ? '女' : '男', `80${String(i + 1).padStart(2, '0')}`, `1370000${3000 + i}`, `wx_test_${i + 1}`]
+            )).lastInsertRowid);
+          }
+        }
+
+        /* 三门课程 × 三次考试：既能测单科，也能测总分（多科汇总） */
+        const insCourse = 'INSERT INTO courses (teacher_id, name, subject, class_id, schedule, semester) VALUES (?,?,?,?,?,?)';
+        const subjects = [
+          { name: '语文', subject: '语文', schedule: '周一/周三 08:00-09:40' },
+          { name: '数学', subject: '数学', schedule: '周二/周四 08:00-09:40' },
+          { name: '英语', subject: '英语', schedule: '周一/周五 10:00-11:40' },
+        ];
+        const exams = [
+          ['第一次月考', '2026-09-15'],
+          ['第二次月考', '2026-10-15'],
+          ['期中考试', '2026-11-05'],
+        ];
+        const insGrade = 'INSERT INTO grades (student_id, course_id, exam_name, score, exam_date) VALUES (?,?,?,?,?)';
+        for (const [ci, co] of subjects.entries()) {
+          const courseId = (await tx.run(insCourse, [adminRow.id, co.name, co.subject, cid, co.schedule, '2026 秋季'])).lastInsertRowid;
+          for (const [si, sid] of sids.entries()) {
+            const base = 62 + ((si * 5 + ci * 7) % 25);
+            for (const [ei, [ename, date]] of exams.entries()) {
+              /* 每 4 人一组部分下滑、其余上升，便于验证趋势判断 */
+              const trend = (si + ci) % 4 === 0 ? -3 * ei : 2 * ei;
+              const score = Math.max(40, Math.min(100, base + trend + ((si * 11 + ei * 7 + ci * 3) % 6) - 2));
+              await tx.run(insGrade, [sid, courseId, ename, score, date]);
+            }
+          }
+        }
+
+        /* 最近三天考勤，保证总览页有今日数据 */
+        const insAtt = 'INSERT INTO attendance (student_id, date, status, remark) VALUES (?,?,?,?) ON CONFLICT (student_id, date) DO NOTHING';
+        const days = [2, 1, 0].map(n => {
+          const d = new Date();
+          d.setDate(d.getDate() - n);
+          return d.toISOString().slice(0, 10);
+        });
+        const attPool = ['出勤', '出勤', '出勤', '出勤', '迟到', '请假', '出勤', '出勤', '出勤', '缺勤', '出勤', '出勤'];
+        for (const [di, d] of days.entries()) {
+          for (const [si, sid] of sids.entries()) {
+            const st = attPool[(si + di * 3) % attPool.length];
+            await tx.run(insAtt, [sid, d, st, st === '请假' ? '家长已报备' : st === '迟到' ? '迟到 8 分钟' : '']);
+          }
+        }
+
+        const insTodo = 'INSERT INTO todos (teacher_id, title, category, due_date, priority, done) VALUES (?,?,?,?,?,?)';
+        const offset = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
+        await tx.run(insTodo, [adminRow.id, '测试：查看成绩分析与 AI 报告', '教学教研', offset(1), '高', 0]);
+        await tx.run(insTodo, [adminRow.id, '测试：发放激活码并验证算力扣减', '行政事务', offset(2), '中', 0]);
+      });
+      console.log('[db] 管理员测试数据初始化完成');
+    }
+    /* 管理员算力拉满，便于功能测试（低于上限时补齐） */
+    await run('UPDATE teachers SET credits = 999999999 WHERE id = ? AND credits < 999999999', [adminRow.id]);
+  }
+
   console.log('[db] Supabase Postgres 初始化完成');
 }
 
