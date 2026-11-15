@@ -602,6 +602,42 @@ CREATE TABLE IF NOT EXISTS cp_text_questions (
   created_at TEXT DEFAULT (to_char(now() AT TIME ZONE 'Asia/Shanghai','YYYY-MM-DD HH24:MI:SS'))
 );
 CREATE INDEX IF NOT EXISTS idx_cp_texts_teacher ON cp_text_questions(teacher_id, id);
+
+/* AI 成绩分析任务：一次任务 = 一批学生 × 最近三次考试 */
+CREATE TABLE IF NOT EXISTS score_analysis_jobs (
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  teacher_id INTEGER NOT NULL REFERENCES teachers(id) ON DELETE CASCADE,
+  course_id INTEGER REFERENCES courses(id) ON DELETE SET NULL,
+  course_name TEXT DEFAULT '',
+  subject TEXT DEFAULT '',
+  scope TEXT DEFAULT 'class',              -- class=全班 / student=指定学生
+  dimension TEXT DEFAULT 'subject',        -- subject=单科 / total=总分
+  exam_names TEXT DEFAULT '[]',            -- 按时间先后排列的考试名（JSON 数组，2-3 次）
+  weak_points TEXT DEFAULT '',             -- 老师填写的薄弱点
+  students TEXT DEFAULT '[]',              -- 任务学生快照（含每次成绩）
+  class_avg TEXT DEFAULT '[]',             -- 每次考试的班级均分
+  total INTEGER NOT NULL DEFAULT 0,
+  status TEXT DEFAULT 'running',           -- running/paused/done
+  created_at TEXT DEFAULT (to_char(now() AT TIME ZONE 'Asia/Shanghai','YYYY-MM-DD HH24:MI:SS')),
+  updated_at TEXT DEFAULT (to_char(now() AT TIME ZONE 'Asia/Shanghai','YYYY-MM-DD HH24:MI:SS'))
+);
+CREATE INDEX IF NOT EXISTS idx_sa_jobs_teacher ON score_analysis_jobs(teacher_id, id);
+
+/* 单个学生的 AI 分析结果（断点续跑：已写入的学生不再重复调用） */
+CREATE TABLE IF NOT EXISTS score_analysis_results (
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  job_id INTEGER NOT NULL REFERENCES score_analysis_jobs(id) ON DELETE CASCADE,
+  teacher_id INTEGER NOT NULL REFERENCES teachers(id) ON DELETE CASCADE,
+  student_id INTEGER NOT NULL,
+  student_name TEXT DEFAULT '',
+  scores TEXT DEFAULT '[]',
+  result TEXT DEFAULT '',
+  status TEXT DEFAULT 'done',              -- done / error
+  error TEXT DEFAULT '',
+  created_at TEXT DEFAULT (to_char(now() AT TIME ZONE 'Asia/Shanghai','YYYY-MM-DD HH24:MI:SS')),
+  UNIQUE(job_id, student_id)
+);
+CREATE INDEX IF NOT EXISTS idx_sa_results_job ON score_analysis_results(job_id);
 `);
 
   /* 兼容旧库：补列（IF NOT EXISTS 幂等） */

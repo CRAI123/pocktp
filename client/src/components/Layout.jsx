@@ -84,7 +84,7 @@ const NAV = [
 
 const TITLES = {
   '/': '工作台总览', '/courses': '课程列表', '/materials': '备课资料管理',
-  '/assignments': '作业布置与批改', '/grades': '成绩录入与分析',
+  '/assignments': '作业布置与批改', '/grades': '成绩分析与 AI 诊断',
   '/teaching': '教学专项练习',
   '/teaching/chinese': '语文专项练习',
   '/teaching/math': '数学专项练习',
