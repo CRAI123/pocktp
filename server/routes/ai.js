@@ -1113,4 +1113,134 @@ JSON Schema：{"items":[{"id":"资料 id","reason":"推荐理由"}]}`;
   res.json({ items: items2, cost, credits: charged.credits, usage: out.result?.usage });
 }));
 
+/* ==================== AI 成绩分析（暂不扣算力） ==================== */
+
+/** 成绩分析用的字符串/数组清洗 */
+const saStr = (v, max = 500) => String(v == null ? '' : v).trim().slice(0, max);
+const saList = (v, max = 6) => strList(v, max);
+
+/* ===== POST /api/ai/score/analyze  单个学生的短期提分分析 ===== */
+router.post('/score/analyze', ah(async (req, res) => {
+  const {
+    student_name = '', scores = [], class_avg = [], weak_points = '',
+    dimension = 'subject', course_name = '', subject = '',
+  } = req.body || {};
+
+  const list = (Array.isArray(scores) ? scores : [])
+    .map(s => ({
+      exam: saStr(s?.exam, 50),
+      score: Number(s?.score),
+      subjects: Array.isArray(s?.subjects)
+        ? s.subjects.slice(0, 12).map(x => ({ subject: saStr(x?.subject, 30), score: Number(x?.score) })).filter(x => x.subject && Number.isFinite(x.score))
+        : [],
+    }))
+    .filter(s => s.exam && Number.isFinite(s.score))
+    .slice(0, 3);
+  if (!list.length) return res.status(400).json({ error: '缺少有效的考试成绩' });
+
+  const dim = dimension === 'total' ? 'total' : 'subject';
+  const avg = (Array.isArray(class_avg) ? class_avg : [])
+    .map(a => ({ exam: saStr(a?.exam, 50), average: Number(a?.average), max: Number(a?.max), min: Number(a?.min) }))
+    .filter(a => a.exam && Number.isFinite(a.average))
+    .slice(0, 3);
+
+  const sys = `你是资深${dim === 'total' ? '全科' : (saStr(subject, 20) || '学科')}教研员，正在为一位学生做「短期提分诊断」。
+要求：
+- 只依据给出的考试成绩、班级均分和老师填写的薄弱点判断，不编造事实；数据不足时明确说明依据有限
+- 分析成绩变化趋势（上升/波动/下滑/稳定），指出 2-4 个最关键的失分点，并与班级均分对比
+- 预测未来 3-4 周内通过针对性训练可提升的分数区间（结合当前分数段与薄弱点，务实保守，不承诺结果）
+- 给出分阶段提升计划（2-4 个阶段，每阶段写明重点、可执行动作和阶段目标），动作要具体到每天/每周做什么
+- ${dim === 'total' ? '按学科给出提分优先级建议（哪科最值得先投入、怎么投入）' : '给出该学科的分模块提分建议'}
+- 给出 3-5 条学生可以独立完成的自我提升方法（可操作、可检查）
+- 最后写一句 30-60 字的鼓励语，具体、不空洞
+- 语言面向学生本人，第二人称「你」；严格返回 JSON，不要 markdown 包装，字符串内引用一律用「」
+
+JSON Schema：
+{"trend":"上升|波动|下滑|稳定","summary":"整体诊断（120-200字）","weak_points":["失分点"],
+"predicted_gain":{"min":0,"max":0,"confidence":"高|中|低","basis":"预测依据（60-120字）"},
+"short_term_plan":[{"stage":"第1周","focus":"阶段重点","actions":["具体动作"],"target":"阶段目标"}],
+"subject_advice":[{"subject":"学科名","advice":"提分建议"}],
+"self_improve":["自我提升方法"],"encouragement":"鼓励语"}`;
+
+  const user = `【学生】${saStr(student_name, 30) || '该生'}
+【分析维度】${dim === 'total' ? '总分（多科汇总）' : `单科：${saStr(course_name, 60) || saStr(subject, 30) || '本课程'}`}
+【最近成绩】${JSON.stringify(list)}
+【班级均分】${JSON.stringify(avg)}
+【老师填写的薄弱点】${saStr(weak_points, 1000) || '未填写'}`;
+
+  const out = await chatJson([
+    { role: 'system', content: sys },
+    { role: 'user', content: user },
+  ], { maxTokens: 2200 });
+  if (!out?.parsed) return res.status(502).json({ error: 'AI 返回解析失败，请重试' });
+
+  const p = out.parsed;
+  const g = p.predicted_gain || {};
+  const gainMin = Math.max(0, Math.min(60, Math.round(Number(g.min) || 0)));
+  const gainMax = Math.max(gainMin, Math.min(60, Math.round(Number(g.max) || gainMin)));
+  const result = {
+    trend: ['上升', '波动', '下滑', '稳定'].includes(saStr(p.trend, 10)) ? saStr(p.trend, 10) : '波动',
+    summary: saStr(p.summary, 800),
+    weak_points: saList(p.weak_points, 6),
+    predicted_gain: {
+      min: gainMin,
+      max: gainMax,
+      confidence: ['高', '中', '低'].includes(saStr(g.confidence, 4)) ? saStr(g.confidence, 4) : '中',
+      basis: saStr(g.basis, 400),
+    },
+    short_term_plan: (Array.isArray(p.short_term_plan) ? p.short_term_plan : [])
+      .slice(0, 4)
+      .map(x => ({
+        stage: saStr(x?.stage, 20),
+        focus: saStr(x?.focus, 80),
+        actions: saList(x?.actions, 5),
+        target: saStr(x?.target, 80),
+      }))
+      .filter(x => x.stage || x.focus || x.actions.length),
+    subject_advice: (Array.isArray(p.subject_advice) ? p.subject_advice : [])
+      .slice(0, 6)
+      .map(x => ({ subject: saStr(x?.subject, 30), advice: saStr(x?.advice, 300) }))
+      .filter(x => x.subject && x.advice),
+    self_improve: saList(p.self_improve, 5),
+    encouragement: saStr(p.encouragement, 200),
+  };
+  if (!result.summary && !result.short_term_plan.length) {
+    return res.status(502).json({ error: 'AI 返回内容不完整，请重试' });
+  }
+
+  /* 成绩分析为增值功能，暂不扣算力 */
+  res.json({ result, usage: out.result?.usage });
+}));
+
+/* ===== POST /api/ai/score/parse  把粘贴的成绩消息解析成「姓名 + 分数」 ===== */
+router.post('/score/parse', ah(async (req, res) => {
+  const text = String(req.body?.text || '').trim();
+  if (!text) return res.status(400).json({ error: '请粘贴成绩消息' });
+  if (text.length > 6000) return res.status(400).json({ error: '内容过长，请控制在 6000 字以内' });
+
+  const sys = `你是成绩消息解析助手。老师会粘贴一段成绩通知（可能来自微信群、Excel 复制内容或口头记录），请提取每位学生的成绩。
+要求：
+- 只提取「学生姓名 + 一个数值分数」，姓名保持原样
+- 忽略总分、平均分、最高分、最低分、排名、日期、科目名等非学生条目
+- 分数只保留数字（去掉「分」字）；没有分数的学生不要返回
+- 同一学生出现多次时只保留一条
+- 不要编造名单中不存在的学生
+- 严格返回 JSON，不要 markdown 包装
+
+JSON Schema：{"items":[{"name":"张三","score":88}]}`;
+
+  const out = await chatJson([
+    { role: 'system', content: sys },
+    { role: 'user', content: text },
+  ], { maxTokens: 2500 });
+  if (!out?.parsed) return res.status(502).json({ error: 'AI 解析失败，请重试或手动录入' });
+
+  const seen = new Set();
+  const items = (Array.isArray(out.parsed.items) ? out.parsed.items : [])
+    .map(x => ({ name: saStr(x?.name, 30), score: Number(x?.score) }))
+    .filter(x => x.name && Number.isFinite(x.score) && !seen.has(x.name) && seen.add(x.name))
+    .slice(0, 200);
+  res.json({ items, usage: out.result?.usage });
+}));
+
 module.exports = router;

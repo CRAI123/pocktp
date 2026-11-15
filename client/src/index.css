@@ -430,9 +430,38 @@ button:focus-visible, a:focus-visible {
   .no-print { display: none !important; }
   .print-only { display: block !important; }
 
-  /* 隐藏整站框架（侧栏 / header / footer / 主区其它内容） */
-  aside, header, footer { display: none !important; }
+  /* 隐藏整站框架（侧栏 / header / 底部导航 / footer / 主区其它内容） */
+  aside, header, footer, nav { display: none !important; }
   main { padding: 0 !important; max-width: none !important; margin: 0 !important; }
+  .page-enter { animation: none !important; opacity: 1 !important; transform: none !important; }
+
+  /* ===== AI 成绩分析报告 ===== */
+  .sa-print { font-size: 10.5pt; color: #111; line-height: 1.6; }
+  .sa-print h1 { font-size: 21pt; font-weight: 700; text-align: center; margin: 0 0 8pt; letter-spacing: 1pt; }
+  .sa-print h2 { font-size: 14pt; font-weight: 700; margin: 12pt 0 6pt; padding-left: 7pt; border-left: 3pt solid #0071e3; }
+  .sa-print h3 { font-size: 11pt; font-weight: 700; margin: 9pt 0 4pt; }
+  .sa-print p { margin: 0 0 5pt; font-size: 10.5pt; }
+  .sa-print ul, .sa-print ol { margin: 0 0 5pt; padding-left: 16pt; }
+  .sa-print li { font-size: 10.5pt; margin-bottom: 2pt; }
+  .sa-print .sa-brand { text-align: center; font-size: 8.5pt; letter-spacing: 3pt; color: #666; margin-bottom: 3pt; }
+  .sa-print .sa-meta { display: flex; flex-wrap: wrap; gap: 6pt 20pt; font-size: 9.5pt; color: #333; border-top: 1pt solid #333; border-bottom: 1pt solid #333; padding: 5pt 0; margin: 6pt 0 10pt; }
+  .sa-print .sa-note { font-size: 9.5pt; color: #555; }
+  .sa-print .sa-stats { display: flex; flex-wrap: wrap; gap: 6pt; margin-bottom: 8pt; }
+  .sa-print .sa-stat { flex: 1; min-width: 95pt; border: 0.6pt solid #d0d0d0; border-radius: 4pt; padding: 4pt 7pt; }
+  .sa-print .sa-stat span { display: block; font-size: 8.5pt; color: #666; }
+  .sa-print .sa-stat b { display: block; font-size: 14pt; margin-top: 1pt; }
+  .sa-print .sa-tag { display: inline-block; border: 0.6pt solid #999; border-radius: 9pt; padding: 0 6pt; margin: 0 4pt 4pt 0; font-size: 9pt; }
+  .sa-print .sa-student { page-break-before: always; break-before: page; }
+  .sa-print .sa-student:first-of-type { page-break-before: auto; break-before: auto; }
+  .sa-print .sa-student-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12pt; border-bottom: 1pt solid #333; padding-bottom: 5pt; margin-bottom: 8pt; }
+  .sa-print .sa-student-head h2 { border: none; padding: 0; margin: 0 0 2pt; }
+  .sa-print .sa-sub { font-size: 9.5pt; color: #555; }
+  .sa-print .sa-gain { border: 1pt solid #1a7f2b; color: #1a7f2b; border-radius: 4pt; padding: 4pt 8pt; font-size: 9pt; text-align: center; white-space: nowrap; }
+  .sa-print .sa-gain b { font-size: 14pt; }
+  .sa-print .sa-stage { border: 0.6pt solid #ddd; border-radius: 4pt; padding: 4pt 7pt; margin-bottom: 5pt; page-break-inside: avoid; break-inside: avoid; }
+  .sa-print .sa-stage-title { font-weight: 700; font-size: 10.5pt; margin-bottom: 2pt; }
+  .sa-print .sa-foot { margin-top: 10pt; border-top: 0.6pt solid #ccc; padding-top: 4pt; font-size: 8pt; color: #777; text-align: center; }
+  .sa-print .sa-avoid { page-break-inside: avoid; break-inside: avoid; }
 
   /* 字体与颜色 */
   * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }

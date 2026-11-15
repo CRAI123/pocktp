@@ -5,6 +5,7 @@ import {
   BarChart, Bar, Cell,
 } from 'recharts';
 import { api } from '../api.js';
+import ScoreAnalysis from './ScoreAnalysis.jsx';
 import { SectionHeader, Button, Modal, Field, inputCls, Badge, Empty } from '../components/ui.jsx';
 
 const PALETTE = ['#0071e3', '#28cd41', '#ff9500', '#af52de', '#ff3b30', '#00c6ff', '#34d058', '#ffcc00', '#d783ff', '#5ac8fa'];
@@ -12,7 +13,9 @@ const PALETTE = ['#0071e3', '#28cd41', '#ff9500', '#af52de', '#ff3b30', '#00c6ff
 export default function Grades() {
   const [courses, setCourses] = useState([]);
   const [courseId, setCourseId] = useState('');
-  const [mode, setMode] = useState('course'); // course=课程走势 / class=班级统考分析
+  const [mode, setMode] = useState(() =>
+    new URLSearchParams(window.location.search).get('tab') === 'ai' ? 'ai' : 'course'
+  ); // course=课程走势 / class=班级统考分析 / ai=AI 成绩分析
   const [analysis, setAnalysis] = useState(null);
   const [grades, setGrades] = useState([]);
   const [students, setStudents] = useState([]);
@@ -147,8 +150,10 @@ export default function Grades() {
   return (
     <div className="space-y-6">
       <SectionHeader
-        title="成绩录入与分析"
-        desc="班级均分走势、学生个体曲线与分层提升要点"
+        title={mode === 'ai' ? 'AI 成绩分析' : '成绩录入与分析'}
+        desc={mode === 'ai'
+          ? '导入三次考试成绩并填写薄弱点，AI 逐个学生分析，预测短期提分分值并给出自我提升方案'
+          : '班级均分走势、学生个体曲线与分层提升要点'}
         action={mode === 'course' && (
           <div className="flex gap-2">
             <Button variant="secondary" onClick={openImport} disabled={!courseId}><Upload size={15} />表格导入</Button>
@@ -158,12 +163,15 @@ export default function Grades() {
       />
 
       {/* 视图切换 */}
-      <div className="flex gap-1.5">
+      <div className="flex flex-wrap gap-1.5">
         <button onClick={() => setMode('course')} className={chipCls(mode === 'course')}>课程走势</button>
         <button onClick={() => setMode('class')} className={chipCls(mode === 'class')}>班级统考分析</button>
+        <button onClick={() => setMode('ai')} className={chipCls(mode === 'ai')}>AI 深度分析</button>
       </div>
 
-      {mode === 'class' ? <ClassExamAnalysis /> : (
+      {mode === 'ai' ? (
+        <ScoreAnalysis embedded initialCourseId={courseId} />
+      ) : mode === 'class' ? <ClassExamAnalysis /> : (
       <>
       {/* 课程筛选 */}
       <div className="flex flex-wrap gap-2">

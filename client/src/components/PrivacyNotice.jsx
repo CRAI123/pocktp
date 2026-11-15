@@ -25,7 +25,7 @@ export default function PrivacyNotice() {
 
   return (
     <>
-      <div className="fixed inset-x-3 bottom-3 z-40 mx-auto max-w-2xl sm:inset-x-6 sm:bottom-6">
+      <div className="fixed inset-x-3 bottom-3 z-40 mx-auto max-w-2xl sm:inset-x-6 sm:bottom-6 print:hidden">
         <div className="card flex items-center gap-2.5 border border-black/5 p-3 sm:flex-row sm:gap-4 sm:p-5">
           <div className="brand-gradient grid h-8 w-8 shrink-0 place-items-center rounded-lg text-white shadow-md shadow-blue-500/20 sm:h-9 sm:w-9 sm:rounded-xl">
             <ShieldCheck size={16} className="sm:hidden" />

@@ -38,6 +38,7 @@ import Courses from './pages/Courses.jsx';
 import Materials from './pages/Materials.jsx';
 import Assignments from './pages/Assignments.jsx';
 import Grades from './pages/Grades.jsx';
+
 import Students from './pages/Students.jsx';
 import Attendance from './pages/Attendance.jsx';
 import Finance from './pages/Finance.jsx';
@@ -178,6 +179,7 @@ export default function App() {
           <Route path="materials" element={<Materials />} />
           <Route path="assignments" element={<Assignments />} />
           <Route path="grades" element={<Grades />} />
+          <Route path="score-analysis" element={<Navigate to="/grades?tab=ai" replace />} />
           <Route path="teaching" element={<SubjectIndex />} />
           <Route path="teaching/chinese" element={<ChineseIndex />} />
           <Route path="teaching/math" element={<MathIndex />} />
