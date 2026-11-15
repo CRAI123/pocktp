@@ -1144,14 +1144,23 @@ router.post('/score/analyze', ah(async (req, res) => {
     .filter(a => a.exam && Number.isFinite(a.average))
     .slice(0, 3);
   const rankList = (Array.isArray(ranks) ? ranks : [])
-    .map(r => ({ exam: saStr(r?.exam, 50), rank: Number(r?.rank), total: Number(r?.total) }))
-    .filter(r => r.exam && r.rank > 0 && r.total > 0)
+    .map(r => ({
+      exam: saStr(r?.exam, 50),
+      rank: Math.round(Number(r?.rank)),
+      total: Math.round(Number(r?.total)),
+      scope: r?.scope === 'grade' ? 'grade' : 'class',
+    }))
+    .filter(r => r.exam && r.rank > 0)
     .slice(0, 3);
+  const scopeName = (s) => (s === 'grade' ? '年级' : '班级');
+  const rankText = rankList
+    .map(r => `${r.exam} ${scopeName(r.scope)}第 ${r.rank} 名${r.total > 0 ? ` / ${r.total} 人` : ''}`)
+    .join('；');
 
   const sys = `你是资深${dim === 'total' ? '全科' : (saStr(subject, 20) || '学科')}教研员，正在为一位学生做「短期提分诊断」。
 要求：
-- 只依据给出的考试成绩、班级均分、班级排名和老师填写的薄弱点判断，不编造事实；数据不足时明确说明依据有限
-- 分析成绩变化趋势（上升/波动/下滑/稳定），指出 2-4 个最关键的失分点，并与班级均分、班级排名变化对比
+- 只依据给出的考试成绩、班级均分、排名（班级/年级以数据标注为准）和老师填写的薄弱点判断，不编造事实；数据不足时明确说明依据有限
+- 分析成绩变化趋势（上升/波动/下滑/稳定），指出 2-4 个最关键的失分点；排名是跨考试难度的可比依据，分数与排名变化都要对比，两者矛盾时以排名为主
 - 预测未来 3-4 周内通过针对性训练可提升的分数区间（结合当前分数段与薄弱点，务实保守，不承诺结果）
 - 给出分阶段提升计划（2-4 个阶段，每阶段写明重点、可执行动作和阶段目标），动作要具体到每天/每周做什么
 - ${dim === 'total' ? '按学科给出提分优先级建议（哪科最值得先投入、怎么投入）' : '给出该学科的分模块提分建议'}
@@ -1170,13 +1179,20 @@ JSON Schema：
 【分析维度】${dim === 'total' ? '总分（多科汇总）' : `单科：${saStr(course_name, 60) || saStr(subject, 30) || '本课程'}`}
 【最近成绩】${JSON.stringify(list)}
 【班级均分】${JSON.stringify(avg)}
-【班级排名】${rankList.length ? JSON.stringify(rankList) : '未提供'}
+【排名】${rankText || '未提供'}
 【老师填写的薄弱点】${saStr(weak_points, 1000) || '未填写'}`;
 
-  const out = await chatJson([
+  /* 首次解析失败多为输出被截断，用「精简输出」提示再试一次；两次共享 Vercel 60s 上限 */
+  let out = await chatJson([
     { role: 'system', content: sys },
     { role: 'user', content: user },
-  ], { maxTokens: 2200 });
+  ], { maxTokens: 3200, budgetMs: 32_000 });
+  if (!out?.parsed) {
+    out = await chatJson([
+      { role: 'system', content: `${sys}\n【重要】上一次输出不是合法 JSON。请更精简地重新输出：summary 不超过 120 字，short_term_plan 最多 3 个阶段且每阶段 actions 最多 3 条，subject_advice 最多 3 条，self_improve 最多 4 条；只输出 JSON，不要任何多余文字。` },
+      { role: 'user', content: user },
+    ], { maxTokens: 3200, budgetMs: 20_000 });
+  }
   if (!out?.parsed) return res.status(502).json({ error: 'AI 返回解析失败，请重试' });
 
   const p = out.parsed;
@@ -1223,16 +1239,18 @@ router.post('/score/parse', ah(async (req, res) => {
   if (!text) return res.status(400).json({ error: '请粘贴成绩消息' });
   if (text.length > 6000) return res.status(400).json({ error: '内容过长，请控制在 6000 字以内' });
 
-  const sys = `你是成绩消息解析助手。老师会粘贴一段成绩通知（可能来自微信群、Excel 复制内容或口头记录），请提取每位学生的成绩。
+  const sys = `你是成绩消息解析助手。老师会粘贴一段成绩通知（可能来自微信群、Excel 复制内容或口头记录），请提取每位学生的成绩与名次。
 要求：
-- 只提取「学生姓名 + 一个数值分数」，姓名保持原样
-- 忽略总分、平均分、最高分、最低分、排名、日期、科目名等非学生条目
+- 提取「学生姓名 + 一个数值分数」，如果消息里带了名次（如「第12名」「12/50」「排名12」）也一并提取，姓名保持原样
+- 忽略总分、平均分、最高分、最低分、日期、科目名等非学生条目
 - 分数只保留数字（去掉「分」字）；没有分数的学生不要返回
+- 名次只保留数字；没有名次就不填 rank，不要猜
+- 如果名次带有总人数（如 12/50），把 50 填到 total
 - 同一学生出现多次时只保留一条
 - 不要编造名单中不存在的学生
 - 严格返回 JSON，不要 markdown 包装
 
-JSON Schema：{"items":[{"name":"张三","score":88}]}`;
+JSON Schema：{"items":[{"name":"张三","score":88,"rank":12,"total":50}]}`;
 
   const out = await chatJson([
     { role: 'system', content: sys },
@@ -1242,7 +1260,12 @@ JSON Schema：{"items":[{"name":"张三","score":88}]}`;
 
   const seen = new Set();
   const items = (Array.isArray(out.parsed.items) ? out.parsed.items : [])
-    .map(x => ({ name: saStr(x?.name, 30), score: Number(x?.score) }))
+    .map(x => ({
+      name: saStr(x?.name, 30),
+      score: Number(x?.score),
+      rank: Math.max(0, Math.round(Number(x?.rank) || 0)),
+      total: Math.max(0, Math.round(Number(x?.total) || 0)),
+    }))
     .filter(x => x.name && Number.isFinite(x.score) && !seen.has(x.name) && seen.add(x.name))
     .slice(0, 200);
   res.json({ items, usage: out.result?.usage });

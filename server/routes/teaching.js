@@ -195,14 +195,17 @@ router.get('/grades/exams', ah(async (req, res) => {
 }));
 
 router.post('/grades', ah(async (req, res) => {
-  const { student_id, course_id, exam_name, score, exam_date } = req.body;
+  const { student_id, course_id, exam_name, score, exam_date, rank, rank_total, rank_scope } = req.body;
   if (!student_id || !course_id || !exam_name || score == null) {
     return res.status(400).json({ error: 'student_id / course_id / exam_name / score 必填' });
   }
   if (!(await own.course(req.teacherId, course_id))) return res.status(403).json({ error: '无权使用该课程' });
   if (!(await own.student(req.teacherId, student_id))) return res.status(403).json({ error: '无权给该学生录入成绩' });
-  const info = await db.run('INSERT INTO grades (student_id, course_id, exam_name, score, exam_date) VALUES (?,?,?,?,?)',
-    [student_id, course_id, exam_name, score, exam_date || new Date().toISOString().slice(0, 10)]);
+  const info = await db.run(
+    'INSERT INTO grades (student_id, course_id, exam_name, score, exam_date, rank, rank_total, rank_scope) VALUES (?,?,?,?,?,?,?,?)',
+    [student_id, course_id, exam_name, score, exam_date || new Date().toISOString().slice(0, 10),
+      Math.max(0, parseInt(rank, 10) || 0), Math.max(0, parseInt(rank_total, 10) || 0),
+      rank_scope === 'grade' ? 'grade' : rank_scope === 'class' ? 'class' : '']);
   res.status(201).json({ id: info.lastInsertRowid });
 }));
 
@@ -223,9 +226,14 @@ router.post('/grades/batch', ah(async (req, res) => {
   let inserted = 0;
   for (let i = 0; i < rows.length; i += 500) {
     const part = rows.slice(i, i + 500);
-    const ph = part.map(() => '(?,?,?,?,?)').join(',');
-    const params = part.flatMap(g => [+g.student_id, course_id, String(g.exam_name).trim().slice(0, 50), +g.score, date]);
-    const r = await db.run(`INSERT INTO grades (student_id, course_id, exam_name, score, exam_date) VALUES ${ph}`, params);
+    const ph = part.map(() => '(?,?,?,?,?,?,?,?)').join(',');
+    const params = part.flatMap(g => [
+      +g.student_id, course_id, String(g.exam_name).trim().slice(0, 50), +g.score, date,
+      Math.max(0, parseInt(g.rank, 10) || 0),
+      Math.max(0, parseInt(g.rank_total, 10) || 0),
+      g.rank_scope === 'grade' ? 'grade' : g.rank_scope === 'class' ? 'class' : '',
+    ]);
+    const r = await db.run(`INSERT INTO grades (student_id, course_id, exam_name, score, exam_date, rank, rank_total, rank_scope) VALUES ${ph}`, params);
     inserted += r.changes || part.length;
   }
   res.json({ ok: inserted, skipped: items.length - rows.length });
