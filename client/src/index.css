@@ -435,35 +435,37 @@ button:focus-visible, a:focus-visible {
   main { padding: 0 !important; max-width: none !important; margin: 0 !important; }
   .page-enter { animation: none !important; opacity: 1 !important; transform: none !important; }
 
-  /* ===== AI 成绩分析报告 ===== */
-  .sa-print { font-size: 10.5pt; color: #111; line-height: 1.6; }
-  .sa-print h1 { font-size: 21pt; font-weight: 700; text-align: center; margin: 0 0 8pt; letter-spacing: 1pt; }
-  .sa-print h2 { font-size: 14pt; font-weight: 700; margin: 12pt 0 6pt; padding-left: 7pt; border-left: 3pt solid #0071e3; }
-  .sa-print h3 { font-size: 11pt; font-weight: 700; margin: 9pt 0 4pt; }
-  .sa-print p { margin: 0 0 5pt; font-size: 10.5pt; }
-  .sa-print ul, .sa-print ol { margin: 0 0 5pt; padding-left: 16pt; }
-  .sa-print li { font-size: 10.5pt; margin-bottom: 2pt; }
+  /* ===== AI 成绩分析报告：一名学生一页纸正反面（2 页） ===== */
+  .sa-print { font-size: 9.2pt; color: #111; line-height: 1.42; }
+  .sa-print h1 { font-size: 17pt; font-weight: 700; text-align: center; margin: 0 0 6pt; letter-spacing: 0.5pt; }
+  .sa-print h2 { font-size: 11.5pt; font-weight: 700; margin: 8pt 0 4pt; padding-left: 6pt; border-left: 3pt solid #0071e3; }
+  .sa-print h3 { font-size: 10pt; font-weight: 700; margin: 6pt 0 3pt; }
+  .sa-print p { margin: 0 0 3.5pt; font-size: 9.2pt; }
+  .sa-print ul, .sa-print ol { margin: 0 0 3.5pt; padding-left: 14pt; }
+  .sa-print li { font-size: 9.2pt; margin-bottom: 1.2pt; }
   .sa-print .sa-brand { text-align: center; font-size: 8.5pt; letter-spacing: 3pt; color: #666; margin-bottom: 3pt; }
-  .sa-print .sa-meta { display: flex; flex-wrap: wrap; gap: 6pt 20pt; font-size: 9.5pt; color: #333; border-top: 1pt solid #333; border-bottom: 1pt solid #333; padding: 5pt 0; margin: 6pt 0 10pt; }
-  .sa-print .sa-note { font-size: 9.5pt; color: #555; }
-  .sa-print .sa-stats { display: flex; flex-wrap: wrap; gap: 6pt; margin-bottom: 8pt; }
-  .sa-print .sa-stat { flex: 1; min-width: 95pt; border: 0.6pt solid #d0d0d0; border-radius: 4pt; padding: 4pt 7pt; }
-  .sa-print .sa-stat span { display: block; font-size: 8.5pt; color: #666; }
-  .sa-print .sa-stat b { display: block; font-size: 14pt; margin-top: 1pt; }
-  .sa-print .sa-tag { display: inline-block; border: 0.6pt solid #999; border-radius: 9pt; padding: 0 6pt; margin: 0 4pt 4pt 0; font-size: 9pt; }
-  .sa-print .sa-table { width: 100%; border-collapse: collapse; margin: 4pt 0 8pt; font-size: 9.5pt; page-break-inside: avoid; break-inside: avoid; }
-  .sa-print .sa-table th, .sa-print .sa-table td { border: 0.6pt solid #d0d0d0; padding: 3pt 6pt; text-align: left; }
+  .sa-print .sa-meta { display: flex; flex-wrap: wrap; gap: 4pt 16pt; font-size: 8.8pt; color: #333; border-top: 1pt solid #333; border-bottom: 1pt solid #333; padding: 4pt 0; margin: 5pt 0 8pt; }
+  .sa-print .sa-note { font-size: 8.8pt; color: #555; }
+  .sa-print .sa-stats { display: flex; flex-wrap: wrap; gap: 4pt; margin-bottom: 6pt; }
+  .sa-print .sa-stat { flex: 1; min-width: 90pt; border: 0.6pt solid #d0d0d0; border-radius: 4pt; padding: 3pt 6pt; }
+  .sa-print .sa-stat span { display: block; font-size: 8pt; color: #666; }
+  .sa-print .sa-stat b { display: block; font-size: 12pt; margin-top: 1pt; }
+  .sa-print .sa-tag { display: inline-block; border: 0.6pt solid #999; border-radius: 9pt; padding: 0 5pt; margin: 0 3pt 3pt 0; font-size: 8.6pt; }
+  .sa-print .sa-table { width: 100%; border-collapse: collapse; margin: 3pt 0 6pt; font-size: 8.6pt; page-break-inside: avoid; break-inside: avoid; }
+  .sa-print .sa-table th, .sa-print .sa-table td { border: 0.6pt solid #d0d0d0; padding: 2.2pt 5pt; text-align: left; }
   .sa-print .sa-table th { background: #f2f2f2; font-weight: 700; color: #333; }
+  .sa-print .sa-cover { page-break-after: always; break-after: page; }
+  /* 封面后留一张空白页，让每名学生的 2 页正好落在一张纸的正反面 */
+  .sa-print .sa-blank { page-break-before: always; break-before: page; height: 1px; }
   .sa-print .sa-student { page-break-before: always; break-before: page; }
-  .sa-print .sa-student:first-of-type { page-break-before: auto; break-before: auto; }
-  .sa-print .sa-student-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12pt; border-bottom: 1pt solid #333; padding-bottom: 5pt; margin-bottom: 8pt; }
+  .sa-print .sa-student-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10pt; border-bottom: 1pt solid #333; padding-bottom: 4pt; margin-bottom: 6pt; }
   .sa-print .sa-student-head h2 { border: none; padding: 0; margin: 0 0 2pt; }
-  .sa-print .sa-sub { font-size: 9.5pt; color: #555; }
-  .sa-print .sa-gain { border: 1pt solid #1a7f2b; color: #1a7f2b; border-radius: 4pt; padding: 4pt 8pt; font-size: 9pt; text-align: center; white-space: nowrap; }
-  .sa-print .sa-gain b { font-size: 14pt; }
-  .sa-print .sa-stage { border: 0.6pt solid #ddd; border-radius: 4pt; padding: 4pt 7pt; margin-bottom: 5pt; page-break-inside: avoid; break-inside: avoid; }
-  .sa-print .sa-stage-title { font-weight: 700; font-size: 10.5pt; margin-bottom: 2pt; }
-  .sa-print .sa-foot { margin-top: 10pt; border-top: 0.6pt solid #ccc; padding-top: 4pt; font-size: 8pt; color: #777; text-align: center; }
+  .sa-print .sa-sub { font-size: 8.8pt; color: #555; }
+  .sa-print .sa-gain { border: 1pt solid #1a7f2b; color: #1a7f2b; border-radius: 4pt; padding: 3pt 7pt; font-size: 8.5pt; text-align: center; white-space: nowrap; }
+  .sa-print .sa-gain b { font-size: 12pt; }
+  .sa-print .sa-stage { border: 0.6pt solid #ddd; border-radius: 4pt; padding: 3pt 6pt; margin-bottom: 3.5pt; page-break-inside: avoid; break-inside: avoid; }
+  .sa-print .sa-stage-title { font-weight: 700; font-size: 9.6pt; margin-bottom: 1.5pt; }
+  .sa-print .sa-foot { margin-top: 8pt; border-top: 0.6pt solid #ccc; padding-top: 3pt; font-size: 7.5pt; color: #777; text-align: center; }
   .sa-print .sa-avoid { page-break-inside: avoid; break-inside: avoid; }
 
   /* 字体与颜色 */

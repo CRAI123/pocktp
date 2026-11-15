@@ -27,7 +27,7 @@ export function DesktopTitlebar() {
     <>
       <div
         data-tauri-drag-region
-        className="fixed inset-x-0 top-0 z-[70] flex h-9 select-none items-center justify-between border-b border-black/5 bg-white pl-3"
+        className="no-print fixed inset-x-0 top-0 z-[70] flex h-9 select-none items-center justify-between border-b border-black/5 bg-white pl-3"
       >
         <div data-tauri-drag-region className="flex items-center gap-2">
           <img src="/rayzo-logo.png" alt="" className="h-5 w-5 rounded object-cover" />
