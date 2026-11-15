@@ -431,7 +431,7 @@ function ClassExamAnalysis() {
     api.get(`/classes/${classId}/grade-analysis?exam=${encodeURIComponent(exam)}`).then(setData).catch(console.error);
   }, [classId, exam]);
 
-  if (!classes.length) return <Empty text="暂无班级，请先在班级成员页创建班级" />;
+  if (!classes.length) return <Empty text="暂无班级，请先在「班级管理」创建班级" />;
 
   const a = data?.analysis;
   return (

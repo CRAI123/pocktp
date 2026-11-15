@@ -67,6 +67,7 @@ const NAV = [
   { to: '/prep/points', label: '复习要点', icon: ScrollText },
   { to: '/prep/exam', label: '高考备考', icon: GraduationCap },
   { group: '班务管理' },
+  { to: '/classes', label: '班级管理', icon: GraduationCap },
   { to: '/students', label: '班级成员', icon: Users },
   { to: '/attendance', label: '考勤记录', icon: CalendarCheck },
   { to: '/homework-log', label: '作业登记', icon: ClipboardCheck },

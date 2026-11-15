@@ -8,7 +8,7 @@ import { Badge, Modal, Field, inputCls, Empty, SkeletonList } from '../component
 const GRADES = ['一年级', '二年级', '三年级', '四年级', '五年级', '六年级', '七年级', '八年级', '九年级', '高一', '高二', '高三'];
 
 export default function Classes() {
-  const { pathname } = useLocation();
+  const { pathname, state } = useLocation();
   const navigate = useNavigate();
   const [list, setList] = useState(null);
   const [loadErr, setLoadErr] = useState('');
@@ -32,7 +32,9 @@ export default function Classes() {
     setBusy(true); setFormErr('');
     try {
       const { id } = await api.post('/classes', form);
-      navigate(`/classes/${id}`); // 创建成功进入班级详情
+      /* 从「班级成员」页引导过来创建时，创建完回到成员页继续加学生 */
+      if (state?.from === 'students') navigate('/students', { replace: true });
+      else navigate(`/classes/${id}`); // 创建成功进入班级详情
     } catch (e2) {
       setFormErr(e2.message || '创建失败，请重试');
       setBusy(false);
