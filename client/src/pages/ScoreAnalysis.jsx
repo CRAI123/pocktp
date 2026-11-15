@@ -4,7 +4,7 @@ import {
   AlertCircle, TrendingUp, Target, Brain, Loader2, FileSpreadsheet, MessageSquareText,
   ArrowLeft, History, Trash2,
 } from 'lucide-react';
-import { api, todayStr } from '../api.js';
+import { api, auth, todayStr } from '../api.js';
 import { SectionHeader, Button, Modal, Field, inputCls, Badge, Empty } from '../components/ui.jsx';
 
 const CHIP = (on) =>
@@ -143,6 +143,7 @@ export default function ScoreAnalysis({ embedded = false, initialCourseId = '' }
               dimension: d.dimension,
               course_name: d.course_name,
               subject: d.subject,
+              ranks: stu.ranks,
             });
             await api.post(`/score-analysis/jobs/${jobId}/results`, {
               student_id: stu.id, result: r.result, status: 'done',
@@ -260,6 +261,7 @@ export default function ScoreAnalysis({ embedded = false, initialCourseId = '' }
   const [parsed, setParsed] = useState(null);
   const [sheet, setSheet] = useState(null);
   const [nameCol, setNameCol] = useState(0);
+  const [dragOver, setDragOver] = useState(false);
   const fileRef = useRef(null);
 
   const openImport = () => {
@@ -267,6 +269,31 @@ export default function ScoreAnalysis({ embedded = false, initialCourseId = '' }
     setImpDate(todayStr()); setImpTab('file');
     if (fileRef.current) fileRef.current.value = '';
     setImpOpen(true);
+  };
+
+  /* 下载导入模板：姓名 + 当前三次考试列（已有成绩自动填好，只需补空缺） */
+  const downloadTemplate = async () => {
+    const cols = normalizedPicked.length ? normalizedPicked : exams.slice(-3).map(x => x.exam_name);
+    if (!cols.length) cols.push('第一次月考');
+    let rows = [];
+    try {
+      const gs = await api.get(`/grades?course_id=${courseId}`);
+      const m = new Map();
+      gs.forEach(g => m.set(`${g.student_id}:${g.exam_name}`, g.score));
+      rows = students.map(s => [s.name, ...cols.map(c => m.get(`${s.id}:${c}`) ?? '')]);
+    } catch {
+      rows = students.map(s => [s.name, ...cols.map(() => '')]);
+    }
+    if (!rows.length) rows = [['张三', ...cols.map(() => '')]];
+    const csv = '\uFEFF' + [['姓名', ...cols], ...rows]
+      .map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(','))
+      .join('\r\n');
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `成绩导入模板_${course?.name || '课程'}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const parseSheet = async (file) => {
@@ -382,16 +409,29 @@ export default function ScoreAnalysis({ embedded = false, initialCourseId = '' }
   /* ---------- 报告数据 ---------- */
   const report = results.filter(r => r.status === 'done' && r.result);
   const current = report.find(r => r.student_id === selId) || report[0];
+  const studentsMeta = job?.students || [];
+  const classAvg = job?.class_avg || [];
   const summary = useMemo(() => {
     if (!report.length) return null;
     const gains = report.map(r => (r.result.predicted_gain.min + r.result.predicted_gain.max) / 2);
     const avgGain = gains.reduce((a, b) => a + b, 0) / gains.length;
-    const declining = report.filter(r => r.result.trend === '下滑');
     const weakCount = {};
     report.forEach(r => (r.result.weak_points || []).forEach(w => { weakCount[w] = (weakCount[w] || 0) + 1; }));
     const topWeak = Object.entries(weakCount).sort((a, b) => b[1] - a[1]).slice(0, 5);
-    return { avgGain, declining, topWeak };
-  }, [report]);
+    /* 排名进步人数：最近一次排名优于第一次（同分同名次，跳过缺失） */
+    const doneIds = new Set(report.map(r => r.student_id));
+    const improved = studentsMeta.filter(s => {
+      if (!doneIds.has(s.id)) return false;
+      const valid = (s.ranks || []).filter(x => x.rank > 0);
+      return valid.length >= 2 && valid[valid.length - 1].rank < valid[0].rank;
+    }).length;
+    const declineRank = studentsMeta.filter(s => {
+      if (!doneIds.has(s.id)) return false;
+      const valid = (s.ranks || []).filter(x => x.rank > 0);
+      return valid.length >= 2 && valid[valid.length - 1].rank > valid[0].rank;
+    }).length;
+    return { avgGain, topWeak, improved, declineRank, count: report.length };
+  }, [report, studentsMeta]);
 
   const pct = progress.total ? Math.min(100, Math.round(((progress.done + progress.failed) / progress.total) * 100)) : 0;
   const hasRemaining = job && (job.done + job.failed < job.total);
@@ -407,7 +447,11 @@ export default function ScoreAnalysis({ embedded = false, initialCourseId = '' }
           action={step !== 1 && (
             <div className="flex gap-2">
               <Button variant="secondary" onClick={backToConfig}><ArrowLeft size={15} />返回配置</Button>
-              {step === 3 && <Button variant="secondary" onClick={() => window.print()}><Printer size={15} />打印报告</Button>}
+              {step === 3 && (
+                <Button variant="secondary" onClick={() => window.print()} title="在打印对话框中选择「另存为 PDF」即可导出">
+                  <Printer size={15} />打印 / 导出 PDF
+                </Button>
+              )}
             </div>
           )}
         />
@@ -416,7 +460,11 @@ export default function ScoreAnalysis({ embedded = false, initialCourseId = '' }
       {embedded && step !== 1 && (
         <div className="flex justify-end gap-2">
           <Button variant="secondary" onClick={backToConfig}><ArrowLeft size={15} />返回配置</Button>
-          {step === 3 && <Button variant="secondary" onClick={() => window.print()}><Printer size={15} />打印报告</Button>}
+          {step === 3 && (
+                <Button variant="secondary" onClick={() => window.print()} title="在打印对话框中选择「另存为 PDF」即可导出">
+                  <Printer size={15} />打印 / 导出 PDF
+                </Button>
+              )}
         </div>
       )}
 
@@ -674,11 +722,12 @@ export default function ScoreAnalysis({ embedded = false, initialCourseId = '' }
           ) : (
             <>
               {/* 全班汇总 */}
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
                 <Stat label="已完成分析" value={`${report.length} 人`} tone="green" />
                 <Stat label="平均预计提分" value={`+${summary.avgGain.toFixed(1)} 分`} tone="orange" />
-                <Stat label="成绩下滑" value={`${summary.declining.length} 人`} tone="red" />
                 <Stat label="最高预计提分" value={`+${Math.max(...report.map(r => r.result.predicted_gain.max))} 分`} tone="blue" />
+                <Stat label="排名进步" value={`${summary.improved} 人`} tone="green" />
+                <Stat label="排名下滑" value={`${summary.declineRank} 人`} tone="red" />
               </div>
 
               {!!summary.topWeak.length && (
@@ -719,7 +768,13 @@ export default function ScoreAnalysis({ embedded = false, initialCourseId = '' }
                 </div>
 
                 {/* 单人报告 */}
-                {current && <ReportCard item={current} />}
+                {current && (
+                  <ReportCard
+                    item={current}
+                    classAvg={classAvg}
+                    ranks={(studentsMeta.find(s => s.id === current.student_id)?.ranks) || []}
+                  />
+                )}
               </div>
             </>
           )}
@@ -751,9 +806,26 @@ export default function ScoreAnalysis({ embedded = false, initialCourseId = '' }
 
         {impTab === 'file' ? (
           <>
-            <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-black/15 bg-black/[0.015] px-4 py-8 text-center transition hover:border-[#0071e3]/40">
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-xs text-ink-secondary">支持直接拖入文件</span>
+              <Button variant="secondary" onClick={downloadTemplate} disabled={!courseId} className="!px-3 !py-1.5 !text-xs">
+                <FileSpreadsheet size={14} />下载导入模板
+              </Button>
+            </div>
+            <label
+              onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={e => {
+                e.preventDefault();
+                setDragOver(false);
+                parseSheet(e.dataTransfer.files?.[0]);
+              }}
+              className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border border-dashed px-4 py-8 text-center transition ${
+                dragOver ? 'border-[#0071e3] bg-[#0071e3]/[0.06]' : 'border-black/15 bg-black/[0.015] hover:border-[#0071e3]/40'
+              }`}
+            >
               <Upload size={22} className="text-[#0071e3]" />
-              <span className="text-sm font-medium text-ink">选择 Excel / CSV 文件</span>
+              <span className="text-sm font-medium text-ink">{dragOver ? '松开即可导入' : '选择或拖入 Excel / CSV 文件'}</span>
               <span className="text-xs text-ink-secondary">首行表头；「姓名」列右侧的每一列都是一次考试</span>
               <input
                 ref={fileRef}
@@ -856,9 +928,23 @@ function Stat({ label, value, tone = 'gray' }) {
 }
 
 /* ---------- 单个学生报告 ---------- */
-function ReportCard({ item }) {
+function ReportCard({ item, classAvg = [], ranks = [] }) {
   const r = item.result;
   const g = r.predicted_gain || {};
+  const rows = (item.scores || []).map(s => {
+    const avgRow = classAvg.find(x => x.exam === s.exam);
+    const rankRow = ranks.find(x => x.exam === s.exam);
+    return {
+      exam: s.exam,
+      score: s.score,
+      avg: avgRow ? avgRow.average : null,
+      rank: rankRow?.rank || 0,
+      total: rankRow?.total || 0,
+    };
+  });
+  const ranked = rows.filter(x => x.rank > 0);
+  const rankDelta = ranked.length >= 2 ? ranked[0].rank - ranked[ranked.length - 1].rank : null;
+  const lastRank = ranked.length ? ranked[ranked.length - 1] : null;
   return (
     <div className="card space-y-5 p-5 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -866,6 +952,7 @@ function ReportCard({ item }) {
           <div className="flex items-center gap-2">
             <h3 className="display text-xl font-semibold text-ink">{item.student_name}</h3>
             <Badge tone={TREND_TONE[r.trend] || 'gray'}>{r.trend}</Badge>
+            {lastRank && <Badge tone="blue">班级第 {lastRank.rank} 名 / {lastRank.total} 人</Badge>}
           </div>
           <div className="mt-1 text-xs text-ink-secondary">
             最近成绩：{item.scores.map(x => `${x.exam} ${x.score}`).join(' · ')}
@@ -877,6 +964,50 @@ function ReportCard({ item }) {
           <div className="text-[10px] text-[#1a7f2b]/70">置信度 {g.confidence || '中'}</div>
         </div>
       </div>
+
+      {!!rows.length && (
+        <section>
+          <h4 className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-ink"><TrendingUp size={15} className="text-[#0071e3]" />成绩与班级对比</h4>
+          <div className="overflow-x-auto rounded-xl border border-black/[0.06]">
+            <table className="w-full text-left text-[13px]">
+              <thead className="bg-black/[0.03] text-[11px] text-ink-secondary">
+                <tr>
+                  <th className="px-3 py-2 font-medium">考试</th>
+                  <th className="px-3 py-2 font-medium">成绩</th>
+                  <th className="px-3 py-2 font-medium">班级均分</th>
+                  <th className="px-3 py-2 font-medium">与均分差</th>
+                  <th className="px-3 py-2 font-medium">班级排名</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((x, i) => {
+                  const d = x.avg == null ? null : +(x.score - x.avg).toFixed(1);
+                  return (
+                    <tr key={i} className="border-t border-black/[0.05]">
+                      <td className="px-3 py-1.5 text-ink">{x.exam}</td>
+                      <td className="num px-3 py-1.5 font-semibold text-ink">{x.score}</td>
+                      <td className="num px-3 py-1.5 text-ink-secondary">{x.avg == null ? '—' : x.avg}</td>
+                      <td className={`num px-3 py-1.5 ${d == null ? 'text-ink-secondary' : d >= 0 ? 'text-[#1a7f2b]' : 'text-[#b3251c]'}`}>
+                        {d == null ? '—' : `${d >= 0 ? '+' : ''}${d}`}
+                      </td>
+                      <td className="px-3 py-1.5 text-ink">{x.rank ? `第 ${x.rank} 名` : '—'}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          {rankDelta != null && (
+            <div className="mt-2 text-xs">
+              {rankDelta > 0
+                ? <span className="text-[#1a7f2b]">较第一次考试排名进步 {rankDelta} 名</span>
+                : rankDelta < 0
+                  ? <span className="text-[#b3251c]">较第一次考试排名下滑 {-rankDelta} 名</span>
+                  : <span className="text-ink-secondary">排名与第一次考试持平</span>}
+            </div>
+          )}
+        </section>
+      )}
 
       {r.summary && (
         <div className="rounded-xl bg-black/[0.025] p-4 text-[13px] leading-relaxed text-ink">{r.summary}</div>
@@ -963,6 +1094,9 @@ function ReportCard({ item }) {
 function PrintReport({ job, report, summary }) {
   const examLabel = ['第一次', '第二次', '第三次'];
   const highest = Math.max(...report.map(r => r.result.predicted_gain.max));
+  const studentsMeta = job.students || [];
+  const classAvg = job.class_avg || [];
+  const teacherName = auth.teacher?.name || '';
   return (
     <div className="print-only sa-print">
       {/* 封面与全班汇总 */}
@@ -970,6 +1104,7 @@ function PrintReport({ job, report, summary }) {
         <div className="sa-brand">教师工作台 · AI 成绩分析</div>
         <h1>{job.course_name} · {DIM_LABEL[job.dimension]}成绩分析报告</h1>
         <div className="sa-meta">
+          {teacherName && <div>教师：{teacherName}</div>}
           <div>考试：{(job.exam_names || []).map((e, i) => `${examLabel[i] || `第${i + 1}次`} ${e}`).join('　')}</div>
           <div>范围：{job.scope === 'class' ? '全班' : '指定学生'} · 共 {report.length} 人</div>
           <div>生成时间：{job.created_at || ''}</div>
@@ -980,8 +1115,8 @@ function PrintReport({ job, report, summary }) {
         <div className="sa-stats">
           <div className="sa-stat"><span>已完成分析</span><b>{report.length} 人</b></div>
           <div className="sa-stat"><span>平均预计提分</span><b>+{summary ? summary.avgGain.toFixed(1) : 0} 分</b></div>
-          <div className="sa-stat"><span>成绩下滑</span><b>{summary ? summary.declining.length : 0} 人</b></div>
           <div className="sa-stat"><span>最高预计提分</span><b>+{Number.isFinite(highest) ? highest : 0} 分</b></div>
+          <div className="sa-stat"><span>排名进步 / 下滑</span><b>{summary ? summary.improved : 0} / {summary ? summary.declineRank : 0} 人</b></div>
         </div>
 
         {!!summary?.topWeak?.length && (
@@ -1002,6 +1137,16 @@ function PrintReport({ job, report, summary }) {
       {report.map((item, idx) => {
         const r = item.result;
         const g = r.predicted_gain || {};
+        const ranks = (studentsMeta.find(s => s.id === item.student_id)?.ranks) || [];
+        const rows = (item.scores || []).map(s => ({
+          exam: s.exam,
+          score: s.score,
+          avg: classAvg.find(x => x.exam === s.exam)?.average ?? null,
+          rank: ranks.find(x => x.exam === s.exam)?.rank || 0,
+          total: ranks.find(x => x.exam === s.exam)?.total || 0,
+        }));
+        const ranked = rows.filter(x => x.rank > 0);
+        const rankDelta = ranked.length >= 2 ? ranked[0].rank - ranked[ranked.length - 1].rank : null;
         return (
           <section key={item.student_id} className="print-sheet sa-student">
             <div className="sa-student-head">
@@ -1018,7 +1163,39 @@ function PrintReport({ job, report, summary }) {
 
             <div style={{ marginBottom: '6pt' }}>
               趋势判断：<span className="sa-tag">{r.trend}</span>
+              {rankDelta != null && (
+                <span className="sa-tag">
+                  {rankDelta > 0 ? `排名进步 ${rankDelta} 名` : rankDelta < 0 ? `排名下滑 ${-rankDelta} 名` : '排名持平'}
+                </span>
+              )}
             </div>
+
+            {!!rows.length && (
+              <>
+                <h3>成绩与班级对比</h3>
+                <table className="sa-table">
+                  <thead>
+                    <tr>
+                      <th>考试</th><th>成绩</th><th>班级均分</th><th>与均分差</th><th>班级排名</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((x, i) => {
+                      const d = x.avg == null ? null : +(x.score - x.avg).toFixed(1);
+                      return (
+                        <tr key={i}>
+                          <td>{x.exam}</td>
+                          <td><b>{x.score}</b></td>
+                          <td>{x.avg == null ? '—' : x.avg}</td>
+                          <td>{d == null ? '—' : `${d >= 0 ? '+' : ''}${d}`}</td>
+                          <td>{x.rank ? `第 ${x.rank} 名${x.total ? ` / ${x.total} 人` : ''}` : '—'}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </>
+            )}
 
             {r.summary && (
               <>

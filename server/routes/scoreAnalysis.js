@@ -110,6 +110,31 @@ router.post('/jobs', ah(async (req, res) => {
     };
   });
 
+  /* 每次考试的班级排名（同分同名次），随学生快照一起保存 */
+  const rankMap = new Map();
+  for (const name of exams) {
+    const list = students
+      .map(s => ({ id: s.id, score: s.scores.find(x => x.exam === name)?.score }))
+      .filter(x => x.score != null)
+      .sort((a, b) => b.score - a.score);
+    let lastScore = null;
+    let lastRank = 0;
+    list.forEach((x, i) => {
+      const rank = x.score === lastScore ? lastRank : i + 1;
+      lastScore = x.score;
+      lastRank = rank;
+      rankMap.set(`${name}:${x.id}`, rank);
+    });
+  }
+  for (const s of students) {
+    s.ranks = exams
+      .map(name => {
+        const hit = s.scores.find(x => x.exam === name);
+        return hit ? { exam: name, rank: rankMap.get(`${name}:${s.id}`) || 0, total: students.length } : null;
+      })
+      .filter(Boolean);
+  }
+
   const info = await db.run(`
     INSERT INTO score_analysis_jobs
       (teacher_id, course_id, course_name, subject, scope, dimension, exam_names, weak_points, students, class_avg, total, status)
