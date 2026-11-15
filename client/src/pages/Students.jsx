@@ -1,5 +1,6 @@
 ﻿import { useEffect, useRef, useState } from 'react';
-import { Plus, Trash2, Pencil, Phone, MessageCircle, Download, Upload, Keyboard, CheckCircle2, Users, ClipboardPaste } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Plus, Trash2, Pencil, Phone, MessageCircle, Download, Upload, Keyboard, CheckCircle2, Users, ClipboardPaste, GraduationCap } from 'lucide-react';
 import { api } from '../api.js';
 import { SectionHeader, Button, Modal, Field, inputCls, Badge, Empty, SkeletonList } from '../components/ui.jsx';
 
@@ -37,6 +38,7 @@ function parseCsvLine(line) {
 }
 
 export default function Students() {
+  const navigate = useNavigate();
   const [classes, setClasses] = useState([]);
   const [students, setStudents] = useState([]);
   const [filter, setFilter] = useState('');
@@ -335,6 +337,19 @@ export default function Students() {
         }
       />
 
+      {!classes.length && (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#0071e3]/20 bg-[#0071e3]/[0.06] px-4 py-3">
+          <div className="flex items-start gap-2.5">
+            <GraduationCap size={18} className="mt-0.5 shrink-0 text-[#0071e3]" />
+            <div>
+              <div className="text-sm font-semibold text-ink">还没有班级，先把班级建起来</div>
+              <div className="text-xs text-ink-secondary">添加学生前需要先有班级；创建后回到这里即可继续添加学生</div>
+            </div>
+          </div>
+          <Button onClick={() => navigate('/classes/new', { state: { from: 'students' } })}><Plus size={15} />新建班级</Button>
+        </div>
+      )}
+
       {/* 班级卡片 + 筛选 */}
       <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
         <button onClick={() => setFilter('')} className={`card p-5 text-left transition ${!filter ? 'ring-2 ring-[#0071e3]' : 'card-hover'}`}>
@@ -478,9 +493,17 @@ export default function Students() {
               <option value="">请选择</option>
               {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
+            {!classes.length && (
+              <div className="mt-1.5 text-xs text-ink-secondary">
+                还没有班级，
+                <button type="button" onClick={() => navigate('/classes/new', { state: { from: 'students' } })} className="font-medium text-[#0071e3] underline">
+                  先去创建一个班级
+                </button>
+              </div>
+            )}
           </Field>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid gap-4 sm:grid-cols-2">
             <Field label={<span>姓名<Star /></span>}>
               <input
                 ref={el => (quickRefs.current[0] = el)}
@@ -502,7 +525,7 @@ export default function Students() {
             </Field>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid gap-4 sm:grid-cols-2">
             <Field label="学号（选填）">
               <input
                 ref={el => (quickRefs.current[2] = el)}
@@ -530,7 +553,7 @@ export default function Students() {
             />
           </Field>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid gap-4 sm:grid-cols-2">
             <Field label="就读学校（选填）">
               <input
                 ref={el => (quickRefs.current[5] = el)}
@@ -565,7 +588,7 @@ export default function Students() {
           {(editingId || form.status === '毕业') && (
             <div className="space-y-4 rounded-xl bg-black/[0.025] p-4">
               <div className="text-xs font-semibold text-ink-secondary">毕业 / 升学归档（选填）</div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-4 sm:grid-cols-2">
                 <Field label="届别">
                   <input
                     ref={el => (quickRefs.current[8] = el)}
@@ -583,7 +606,7 @@ export default function Students() {
                   />
                 </Field>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-4 sm:grid-cols-2">
                 <Field label="考取大学 / 去向学校">
                   <input
                     ref={el => (quickRefs.current[10] = el)}
@@ -656,6 +679,14 @@ export default function Students() {
               <option value="">请选择</option>
               {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
+            {!classes.length && (
+              <div className="mt-1.5 text-xs text-ink-secondary">
+                还没有班级，
+                <button type="button" onClick={() => navigate('/classes/new', { state: { from: 'students' } })} className="font-medium text-[#0071e3] underline">
+                  先去创建一个班级
+                </button>
+              </div>
+            )}
           </Field>
 
           <Field label="默认性别（名单里未标注时使用）">
