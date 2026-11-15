@@ -995,6 +995,42 @@ export default function ScoreAnalysis({ embedded = false, initialCourseId = '' }
                 onChange={e => parseSheet(e.target.files?.[0])}
               />
             </label>
+
+            {/* 格式示例：老师照这个表头填即可直接导入 */}
+            <div className="mt-3 rounded-xl border border-black/[0.06] bg-black/[0.015] p-3">
+              <div className="mb-2 text-[11px] font-semibold text-ink-secondary">表格格式示例（首行是表头，照着填即可）</div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-[11px]">
+                  <thead className="bg-black/[0.04] text-ink-secondary">
+                    <tr>
+                      <th className="whitespace-nowrap px-2 py-1.5 font-medium">姓名</th>
+                      <th className="whitespace-nowrap px-2 py-1.5 font-medium">{normalizedPicked[0] || '第一次月考'}</th>
+                      <th className="whitespace-nowrap px-2 py-1.5 font-medium">{normalizedPicked[0] || '第一次月考'}排名</th>
+                      <th className="whitespace-nowrap px-2 py-1.5 font-medium">{normalizedPicked[1] || '第二次月考'}</th>
+                      <th className="whitespace-nowrap px-2 py-1.5 font-medium">{normalizedPicked[1] || '第二次月考'}排名</th>
+                    </tr>
+                  </thead>
+                  <tbody className="text-ink">
+                    <tr className="border-t border-black/[0.05]">
+                      <td className="px-2 py-1">张三</td><td className="px-2 py-1">88</td><td className="px-2 py-1">12</td><td className="px-2 py-1">92</td><td className="px-2 py-1">9</td>
+                    </tr>
+                    <tr className="border-t border-black/[0.05]">
+                      <td className="px-2 py-1">李四</td><td className="px-2 py-1">79</td><td className="px-2 py-1">21</td><td className="px-2 py-1">85</td><td className="px-2 py-1">15</td>
+                    </tr>
+                    <tr className="border-t border-black/[0.05]">
+                      <td className="px-2 py-1">王五</td><td className="px-2 py-1">95</td><td className="px-2 py-1">3</td><td className="px-2 py-1">91</td><td className="px-2 py-1">6</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <ul className="mt-2 space-y-0.5 text-[11px] leading-relaxed text-ink-secondary">
+                <li>· 第一列必须是姓名，一行一名学生</li>
+                <li>· 后面每两列一组：「考试名称」+「考试名称排名」；不需要排名时可以只留成绩列</li>
+                <li>· 分数、排名都只填数字，不要写「分」「第 12 名」，留空表示没有</li>
+                <li>· 考试名称要和之前导入的一致（如「第一次月考」），否则会被当成一次新考试</li>
+              </ul>
+            </div>
+
             {sheet && (
               <div className="mt-4 space-y-3">
                 <div className="text-xs text-ink-secondary">
