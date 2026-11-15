@@ -523,7 +523,7 @@ export default function ScoreAnalysis({ embedded = false, initialCourseId = '' }
             <div className="flex gap-2">
               <Button variant="secondary" onClick={backToConfig}><ArrowLeft size={15} />返回配置</Button>
               {step === 3 && (
-                <Button variant="secondary" onClick={() => window.print()} title="在打印对话框中选择「另存为 PDF」即可导出">
+                <Button variant="secondary" onClick={() => window.print()} title="建议：勾选「双面打印」，并关闭「页眉和页脚」；每名学生正好一页纸正反面">
                   <Printer size={15} />打印 / 导出 PDF
                 </Button>
               )}
@@ -536,7 +536,7 @@ export default function ScoreAnalysis({ embedded = false, initialCourseId = '' }
         <div className="flex justify-end gap-2">
           <Button variant="secondary" onClick={backToConfig}><ArrowLeft size={15} />返回配置</Button>
           {step === 3 && (
-                <Button variant="secondary" onClick={() => window.print()} title="在打印对话框中选择「另存为 PDF」即可导出">
+                <Button variant="secondary" onClick={() => window.print()} title="建议：勾选「双面打印」，并关闭「页眉和页脚」；每名学生正好一页纸正反面">
                   <Printer size={15} />打印 / 导出 PDF
                 </Button>
               )}
@@ -1265,7 +1265,7 @@ function PrintReport({ job, report, summary }) {
   return (
     <div className="print-only sa-print">
       {/* 封面与全班汇总 */}
-      <section className="print-sheet">
+      <section className="print-sheet sa-cover">
         <div className="sa-brand">教师工作台 · AI 成绩分析</div>
         <h1>{job.course_name} · {DIM_LABEL[job.dimension]}成绩分析报告</h1>
         <div className="sa-meta">
@@ -1294,9 +1294,12 @@ function PrintReport({ job, report, summary }) {
         )}
 
         <p className="sa-note" style={{ marginTop: '12pt' }}>
-          说明：以下为每位学生的个体分析，每名学生单独一页；预测分值基于最近三次成绩、班级均分与老师标注的薄弱点，仅供教学参考。
+          说明：以下为每位学生的个体分析，每名学生单独一页纸（正反面打印正好一张）；预测分值基于最近三次成绩、班级均分、排名与老师标注的薄弱点，仅供教学参考。
         </p>
       </section>
+
+      {/* 空白页：让每名学生的两页落在同一张纸的正反面 */}
+      <section className="print-sheet sa-blank" aria-hidden="true" />
 
       {/* 每位学生一页 */}
       {report.map((item, idx) => {
