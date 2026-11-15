@@ -1123,7 +1123,7 @@ const saList = (v, max = 6) => strList(v, max);
 router.post('/score/analyze', ah(async (req, res) => {
   const {
     student_name = '', scores = [], class_avg = [], weak_points = '',
-    dimension = 'subject', course_name = '', subject = '',
+    dimension = 'subject', course_name = '', subject = '', ranks = [],
   } = req.body || {};
 
   const list = (Array.isArray(scores) ? scores : [])
@@ -1143,11 +1143,15 @@ router.post('/score/analyze', ah(async (req, res) => {
     .map(a => ({ exam: saStr(a?.exam, 50), average: Number(a?.average), max: Number(a?.max), min: Number(a?.min) }))
     .filter(a => a.exam && Number.isFinite(a.average))
     .slice(0, 3);
+  const rankList = (Array.isArray(ranks) ? ranks : [])
+    .map(r => ({ exam: saStr(r?.exam, 50), rank: Number(r?.rank), total: Number(r?.total) }))
+    .filter(r => r.exam && r.rank > 0 && r.total > 0)
+    .slice(0, 3);
 
   const sys = `你是资深${dim === 'total' ? '全科' : (saStr(subject, 20) || '学科')}教研员，正在为一位学生做「短期提分诊断」。
 要求：
-- 只依据给出的考试成绩、班级均分和老师填写的薄弱点判断，不编造事实；数据不足时明确说明依据有限
-- 分析成绩变化趋势（上升/波动/下滑/稳定），指出 2-4 个最关键的失分点，并与班级均分对比
+- 只依据给出的考试成绩、班级均分、班级排名和老师填写的薄弱点判断，不编造事实；数据不足时明确说明依据有限
+- 分析成绩变化趋势（上升/波动/下滑/稳定），指出 2-4 个最关键的失分点，并与班级均分、班级排名变化对比
 - 预测未来 3-4 周内通过针对性训练可提升的分数区间（结合当前分数段与薄弱点，务实保守，不承诺结果）
 - 给出分阶段提升计划（2-4 个阶段，每阶段写明重点、可执行动作和阶段目标），动作要具体到每天/每周做什么
 - ${dim === 'total' ? '按学科给出提分优先级建议（哪科最值得先投入、怎么投入）' : '给出该学科的分模块提分建议'}
@@ -1166,6 +1170,7 @@ JSON Schema：
 【分析维度】${dim === 'total' ? '总分（多科汇总）' : `单科：${saStr(course_name, 60) || saStr(subject, 30) || '本课程'}`}
 【最近成绩】${JSON.stringify(list)}
 【班级均分】${JSON.stringify(avg)}
+【班级排名】${rankList.length ? JSON.stringify(rankList) : '未提供'}
 【老师填写的薄弱点】${saStr(weak_points, 1000) || '未填写'}`;
 
   const out = await chatJson([

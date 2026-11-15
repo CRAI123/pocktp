@@ -451,6 +451,9 @@ button:focus-visible, a:focus-visible {
   .sa-print .sa-stat span { display: block; font-size: 8.5pt; color: #666; }
   .sa-print .sa-stat b { display: block; font-size: 14pt; margin-top: 1pt; }
   .sa-print .sa-tag { display: inline-block; border: 0.6pt solid #999; border-radius: 9pt; padding: 0 6pt; margin: 0 4pt 4pt 0; font-size: 9pt; }
+  .sa-print .sa-table { width: 100%; border-collapse: collapse; margin: 4pt 0 8pt; font-size: 9.5pt; page-break-inside: avoid; break-inside: avoid; }
+  .sa-print .sa-table th, .sa-print .sa-table td { border: 0.6pt solid #d0d0d0; padding: 3pt 6pt; text-align: left; }
+  .sa-print .sa-table th { background: #f2f2f2; font-weight: 700; color: #333; }
   .sa-print .sa-student { page-break-before: always; break-before: page; }
   .sa-print .sa-student:first-of-type { page-break-before: auto; break-before: auto; }
   .sa-print .sa-student-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12pt; border-bottom: 1pt solid #333; padding-bottom: 5pt; margin-bottom: 8pt; }
