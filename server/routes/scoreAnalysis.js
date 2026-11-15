@@ -37,7 +37,7 @@ async function ownJob(teacherId, id) {
 
 /* ==================== 创建任务 ==================== */
 router.post('/jobs', ah(async (req, res) => {
-  const { course_id, dimension = 'subject', scope = 'class', exam_names, weak_points = '', student_ids } = req.body || {};
+  const { course_id, dimension = 'subject', scope = 'class', exam_names, weak_points = '', student_ids, rank_overrides } = req.body || {};
   const exams = [...new Set((Array.isArray(exam_names) ? exam_names : []).map(s => str(s, 50)).filter(Boolean))];
   if (!course_id) return res.status(400).json({ error: '请选择课程' });
   if (exams.length < 2) return res.status(400).json({ error: '请至少选择两次考试成绩（建议三次）' });
@@ -51,6 +51,7 @@ router.post('/jobs', ah(async (req, res) => {
   /* 取三次考试的成绩；单科只看本课程，总分汇总本教师全部课程 */
   const rows = await db.all(`
     SELECT g.exam_name, g.score, g.student_id, s.name AS student_name, s.student_no,
+           g.rank AS rank_no, g.rank_total, g.rank_scope,
            c.subject, c.name AS course_name
     FROM grades g
     JOIN students s ON s.id = g.student_id
@@ -77,7 +78,13 @@ router.post('/jobs', ah(async (req, res) => {
     }
     const stu = map.get(r.student_id);
     const bucket = stu.byExam[r.exam_name] || (stu.byExam[r.exam_name] = []);
-    bucket.push({ subject: r.subject, score: num(r.score) });
+    bucket.push({
+      subject: r.subject,
+      score: num(r.score),
+      rank: num(r.rank_no),
+      rankTotal: num(r.rank_total),
+      rankScope: r.rank_scope || '',
+    });
   }
 
   const students = [];
@@ -85,12 +92,18 @@ router.post('/jobs', ah(async (req, res) => {
     const scores = exams.map(name => {
       const list = stu.byExam[name] || [];
       if (!list.length) return null;
-      const score = dim === 'total'
-        ? +list.reduce((s, x) => s + x.score, 0).toFixed(1)
-        : list[0].score;
-      return dim === 'total'
-        ? { exam: name, score, subjects: list.map(x => ({ subject: x.subject, score: x.score })) }
-        : { exam: name, score };
+      if (dim === 'total') {
+        const score = +list.reduce((s, x) => s + x.score, 0).toFixed(1);
+        return { exam: name, score, subjects: list.map(x => ({ subject: x.subject, score: x.score })) };
+      }
+      const it = list[0];
+      return {
+        exam: name,
+        score: it.score,
+        rank: it.rank,
+        rankTotal: it.rankTotal,
+        rankScope: it.rankScope,
+      };
     }).filter(Boolean);
     if (!scores.length) continue;
     students.push({ id: stu.id, name: stu.name, student_no: stu.student_no, scores });
@@ -126,11 +139,31 @@ router.post('/jobs', ah(async (req, res) => {
       rankMap.set(`${name}:${x.id}`, rank);
     });
   }
+  /* 排名优先级：本次手动录入 > 成绩表里录入的名次 > 按成绩自动计算 */
+  const overrideMap = new Map();
+  for (const o of Array.isArray(rank_overrides) ? rank_overrides : []) {
+    const sid = +o?.student_id;
+    const exam = str(o?.exam, 50);
+    const rank = +o?.rank;
+    if (!sid || !exam || !(rank > 0)) continue;
+    overrideMap.set(`${exam}:${sid}`, {
+      rank,
+      total: Math.max(0, +o?.total || 0),
+      scope: o?.scope === 'grade' ? 'grade' : 'class',
+    });
+  }
+
   for (const s of students) {
     s.ranks = exams
       .map(name => {
         const hit = s.scores.find(x => x.exam === name);
-        return hit ? { exam: name, rank: rankMap.get(`${name}:${s.id}`) || 0, total: students.length } : null;
+        if (!hit) return null;
+        const ov = overrideMap.get(`${name}:${s.id}`);
+        if (ov) return { exam: name, rank: ov.rank, total: ov.total || students.length, scope: ov.scope, manual: true };
+        if (hit.rank > 0) {
+          return { exam: name, rank: hit.rank, total: hit.rankTotal || students.length, scope: hit.rankScope === 'grade' ? 'grade' : 'class', manual: true };
+        }
+        return { exam: name, rank: rankMap.get(`${name}:${s.id}`) || 0, total: students.length, scope: 'class', manual: false };
       })
       .filter(Boolean);
   }

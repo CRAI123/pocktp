@@ -30,6 +30,10 @@ export default function ScoreAnalysis({ embedded = false, initialCourseId = '' }
   const [exams, setExams] = useState([]);
   const [picked, setPicked] = useState(['', '', '']);
   const [weak, setWeak] = useState('');
+  /* 手工录入排名：key = `${exam}::${studentId}`，value = 名次 */
+  const [rankScope, setRankScope] = useState('class');
+  const [rankTotal, setRankTotal] = useState('');
+  const [rankDraft, setRankDraft] = useState({});
   const [students, setStudents] = useState([]);
   const [pickedStudents, setPickedStudents] = useState([]);
 
@@ -76,6 +80,7 @@ export default function ScoreAnalysis({ embedded = false, initialCourseId = '' }
   useEffect(() => {
     if (!courseId) return;
     setPicked(['', '', '']);
+    setRankDraft({});
     api.get(`/grades/exams?course_id=${courseId}`).then(rows => {
       setExams(rows);
       const names = rows.map(r => r.exam_name);
@@ -135,16 +140,29 @@ export default function ScoreAnalysis({ embedded = false, initialCourseId = '' }
           const stu = pending[i];
           let success = false;
           try {
-            const r = await api.post('/ai/score/analyze', {
-              student_name: stu.name,
-              scores: stu.scores,
-              class_avg: d.class_avg,
-              weak_points: d.weak_points,
-              dimension: d.dimension,
-              course_name: d.course_name,
-              subject: d.subject,
-              ranks: stu.ranks,
-            });
+            /* 单次失败多为 AI 超时/输出截断，自动再试一次（算力不足、账号异常不重试） */
+            let r = null;
+            let lastErr = null;
+            for (let attempt = 0; attempt < 2 && !r; attempt++) {
+              try {
+                r = await api.post('/ai/score/analyze', {
+                  student_name: stu.name,
+                  scores: stu.scores,
+                  class_avg: d.class_avg,
+                  weak_points: d.weak_points,
+                  dimension: d.dimension,
+                  course_name: d.course_name,
+                  subject: d.subject,
+                  ranks: stu.ranks,
+                });
+              } catch (err) {
+                lastErr = err;
+                const msg = String(err?.message || '');
+                if (msg.includes('登录已过期') || msg.includes('算力不足') || msg.includes('AI 功能已关闭')) break;
+                if (attempt === 0) await new Promise(res => setTimeout(res, 800));
+              }
+            }
+            if (!r) throw lastErr || new Error('分析失败');
             await api.post(`/score-analysis/jobs/${jobId}/results`, {
               student_id: stu.id, result: r.result, status: 'done',
             });
@@ -188,6 +206,16 @@ export default function ScoreAnalysis({ embedded = false, initialCourseId = '' }
     if (!courseId) return setError('请先选择课程');
     if (normalizedPicked.length < 2) return setError('请至少选择两次考试成绩（建议三次）');
     if (scope === 'student' && !pickedStudents.length) return setError('请至少选择一名学生');
+    /* 手工录入的排名作为覆盖值；未填写的考试由服务端按成绩自动排名 */
+    const total = parseInt(rankTotal, 10) || 0;
+    const rank_overrides = Object.entries(rankDraft)
+      .map(([k, v]) => {
+        const idx = k.lastIndexOf('::');
+        const exam = k.slice(0, idx);
+        const rank = parseInt(v, 10);
+        return { exam, student_id: +k.slice(idx + 2), rank, total, scope: rankScope };
+      })
+      .filter(x => x.exam && x.student_id && x.rank > 0);
     try {
       const j = await api.post('/score-analysis/jobs', {
         course_id: courseId,
@@ -196,6 +224,7 @@ export default function ScoreAnalysis({ embedded = false, initialCourseId = '' }
         exam_names: normalizedPicked,
         weak_points: weak,
         student_ids: scope === 'student' ? pickedStudents : undefined,
+        rank_overrides,
       });
       setJob(j);
       setResults([]);
@@ -262,30 +291,41 @@ export default function ScoreAnalysis({ embedded = false, initialCourseId = '' }
   const [sheet, setSheet] = useState(null);
   const [nameCol, setNameCol] = useState(0);
   const [dragOver, setDragOver] = useState(false);
+  const [impRankScope, setImpRankScope] = useState('class');
+  const [impRankTotal, setImpRankTotal] = useState('');
   const fileRef = useRef(null);
 
   const openImport = () => {
     setSheet(null); setNameCol(0); setParsed(null); setImpText(''); setImpExam('');
+    setImpRankScope('class'); setImpRankTotal('');
     setImpDate(todayStr()); setImpTab('file');
     if (fileRef.current) fileRef.current.value = '';
     setImpOpen(true);
   };
 
-  /* 下载导入模板：姓名 + 当前三次考试列（已有成绩自动填好，只需补空缺） */
+  /* 下载导入模板：姓名 + 每次考试的成绩列与排名列（已有数据自动填好，只需补空缺） */
   const downloadTemplate = async () => {
     const cols = normalizedPicked.length ? normalizedPicked : exams.slice(-3).map(x => x.exam_name);
     if (!cols.length) cols.push('第一次月考');
     let rows = [];
     try {
       const gs = await api.get(`/grades?course_id=${courseId}`);
-      const m = new Map();
-      gs.forEach(g => m.set(`${g.student_id}:${g.exam_name}`, g.score));
-      rows = students.map(s => [s.name, ...cols.map(c => m.get(`${s.id}:${c}`) ?? '')]);
+      const sm = new Map();
+      const rm = new Map();
+      gs.forEach(g => {
+        sm.set(`${g.student_id}:${g.exam_name}`, g.score);
+        if (Number(g.rank) > 0) rm.set(`${g.student_id}:${g.exam_name}`, g.rank);
+      });
+      rows = students.map(s => [s.name, ...cols.flatMap(c => [
+        sm.get(`${s.id}:${c}`) ?? '',
+        rm.get(`${s.id}:${c}`) ?? '',
+      ])]);
     } catch {
-      rows = students.map(s => [s.name, ...cols.map(() => '')]);
+      rows = students.map(s => [s.name, ...cols.flatMap(() => ['', ''])]);
     }
-    if (!rows.length) rows = [['张三', ...cols.map(() => '')]];
-    const csv = '\uFEFF' + [['姓名', ...cols], ...rows]
+    if (!rows.length) rows = [['张三', ...cols.flatMap(() => ['', ''])]];
+    const header = ['姓名', ...cols.flatMap(c => [c, `${c}排名`])];
+    const csv = '\uFEFF' + [header, ...rows]
       .map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(','))
       .join('\r\n');
     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
@@ -330,7 +370,18 @@ export default function ScoreAnalysis({ embedded = false, initialCourseId = '' }
 
   const importSheet = async () => {
     if (!sheet || impBusy) return;
-    const scoreCols = sheet.header.map((_, i) => i).filter(i => i > nameCol);
+    const total = parseInt(impRankTotal, 10) || 0;
+    /* 识别排名列：表头形如「第一次月考排名 / 名次 / rank」，或成绩列右侧紧跟的「排名」 */
+    const rankCols = new Map();
+    sheet.header.forEach((h, i) => {
+      if (i <= nameCol) return;
+      const m = String(h).match(/^(.*?)\s*(排名|名次|rank)\s*$/i);
+      if (!m) return;
+      const prev = String(sheet.header[i - 1] ?? '').trim();
+      const exam = m[1].trim() || (/排名|名次|rank/i.test(prev) ? '' : prev);
+      if (exam) rankCols.set(i, exam);
+    });
+    const scoreCols = sheet.header.map((_, i) => i).filter(i => i > nameCol && !rankCols.has(i));
     const items = [];
     let missed = 0;
     for (const r of sheet.rows) {
@@ -341,14 +392,30 @@ export default function ScoreAnalysis({ embedded = false, initialCourseId = '' }
         const raw = r[ci];
         const n = typeof raw === 'number' ? raw : Number(String(raw).trim());
         if (raw === '' || raw == null || Number.isNaN(n)) continue;
-        items.push({ student_id: stu.id, exam_name: sheet.header[ci] || `第${ci + 1}列`, score: n });
+        const exam = sheet.header[ci] || `第${ci + 1}列`;
+        /* 同一考试的排序列：有值才写入，空值保持自动排名 */
+        let rank = 0;
+        for (const [rci, rexam] of rankCols) {
+          if (rexam !== exam) continue;
+          const rv = Math.round(Number(String(r[rci] ?? '').trim()));
+          if (Number.isFinite(rv) && rv > 0) rank = rv;
+        }
+        items.push({
+          student_id: stu.id,
+          exam_name: exam,
+          score: n,
+          rank,
+          rank_total: rank && total ? total : 0,
+          rank_scope: rank ? impRankScope : '',
+        });
       }
     }
     if (!items.length) return alert('没有可导入的成绩：请确认姓名列选择正确，且其右侧为分数列');
+    const withRank = items.filter(i => i.rank > 0).length;
     setImpBusy(true);
     try {
       const r = await api.post('/grades/batch', { course_id: courseId, exam_date: impDate, items });
-      alert(`导入完成：写入 ${r.ok} 条成绩${missed ? `，${missed} 行姓名未匹配` : ''}`);
+      alert(`导入完成：写入 ${r.ok} 条成绩${withRank ? `（含 ${withRank} 条排名）` : ''}${missed ? `，${missed} 行姓名未匹配` : ''}`);
       setImpOpen(false);
       const rows2 = await api.get(`/grades/exams?course_id=${courseId}`);
       setExams(rows2);
@@ -377,12 +444,20 @@ export default function ScoreAnalysis({ embedded = false, initialCourseId = '' }
     if (!parsed?.length) return;
     const exam = impExam.trim();
     if (!exam) return alert('请填写这次考试的名称');
+    const total = parseInt(impRankTotal, 10) || 0;
     const items = [];
     let missed = 0;
     for (const p of parsed) {
       const stu = byName.get(String(p.name).trim());
       if (!stu) { missed++; continue; }
-      items.push({ student_id: stu.id, exam_name: exam, score: p.score });
+      items.push({
+        student_id: stu.id,
+        exam_name: exam,
+        score: p.score,
+        rank: p.rank > 0 ? p.rank : 0,
+        rank_total: p.rank > 0 ? (p.total || total) : 0,
+        rank_scope: p.rank > 0 ? impRankScope : '',
+      });
     }
     if (!items.length) return alert('识别的姓名都未匹配到班级学生，请检查名单');
     setImpBusy(true);
@@ -575,6 +650,72 @@ export default function ScoreAnalysis({ embedded = false, initialCourseId = '' }
                   className={inputCls}
                 />
               </Field>
+
+              {/* 手工录入排名：跨考试难度不同，排名比分数更能反映真实水平 */}
+              <details className="rounded-xl border border-black/[0.06] bg-black/[0.015] p-3">
+                <summary className="cursor-pointer text-[13px] font-semibold text-ink">
+                  录入排名（可选）
+                  <span className="ml-1.5 font-normal text-[11px] text-ink-secondary">不填则按成绩自动排名；成绩表里已导入的排名也会自动使用</span>
+                </summary>
+                <div className="mt-3 space-y-3">
+                  <div className="flex flex-wrap items-end gap-3">
+                    <label className="text-[13px]">
+                      <div className="mb-1 text-ink-secondary">排名口径</div>
+                      <select value={rankScope} onChange={e => setRankScope(e.target.value)} className={inputCls}>
+                        <option value="class">班级排名</option>
+                        <option value="grade">年级排名</option>
+                      </select>
+                    </label>
+                    <label className="text-[13px]">
+                      <div className="mb-1 text-ink-secondary">{rankScope === 'grade' ? '年级' : '班级'}总人数（选填）</div>
+                      <input
+                        type="number"
+                        min="1"
+                        value={rankTotal}
+                        onChange={e => setRankTotal(e.target.value)}
+                        placeholder={students.length ? String(students.length) : '例如 50'}
+                        className={`${inputCls} w-32`}
+                      />
+                    </label>
+                  </div>
+                  {normalizedPicked.length ? (
+                    <div className="max-h-72 overflow-auto rounded-xl border border-black/[0.06] bg-white/70">
+                      <table className="w-full text-left text-[13px]">
+                        <thead className="sticky top-0 bg-black/[0.03] text-[11px] text-ink-secondary">
+                          <tr>
+                            <th className="px-3 py-2 font-medium">学生</th>
+                            {normalizedPicked.map(e => <th key={e} className="px-3 py-2 font-medium">{e} 名次</th>)}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(scope === 'student' ? students.filter(s => pickedStudents.includes(s.id)) : students).map(s => (
+                            <tr key={s.id} className="border-t border-black/[0.05]">
+                              <td className="px-3 py-1.5 text-ink">{s.name}</td>
+                              {normalizedPicked.map(e => {
+                                const k = `${e}::${s.id}`;
+                                return (
+                                  <td key={e} className="px-3 py-1">
+                                    <input
+                                      type="number"
+                                      min="1"
+                                      value={rankDraft[k] || ''}
+                                      onChange={ev => setRankDraft(prev => ({ ...prev, [k]: ev.target.value }))}
+                                      placeholder="自动"
+                                      className="w-20 rounded-lg border border-black/10 bg-white px-2 py-1 text-[12px] outline-none focus:border-[#0071e3]"
+                                    />
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="text-xs text-ink-secondary">请先选择考试，再录入对应名次</div>
+                  )}
+                </div>
+              </details>
 
               {scope === 'student' && (
                 <div>
@@ -804,6 +945,25 @@ export default function ScoreAnalysis({ embedded = false, initialCourseId = '' }
           )}
         </div>
 
+        <div className="mb-3 grid gap-3 sm:grid-cols-2">
+          <Field label="排名口径（可选）">
+            <select value={impRankScope} onChange={e => setImpRankScope(e.target.value)} className={inputCls}>
+              <option value="class">班级排名</option>
+              <option value="grade">年级排名</option>
+            </select>
+          </Field>
+          <Field label="排名总人数（选填，留空按班级人数）">
+            <input
+              type="number"
+              min="1"
+              value={impRankTotal}
+              onChange={e => setImpRankTotal(e.target.value)}
+              placeholder={students.length ? String(students.length) : '例如 50'}
+              className={inputCls}
+            />
+          </Field>
+        </div>
+
         {impTab === 'file' ? (
           <>
             <div className="mb-2 flex items-center justify-between">
@@ -826,7 +986,7 @@ export default function ScoreAnalysis({ embedded = false, initialCourseId = '' }
             >
               <Upload size={22} className="text-[#0071e3]" />
               <span className="text-sm font-medium text-ink">{dragOver ? '松开即可导入' : '选择或拖入 Excel / CSV 文件'}</span>
-              <span className="text-xs text-ink-secondary">首行表头；「姓名」列右侧的每一列都是一次考试</span>
+              <span className="text-xs text-ink-secondary">首行表头；「姓名」列右侧每一列是一次考试，表头带「排名」的列会作为名次一并导入</span>
               <input
                 ref={fileRef}
                 type="file"
@@ -859,7 +1019,7 @@ export default function ScoreAnalysis({ embedded = false, initialCourseId = '' }
                     </tbody>
                   </table>
                 </div>
-                <div className="text-xs text-ink-secondary">姓名列右侧的每一列将按「表头」作为考试名导入。</div>
+                <div className="text-xs text-ink-secondary">姓名列右侧的每一列按「表头」作为考试名导入；表头含「排名/名次/rank」的列作为该次考试的名次。</div>
                 <Button onClick={importSheet} disabled={impBusy} className="w-full">
                   {impBusy ? <Loader2 size={15} className="animate-spin" /> : <Upload size={15} />}导入成绩
                 </Button>
@@ -873,7 +1033,7 @@ export default function ScoreAnalysis({ embedded = false, initialCourseId = '' }
                 value={impText}
                 onChange={e => setImpText(e.target.value)}
                 rows={6}
-                placeholder={'例如：\n张三 88\n李四 92.5\n王五 76'}
+                placeholder={'例如：\n张三 88 第12名\n李四 92.5 第5名/50人\n王五 76'}
                 className={inputCls}
               />
             </Field>
@@ -893,7 +1053,10 @@ export default function ScoreAnalysis({ embedded = false, initialCourseId = '' }
                     return (
                       <div key={i} className="flex items-center justify-between border-b border-black/[0.04] px-3 py-1.5 text-xs last:border-0">
                         <span className={ok ? 'text-ink' : 'text-[#b3251c]'}>{p.name}{!ok && '（名单中未找到）'}</span>
-                        <span className="font-semibold text-ink">{p.score}</span>
+                        <span className="font-semibold text-ink">
+                          {p.score}
+                          {p.rank > 0 && <span className="ml-2 font-normal text-xs text-ink-secondary">第 {p.rank} 名{p.total > 0 ? ` / ${p.total}` : ''}</span>}
+                        </span>
                       </div>
                     );
                   })}
@@ -931,6 +1094,7 @@ function Stat({ label, value, tone = 'gray' }) {
 function ReportCard({ item, classAvg = [], ranks = [] }) {
   const r = item.result;
   const g = r.predicted_gain || {};
+  const rkText = (x) => `${x.scope === 'grade' ? '年级' : '班级'}第 ${x.rank} 名${x.total ? ` / ${x.total} 人` : ''}`;
   const rows = (item.scores || []).map(s => {
     const avgRow = classAvg.find(x => x.exam === s.exam);
     const rankRow = ranks.find(x => x.exam === s.exam);
@@ -940,6 +1104,7 @@ function ReportCard({ item, classAvg = [], ranks = [] }) {
       avg: avgRow ? avgRow.average : null,
       rank: rankRow?.rank || 0,
       total: rankRow?.total || 0,
+      scope: rankRow?.scope === 'grade' ? 'grade' : 'class',
     };
   });
   const ranked = rows.filter(x => x.rank > 0);
@@ -952,7 +1117,7 @@ function ReportCard({ item, classAvg = [], ranks = [] }) {
           <div className="flex items-center gap-2">
             <h3 className="display text-xl font-semibold text-ink">{item.student_name}</h3>
             <Badge tone={TREND_TONE[r.trend] || 'gray'}>{r.trend}</Badge>
-            {lastRank && <Badge tone="blue">班级第 {lastRank.rank} 名 / {lastRank.total} 人</Badge>}
+            {lastRank && <Badge tone="blue">{rkText(lastRank)}</Badge>}
           </div>
           <div className="mt-1 text-xs text-ink-secondary">
             最近成绩：{item.scores.map(x => `${x.exam} ${x.score}`).join(' · ')}
@@ -976,7 +1141,7 @@ function ReportCard({ item, classAvg = [], ranks = [] }) {
                   <th className="px-3 py-2 font-medium">成绩</th>
                   <th className="px-3 py-2 font-medium">班级均分</th>
                   <th className="px-3 py-2 font-medium">与均分差</th>
-                  <th className="px-3 py-2 font-medium">班级排名</th>
+                  <th className="px-3 py-2 font-medium">排名</th>
                 </tr>
               </thead>
               <tbody>
@@ -990,7 +1155,7 @@ function ReportCard({ item, classAvg = [], ranks = [] }) {
                       <td className={`num px-3 py-1.5 ${d == null ? 'text-ink-secondary' : d >= 0 ? 'text-[#1a7f2b]' : 'text-[#b3251c]'}`}>
                         {d == null ? '—' : `${d >= 0 ? '+' : ''}${d}`}
                       </td>
-                      <td className="px-3 py-1.5 text-ink">{x.rank ? `第 ${x.rank} 名` : '—'}</td>
+                      <td className="px-3 py-1.5 text-ink">{x.rank ? rkText(x) : '—'}</td>
                     </tr>
                   );
                 })}
@@ -1144,6 +1309,7 @@ function PrintReport({ job, report, summary }) {
           avg: classAvg.find(x => x.exam === s.exam)?.average ?? null,
           rank: ranks.find(x => x.exam === s.exam)?.rank || 0,
           total: ranks.find(x => x.exam === s.exam)?.total || 0,
+          scope: ranks.find(x => x.exam === s.exam)?.scope === 'grade' ? 'grade' : 'class',
         }));
         const ranked = rows.filter(x => x.rank > 0);
         const rankDelta = ranked.length >= 2 ? ranked[0].rank - ranked[ranked.length - 1].rank : null;
@@ -1176,7 +1342,7 @@ function PrintReport({ job, report, summary }) {
                 <table className="sa-table">
                   <thead>
                     <tr>
-                      <th>考试</th><th>成绩</th><th>班级均分</th><th>与均分差</th><th>班级排名</th>
+                      <th>考试</th><th>成绩</th><th>班级均分</th><th>与均分差</th><th>排名</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1188,7 +1354,7 @@ function PrintReport({ job, report, summary }) {
                           <td><b>{x.score}</b></td>
                           <td>{x.avg == null ? '—' : x.avg}</td>
                           <td>{d == null ? '—' : `${d >= 0 ? '+' : ''}${d}`}</td>
-                          <td>{x.rank ? `第 ${x.rank} 名${x.total ? ` / ${x.total} 人` : ''}` : '—'}</td>
+                          <td>{x.rank ? `${x.scope === 'grade' ? '年级' : '班级'}第 ${x.rank} 名${x.total ? ` / ${x.total} 人` : ''}` : '—'}</td>
                         </tr>
                       );
                     })}

@@ -166,6 +166,9 @@ CREATE TABLE IF NOT EXISTS grades (
   exam_name TEXT NOT NULL,
   score REAL NOT NULL,
   full_score REAL DEFAULT 100,
+  rank INTEGER DEFAULT 0,               -- 手工录入的名次（0=未录入，按成绩自动排名）
+  rank_total INTEGER DEFAULT 0,         -- 参与排名的总人数
+  rank_scope TEXT DEFAULT '',           -- class=班级排名 / grade=年级排名
   exam_date TEXT DEFAULT (to_char(now() AT TIME ZONE 'Asia/Shanghai','YYYY-MM-DD'))
 );
 
@@ -675,6 +678,9 @@ ALTER TABLE notifications ADD COLUMN IF NOT EXISTS sent_at TEXT;                
 ALTER TABLE timetables ADD COLUMN IF NOT EXISTS is_mine INTEGER NOT NULL DEFAULT 0;  -- 1=我的课（教师课表 / 上课提醒）
 ALTER TABLE timetable_settings ADD COLUMN IF NOT EXISTS slots TEXT DEFAULT '';       -- 逐节作息时间 JSON：[{period,start,end}]（各校作息不同，由老师自填）
 ALTER TABLE students ADD COLUMN IF NOT EXISTS cp_group TEXT DEFAULT '';             -- 语文备考分组：拓展组/普通组/基础组（空=未分组）
+ALTER TABLE grades ADD COLUMN IF NOT EXISTS rank INTEGER DEFAULT 0;                 -- 手工录入名次（0=按成绩自动排名）
+ALTER TABLE grades ADD COLUMN IF NOT EXISTS rank_total INTEGER DEFAULT 0;           -- 参与排名总人数
+ALTER TABLE grades ADD COLUMN IF NOT EXISTS rank_scope TEXT DEFAULT '';             -- class=班级排名 / grade=年级排名
 CREATE UNIQUE INDEX IF NOT EXISTS idx_teachers_phone ON teachers(phone);
 `);
 
