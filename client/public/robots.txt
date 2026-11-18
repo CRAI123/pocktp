@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+
+Disallow: /api/
+Disallow: /admin
+Disallow: /activate
+Disallow: /renew
+
+Sitemap: https://teach.rayzo.cn/sitemap.xml
