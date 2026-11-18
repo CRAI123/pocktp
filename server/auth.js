@@ -248,6 +248,32 @@ authRouter.get('/me', authRequired, ah(async (req, res) => {
   res.json(publicTeacher(t));
 }));
 
+/** 更新个人资料：手机号作为登录标识不可改，仅允许修改昵称 */
+authRouter.put('/profile', authRequired, ah(async (req, res) => {
+  const name = String(req.body?.name || '').trim();
+  if (!name) return res.status(400).json({ error: '姓名不能为空' });
+  if (name.length > 20) return res.status(400).json({ error: '姓名不能超过 20 个字' });
+  await db.run('UPDATE teachers SET name = ? WHERE id = ?', [name, req.teacherId]);
+  const t = await db.get('SELECT * FROM teachers WHERE id = ?', [req.teacherId]);
+  res.json(publicTeacher(t));
+}));
+
+/** 修改密码：校验原密码后重设 salt 与哈希 */
+authRouter.put('/password', authRequired, ah(async (req, res) => {
+  const { old_password, new_password } = req.body || {};
+  if (!old_password || !new_password) return res.status(400).json({ error: '请填写原密码与新密码' });
+  if (String(new_password).length < 6) return res.status(400).json({ error: '新密码至少 6 位' });
+  if (String(new_password) === String(old_password)) return res.status(400).json({ error: '新密码不能与原密码相同' });
+  const t = await db.get('SELECT password_hash, salt FROM teachers WHERE id = ?', [req.teacherId]);
+  if (!t) return res.status(404).json({ error: '账号不存在' });
+  if (!verifyPassword(String(old_password), t.salt, t.password_hash)) {
+    return res.status(400).json({ error: '原密码不正确' });
+  }
+  const { salt, hash } = hashPassword(String(new_password));
+  await db.run('UPDATE teachers SET password_hash = ?, salt = ? WHERE id = ?', [hash, salt, req.teacherId]);
+  res.json({ ok: true });
+}));
+
 /** 返回给前端的教师公开信息 */
 function publicTeacher(t) {
   return {

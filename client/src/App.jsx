@@ -49,6 +49,7 @@ import Comments from './pages/Comments.jsx';
 import AiTools from './pages/AiTools.jsx';
 import Timetable from './pages/Timetable.jsx';
 import Journals from './pages/Journals.jsx';
+import Profile from './pages/Profile.jsx';
 import Classroom from './pages/Classroom.jsx';
 import NotFound from './pages/NotFound.jsx';
 import Download from './pages/Download.jsx';
@@ -184,6 +185,7 @@ export default function App() {
       <Route element={<RequireAuth />}>
         <Route element={<Layout />}>
           <Route path="dashboard" element={<Dashboard />} />
+          <Route path="profile" element={<Profile />} />
           <Route path="courses" element={<Courses />} />
           <Route path="materials" element={<Materials />} />
           <Route path="assignments" element={<Assignments />} />

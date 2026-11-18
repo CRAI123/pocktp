@@ -3,40 +3,58 @@ import { Dices, Timer, Zap, Volume2, Play, Pause, RotateCcw, Mic, MicOff, Plus, 
 import { api, todayStr } from '../api.js';
 import { isDesktopApp, openClassroomWindow } from '../desktop.js';
 import ClassroomGames from '../components/ClassroomGames.jsx';
+import RedPacketClass from '../components/RedPacketClass.jsx';
 
 /**
  * 课堂小助手（大屏深色风）：随机点名 / 倒计时 / 课堂加减分 / 分贝计
  * 加减分复用班务 POST /classes/:id/moral（category=课堂表现），并本地累计本节得分
  */
 export default function Classroom() {
-  const [classes, setClasses] = useState([]);
-  const [classId, setClassId] = useState('');
+  const [courses, setCourses] = useState([]);
+  const [courseId, setCourseId] = useState('');
   const [students, setStudents] = useState([]);
   const [groups, setGroups] = useState([]);
+  /* tools：点名/倒计时/加减分；redpacket：学生上台抢红包答题 */
+  const [view, setView] = useState('tools');
+
+  const course = courses.find(c => String(c.id) === courseId);
 
   useEffect(() => {
-    api.get('/classes').then(cs => {
-      setClasses(cs);
-      if (cs.length) setClassId(String(cs[0].id));
+    api.get('/courses').then(cs => {
+      setCourses(cs);
+      const first = cs.find(c => c.class_id) || cs[0];
+      if (first) setCourseId(String(first.id));
     }).catch(console.error);
   }, []);
 
+  /* 课程决定班级与科目：名单取自课程绑定班级，游戏题目取课程科目 */
   useEffect(() => {
-    if (!classId) return;
-    api.get(`/students?class_id=${classId}`).then(setStudents).catch(console.error);
-    api.get(`/classes/${classId}/duty-groups`).then(d => setGroups(d.groups || [])).catch(() => setGroups([]));
-  }, [classId]);
+    if (!course?.class_id) { setStudents([]); setGroups([]); return; }
+    api.get(`/students?class_id=${course.class_id}`).then(setStudents).catch(console.error);
+    api.get(`/classes/${course.class_id}/duty-groups`).then(d => setGroups(d.groups || [])).catch(() => setGroups([]));
+  }, [course]);
 
   return (
     <div className="flex h-[calc(100dvh-175px)] flex-col gap-3 overflow-hidden rounded-3xl bg-[#1d1d1f] p-4 text-white shadow-2xl">
-      {/* 头部：标题 + 班级切换 */}
+      {/* 头部：标题 + 模式切换 + 班级切换 */}
       <div className="flex flex-wrap items-center gap-2">
         <h2 className="text-lg font-bold tracking-tight">课堂小助手</h2>
-        <span className="text-[11px] text-white/40">投屏可用 · 数据实时保存</span>
+        <div className="flex rounded-full bg-white/10 p-0.5">
+          {[['tools', '互动工具'], ['redpacket', '🧧 红包课堂']].map(([k, label]) => (
+            <button key={k} onClick={() => setView(k)}
+              className={`rounded-full px-3 py-1 text-[11.5px] font-medium transition ${view === k ? 'bg-white text-[#1d1d1f] shadow' : 'text-white/60 hover:text-white'}`}>
+              {label}
+            </button>
+          ))}
+        </div>
+        <span className="hidden text-[11px] text-white/40 sm:block">
+          {view === 'redpacket' ? '按课程科目出题 · 学生轮流上台' : '投屏可用 · 数据实时保存'}
+        </span>
         <div className="ml-auto flex flex-wrap gap-1.5">
-          {classes.map(c => (
-            <button key={c.id} onClick={() => setClassId(String(c.id))}
-              className={`rounded-full px-3 py-1 text-xs font-medium transition ${classId === String(c.id) ? 'bg-[#0a84ff] text-white shadow-lg shadow-blue-500/30' : 'bg-white/10 text-white/60 hover:bg-white/15'}`}>
+          {view === 'tools' && courses.map(c => (
+            <button key={c.id} onClick={() => setCourseId(String(c.id))}
+              title={`${c.subject}${c.class_name ? ' · ' + c.class_name : ''}`}
+              className={`rounded-full px-3 py-1 text-xs font-medium transition ${courseId === String(c.id) ? 'bg-[#0a84ff] text-white shadow-lg shadow-blue-500/30' : 'bg-white/10 text-white/60 hover:bg-white/15'}`}>
               {c.name}
             </button>
           ))}
@@ -57,17 +75,30 @@ export default function Classroom() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <RollCall students={students} />
-        <Countdown />
-        <QuickScore classId={classId} students={students} groups={groups} />
-        <DecibelMeter />
-      </div>
+      {view === 'redpacket' ? (
+        <div className="min-h-0 flex-1">
+          <RedPacketClass
+            courses={courses}
+            courseId={courseId}
+            onCourseChange={setCourseId}
+            students={students}
+          />
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 gap-3">
+            <RollCall students={students} />
+            <Countdown />
+            <QuickScore classId={course?.class_id ? String(course.class_id) : ''} students={students} groups={groups} />
+            <DecibelMeter />
+          </div>
 
-      {/* 课堂游戏：6 款投影即玩的互动游戏，桌面端网页端通用 */}
-      <div className="min-h-0 flex-1">
-        <ClassroomGames students={students} />
-      </div>
+          {/* 课堂游戏：6 款投影即玩的互动游戏，桌面端网页端通用 */}
+          <div className="min-h-0 flex-1">
+            <ClassroomGames students={students} subject={course?.subject} />
+          </div>
+        </>
+      )}
     </div>
   );
 }
