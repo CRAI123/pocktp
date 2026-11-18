@@ -116,6 +116,55 @@ export default function ScoreAnalysis({ embedded = false, initialCourseId = '' }
     return d;
   };
 
+  /* ---------- 单个学生：最多 3 次（退避 1.2s / 3s），鉴权/算力/开关类错误不重试 ---------- */
+  const analyzeOne = async (stu, d, jobId, statusMap) => {
+    let r = null;
+    let lastErr = null;
+    for (let attempt = 0; attempt < 3 && !r && !stopRef.current; attempt++) {
+      try {
+        r = await api.post('/ai/score/analyze', {
+          student_name: stu.name,
+          scores: stu.scores,
+          class_avg: d.class_avg,
+          weak_points: d.weak_points,
+          dimension: d.dimension,
+          course_name: d.course_name,
+          subject: d.subject,
+          ranks: stu.ranks,
+        });
+      } catch (err) {
+        lastErr = err;
+        const msg = String(err?.message || '');
+        const fatal = err?.status === 401 || err?.status === 402 || err?.status === 403
+          || /登录已过期|算力不足|AI 功能已关闭|账号未激活/.test(msg);
+        if (fatal) { if (msg.includes('登录已过期')) stopRef.current = true; break; }
+        if (attempt < 2) await new Promise(res => setTimeout(res, attempt === 0 ? 1200 : 3000));
+      }
+    }
+
+    if (!r) {
+      const msg = lastErr?.message || '分析失败';
+      statusMap.set(stu.id, 'error');
+      await api.post(`/score-analysis/jobs/${jobId}/results`, {
+        student_id: stu.id, status: 'error', error: msg,
+      }).catch(() => {});
+      setResults(prev => [...prev.filter(x => x.student_id !== stu.id), {
+        student_id: stu.id, student_name: stu.name, scores: stu.scores, result: null,
+        status: 'error', error: msg,
+      }]);
+      return false;
+    }
+
+    statusMap.set(stu.id, 'done');
+    await api.post(`/score-analysis/jobs/${jobId}/results`, {
+      student_id: stu.id, result: r.result, status: 'done',
+    });
+    setResults(prev => [...prev.filter(x => x.student_id !== stu.id), {
+      student_id: stu.id, student_name: stu.name, scores: stu.scores, result: r.result, status: 'done',
+    }]);
+    return true;
+  };
+
   /* ---------- 逐生运行（并发 2，写回服务端，可暂停/续跑） ---------- */
   const runJob = async (jobId) => {
     if (runRef.current) return;
@@ -128,69 +177,47 @@ export default function ScoreAnalysis({ embedded = false, initialCourseId = '' }
       const d = await loadJob(jobId);
       const doneSet = new Set((d.results || []).filter(r => r.status === 'done').map(r => r.student_id));
       const pending = (d.students || []).filter(s => !doneSet.has(s.id));
+      const statusMap = new Map((d.results || []).map(r => [r.student_id, r.status]));
+      const total = Number(d.total || pending.length);
+
+      /* 进度始终按「每个学生的当前状态」重算，失败后补跑成功会自动回退失败计数 */
+      const refreshProgress = () => {
+        let done = 0, failed = 0;
+        for (const v of statusMap.values()) (v === 'done' ? done++ : failed++);
+        setProgress({ done, failed, total });
+      };
+
+      let cursor = 0;
+      const runPass = async (list) => {
+        const failed = [];
+        cursor = 0;
+        const worker = async () => {
+          while (!stopRef.current) {
+            const i = cursor++;
+            if (i >= list.length) return;
+            const stu = list[i];
+            const ok = await analyzeOne(stu, d, jobId, statusMap);
+            if (!ok) failed.push(stu);
+            setSessionDone(n => n + 1);
+            refreshProgress();
+          }
+        };
+        await Promise.all([worker(), worker()]);
+        return failed;
+      };
+
       setSessionDone(0);
       setSessionTotal(pending.length);
       setStartedAt(Date.now());
-      let cursor = 0;
+      refreshProgress();
 
-      const worker = async () => {
-        while (!stopRef.current) {
-          const i = cursor++;
-          if (i >= pending.length) return;
-          const stu = pending[i];
-          let success = false;
-          try {
-            /* 单次失败多为 AI 超时/输出截断，自动再试一次（算力不足、账号异常不重试） */
-            let r = null;
-            let lastErr = null;
-            for (let attempt = 0; attempt < 2 && !r; attempt++) {
-              try {
-                r = await api.post('/ai/score/analyze', {
-                  student_name: stu.name,
-                  scores: stu.scores,
-                  class_avg: d.class_avg,
-                  weak_points: d.weak_points,
-                  dimension: d.dimension,
-                  course_name: d.course_name,
-                  subject: d.subject,
-                  ranks: stu.ranks,
-                });
-              } catch (err) {
-                lastErr = err;
-                const msg = String(err?.message || '');
-                if (msg.includes('登录已过期') || msg.includes('算力不足') || msg.includes('AI 功能已关闭')) break;
-                if (attempt === 0) await new Promise(res => setTimeout(res, 800));
-              }
-            }
-            if (!r) throw lastErr || new Error('分析失败');
-            await api.post(`/score-analysis/jobs/${jobId}/results`, {
-              student_id: stu.id, result: r.result, status: 'done',
-            });
-            success = true;
-            setResults(prev => [...prev.filter(x => x.student_id !== stu.id), {
-              student_id: stu.id, student_name: stu.name, scores: stu.scores, result: r.result, status: 'done',
-            }]);
-          } catch (e) {
-            if (String(e?.message || '').includes('登录已过期')) { stopRef.current = true; return; }
-            await api.post(`/score-analysis/jobs/${jobId}/results`, {
-              student_id: stu.id, status: 'error', error: e?.message || '分析失败',
-            }).catch(() => {});
-            setResults(prev => [...prev.filter(x => x.student_id !== stu.id), {
-              student_id: stu.id, student_name: stu.name, scores: stu.scores, result: null,
-              status: 'error', error: e?.message || '分析失败',
-            }]);
-          } finally {
-            setSessionDone(n => n + 1);
-            setProgress(p => ({
-              ...p,
-              done: p.done + (success ? 1 : 0),
-              failed: p.failed + (success ? 0 : 1),
-            }));
-          }
-        }
-      };
+      let failed = await runPass(pending);
+      /* 失败自动补跑一轮：只重试失败学生，已成功的不再调用 */
+      if (failed.length && !stopRef.current) {
+        setSessionTotal(t => t + failed.length);
+        failed = await runPass(failed);
+      }
 
-      await Promise.all([worker(), worker()]);
       const final = await loadJob(jobId).catch(() => null);
       if (final && final.done + final.failed >= final.total && final.failed === 0) setStep(3);
     } catch (e) {
@@ -824,7 +851,7 @@ export default function ScoreAnalysis({ embedded = false, initialCourseId = '' }
               </div>
               {progress.failed > 0 && (
                 <div className="mt-3 flex items-center gap-1.5 text-xs text-[#a85300]">
-                  <AlertCircle size={13} />有学生分析失败，可点「重试失败」补齐；已成功的学生不会重复调用。
+                  <AlertCircle size={13} />有学生分析失败（已自动重试 3 次并补跑一轮），可点「重试失败」继续补齐；已成功的学生不会重复调用。
                 </div>
               )}
             </div>

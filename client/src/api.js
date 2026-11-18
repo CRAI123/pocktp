@@ -74,18 +74,18 @@ async function request(path, options = {}) {
   if (res.status === 401 && !path.startsWith('/auth/')) {
     auth.clear();
     if (!location.pathname.startsWith('/login')) location.href = '/login';
-    throw new Error('登录已过期');
+    throw Object.assign(new Error('登录已过期'), { status: 401 });
   }
   if (res.status === 403) {
     const body = await res.json().catch(() => ({}));
     if (body.needActivation && !location.pathname.startsWith('/activate')) {
       location.href = '/activate'; // 未激活：跳转激活页
     }
-    throw new Error(body.error || '账号未激活');
+    throw Object.assign(new Error(body.error || '账号未激活'), { status: 403 });
   }
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error(body.error || `请求失败 (${res.status})`);
+    throw Object.assign(new Error(body.error || `请求失败 (${res.status})`), { status: res.status, body });
   }
   return res.json();
 }

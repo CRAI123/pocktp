@@ -116,7 +116,16 @@ async function chat(messages, opts = {}) {
 
   try {
     return await tryOnce(model);
-  } catch (e) {
+  } catch (e0) {
+    let e = e0;
+    /* 429 限流 / 5xx 抖动是成绩分析失败的主要来源：先短退避用原模型再试一次，再考虑换备模型 */
+    if (e.status === 429 || e.status >= 500) {
+      const wait = e.status === 429 ? 1200 : 600;
+      if (deadline - Date.now() > wait + 12_000) {
+        await new Promise(r => setTimeout(r, wait));
+        try { return await tryOnce(model); } catch (e2) { e = e2; }
+      }
+    }
     /* 4xx（除超时 408 / 限流 429）直接抛，不 fallback */
     if (e.status >= 400 && e.status < 500 && e.status !== 408 && e.status !== 429) throw e;
     /* 剩余预算不足 fallback 时直接抛原错误（二次尝试必定被平台强杀，不如返回可读错误） */
@@ -671,10 +680,17 @@ async function chatJson(messages, opts = {}) {
   for (let attempt = 0; attempt < 2; attempt++) {
     const remaining = deadline - Date.now();
     if (remaining < 8_000) break;
-    const result = await chat(messages, { ...opts, budgetMs: remaining });
-    const parsed = parseJsonLoose(result.choices?.[0]?.message?.content);
-    if (parsed) return { parsed, result };
-    console.warn('[chatJson] 第 %d 次 JSON 解析失败，%s', attempt + 1, attempt === 0 ? '重试中' : '放弃');
+    try {
+      const result = await chat(messages, { ...opts, budgetMs: remaining });
+      const parsed = parseJsonLoose(result.choices?.[0]?.message?.content);
+      if (parsed) return { parsed, result };
+      console.warn('[chatJson] 第 %d 次 JSON 解析失败，%s', attempt + 1, attempt === 0 ? '重试中' : '放弃');
+    } catch (e) {
+      /* 鉴权 / 算力 / 参数类错误（4xx，超时与限流除外）不可重试，直接抛出 */
+      if (e?.status && e.status !== 408 && e.status !== 429 && e.status < 500) throw e;
+      /* 超时 / 限流 / 5xx：不抛出，交给上层换「精简输出」再试一轮 */
+      console.warn('[chatJson] 第 %d 次调用失败：%s', attempt + 1, e?.message || e);
+    }
   }
   return null;
 }
@@ -1159,18 +1175,19 @@ router.post('/score/analyze', ah(async (req, res) => {
 
   const sys = `你是资深${dim === 'total' ? '全科' : (saStr(subject, 20) || '学科')}教研员，正在为一位学生做「短期提分诊断」。
 要求：
-- 只依据给出的考试成绩、班级均分、排名（班级/年级以数据标注为准）和老师填写的薄弱点判断，不编造事实；数据不足时明确说明依据有限
-- 分析成绩变化趋势（上升/波动/下滑/稳定），指出 2-4 个最关键的失分点；排名是跨考试难度的可比依据，分数与排名变化都要对比，两者矛盾时以排名为主
-- 预测未来 3-4 周内通过针对性训练可提升的分数区间（结合当前分数段与薄弱点，务实保守，不承诺结果）
-- 给出分阶段提升计划（2-4 个阶段，每阶段写明重点、可执行动作和阶段目标），动作要具体到每天/每周做什么
-- ${dim === 'total' ? '按学科给出提分优先级建议（哪科最值得先投入、怎么投入）' : '给出该学科的分模块提分建议'}
-- 给出 3-5 条学生可以独立完成的自我提升方法（可操作、可检查）
-- 最后写一句 30-60 字的鼓励语，具体、不空洞
+- 只依据给出的考试成绩、班级均分、排名（班级/年级以数据标注为准）和老师填写的薄弱点判断，不编造事实
+- 分析成绩变化趋势（上升/波动/下滑/稳定），指出 2-3 个最关键的失分点；排名是跨考试难度的可比依据，与分数变化矛盾时以排名为主
+- 预测未来 3-4 周可提升的分数区间（务实保守，不承诺结果）
+- 给出 3 个阶段的提升计划，每阶段：重点 + 3 条可执行动作 + 阶段目标，动作具体到每周做什么
+- ${dim === 'total' ? '按学科给出提分优先级建议' : '给出该学科的分模块提分建议'}（最多 3 条）
+- 给出 3 条学生能独立完成的自我提升方法
+- 最后写一句 30-50 字鼓励语，具体、不空洞
+- 全文控制在 650 字以内，每条动作/建议不超过 30 字
 - 语言面向学生本人，第二人称「你」；严格返回 JSON，不要 markdown 包装，字符串内引用一律用「」
 
 JSON Schema：
-{"trend":"上升|波动|下滑|稳定","summary":"整体诊断（120-200字）","weak_points":["失分点"],
-"predicted_gain":{"min":0,"max":0,"confidence":"高|中|低","basis":"预测依据（60-120字）"},
+{"trend":"上升|波动|下滑|稳定","summary":"整体诊断（100-140字）","weak_points":["失分点"],
+"predicted_gain":{"min":0,"max":0,"confidence":"高|中|低","basis":"预测依据（50-80字）"},
 "short_term_plan":[{"stage":"第1周","focus":"阶段重点","actions":["具体动作"],"target":"阶段目标"}],
 "subject_advice":[{"subject":"学科名","advice":"提分建议"}],
 "self_improve":["自我提升方法"],"encouragement":"鼓励语"}`;
@@ -1182,18 +1199,25 @@ JSON Schema：
 【排名】${rankText || '未提供'}
 【老师填写的薄弱点】${saStr(weak_points, 1000) || '未填写'}`;
 
-  /* 首次解析失败多为输出被截断，用「精简输出」提示再试一次；两次共享 Vercel 60s 上限 */
-  let out = await chatJson([
-    { role: 'system', content: sys },
-    { role: 'user', content: user },
-  ], { maxTokens: 3200, budgetMs: 32_000 });
-  if (!out?.parsed) {
+  /* 单次生成 + 40s 预算（Vercel 单函数上限 60s）：
+   * 上游为反代 Claude，本提示词实测 20-28s / 约 900-1200 tokens 完成；
+   * 不在这里做二次生成（两轮必超 60s），失败统一返回 503 retryable 由前端重试 */
+  let out = null;
+  try {
     out = await chatJson([
-      { role: 'system', content: `${sys}\n【重要】上一次输出不是合法 JSON。请更精简地重新输出：summary 不超过 120 字，short_term_plan 最多 3 个阶段且每阶段 actions 最多 3 条，subject_advice 最多 3 条，self_improve 最多 4 条；只输出 JSON，不要任何多余文字。` },
+      { role: 'system', content: sys },
       { role: 'user', content: user },
-    ], { maxTokens: 3200, budgetMs: 20_000 });
+    ], { maxTokens: 2200, budgetMs: 40_000 });
+  } catch (e) {
+    /* 上游错误（鉴权失败、限流、服务异常）统一转成可重试的 503，避免前端只看到「服务器内部错误」 */
+    return res.status(e?.status === 402 ? 402 : 503).json({
+      error: e?.message || 'AI 服务繁忙，请稍后再试',
+      retryable: true,
+    });
   }
-  if (!out?.parsed) return res.status(502).json({ error: 'AI 返回解析失败，请重试' });
+  if (!out?.parsed) {
+    return res.status(503).json({ error: 'AI 返回解析失败（已自动重试），请稍后再试', retryable: true });
+  }
 
   const p = out.parsed;
   const g = p.predicted_gain || {};
@@ -1226,7 +1250,7 @@ JSON Schema：
     encouragement: saStr(p.encouragement, 200),
   };
   if (!result.summary && !result.short_term_plan.length) {
-    return res.status(502).json({ error: 'AI 返回内容不完整，请重试' });
+    return res.status(503).json({ error: 'AI 返回内容不完整（已自动重试），请稍后再试', retryable: true });
   }
 
   /* 成绩分析为增值功能，暂不扣算力 */
