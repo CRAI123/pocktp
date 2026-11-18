@@ -24,7 +24,7 @@ const GAMES = [
 
 const PALETTE = ['#0a84ff', '#30d158', '#ff9f0a', '#bf5af2', '#ff375f', '#64d2ff', '#ffd60a', '#ff6b00'];
 
-export default function ClassroomGames({ students = [] }) {
+export default function ClassroomGames({ students = [], subject = '' }) {
   const [active, setActive] = useState('spinner');
 
   return (
@@ -45,7 +45,7 @@ export default function ClassroomGames({ students = [] }) {
       <div className="min-h-0 flex-1 overflow-y-auto pr-1">
         {active === 'spinner' && <SpinnerGame students={students} />}
         {active === 'memory' && <MemoryGame />}
-        {active === 'quiz' && <QuizGame />}
+        {active === 'quiz' && <QuizGame key={subject} initialSubject={subject} />}
         {active === 'card' && <CardGame />}
         {active === 'flash' && <FlashGame />}
         {active === 'math' && <MathGame />}
@@ -345,8 +345,8 @@ const QUIZ_BANK = [
   { subject: '常识', q: '奥运会几年举办一次？', opts: ['2 年', '3 年', '4 年', '5 年'], a: 2 },
 ];
 
-function QuizGame() {
-  const [subject, setSubject] = useState('综合');
+function QuizGame({ initialSubject = '' }) {
+  const [subject, setSubject] = useState(SUBJECTS.includes(initialSubject) ? initialSubject : '综合');
   const [idx, setIdx] = useState(0);
   const [scores, setScores] = useState([0, 0]);
   const [buzzed, setBuzzed] = useState(null); // null / 0 / 1

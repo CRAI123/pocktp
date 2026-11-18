@@ -1,7 +1,7 @@
 import { NavLink, Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, BookOpen, FolderOpen, ClipboardList, LineChart, Sparkles,
-  Users, CalendarCheck, MessageSquare, ListTodo, Menu, LogOut, ShieldCheck, Zap,
+  Users, CalendarCheck, MessageSquare, ListTodo, Menu, LogOut, ShieldCheck, Zap, User,
   MonitorPlay, PenLine, BookText, MonitorDown, Minus, Square, X, Settings, Wallet,
   Bot, CalendarDays, ChevronRight, BookMarked, PenTool, ListChecks, ScrollText,
   GraduationCap, ClipboardCheck, Target,
@@ -81,6 +81,8 @@ const NAV = [
   { to: '/comments', label: 'AI 期末评语', icon: PenLine },
   { to: '/ai-tools', label: 'AI 工具', icon: Bot },
   { to: '/journals', label: '班主任周记', icon: BookText },
+  { group: '账号' },
+  { to: '/profile', label: '个人中心', icon: User },
 ];
 
 const TITLES = {
@@ -110,6 +112,7 @@ const TITLES = {
   '/classroom': '课堂小助手', '/comments': 'AI 期末评语',
   '/ai-tools': 'AI 工具', '/journals': '班主任周记',
   '/timetable': '课程表',
+  '/profile': '个人中心',
   '/admin': '管理后台',
 };
 
@@ -272,11 +275,12 @@ export default function Layout() {
             </Link>
             <span className="hidden rounded-full bg-black/[0.035] px-3 py-1 text-[11px] text-ink-secondary ring-1 ring-inset ring-black/[0.05] xl:inline-block">2026 春季学期</span>
             <span className="hidden text-[13px] font-medium text-ink sm:block">{teacher?.name || '教师'}</span>
-            <div className="brand-gradient grid h-9 w-9 place-items-center rounded-full p-[2px] shadow-[0_4px_12px_-6px_rgba(0,113,227,0.6)]">
+            <Link to="/profile" onClick={() => setOpen(false)} title="个人中心"
+              className="brand-gradient grid h-9 w-9 place-items-center rounded-full p-[2px] shadow-[0_4px_12px_-6px_rgba(0,113,227,0.6)]">
               <span className="grid h-full w-full place-items-center rounded-full bg-white/95 text-[13px] font-semibold text-ink">
                 {(teacher?.name || '师')[0]}
               </span>
-            </div>
+            </Link>
             <button
               onClick={logout}
               title="退出登录"
