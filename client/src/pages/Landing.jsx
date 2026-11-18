@@ -11,6 +11,7 @@ const NAV = [
   { label: '教学', href: '#teach' },
   { label: '分析', href: '#analyze' },
   { label: '课堂', href: '#classroom' },
+  { label: '关于', href: '#about' },
   { label: '桌面版', to: '/download' },
 ];
 
@@ -217,8 +218,8 @@ export default function Landing() {
               </h1>
 
               <p className="mt-6 max-w-[30rem] text-[13.5px] leading-7 text-ink-secondary sm:text-[14.5px]">
-                备课、上课、批改、分析、沟通，原本分散在五个地方的事情，
-                现在有一条完整的工作线。技术退到后面，讲台留在前面。
+                教师工作台来自睿造打印工坊（Rayzo print studio）。我们长期为中小学提供信息科技教育资源，
+                也见过太多老师把时间耗在重复的表格与窗口切换上，于是把备课、上课、批改、分析、沟通串成了一条工作线。
               </p>
 
               <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -464,7 +465,8 @@ export default function Landing() {
                 把更多时间<br />留给课堂与学生
               </h2>
               <p className="mt-4 max-w-md text-[12.5px] leading-7 text-ink-secondary">
-                教师工作台不追求功能最多，只想把每天真正要做的事，做得更顺一点。
+                教师工作台由睿造打印工坊出品。我们是一支来自湖南长沙的学生创客团队，
+                长期为中小学做信息科技教育资源，也想把同样的耐心用在老师每天的事情上。
               </p>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row lg:flex-col lg:items-end">
@@ -483,10 +485,12 @@ export default function Landing() {
               <span className="font-semibold text-ink">教师工作台</span>
               <span>· 连接创意与未来教育</span>
             </div>
-            <div className="flex items-center gap-5">
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
               <Link to="/download" className="transition hover:text-ink">桌面版</Link>
               <Link to="/redeem" className="transition hover:text-ink">激活码兑换</Link>
-              <span>© 2026 Rayzo Teach</span>
+              <a href="mailto:studio@post.rayzo.cn" className="transition hover:text-ink">studio@post.rayzo.cn</a>
+              <span>湖南 · 长沙 · 学生创客团队</span>
+              <span>© 2026 睿造打印工坊</span>
             </div>
           </div>
         </div>
