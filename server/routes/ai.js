@@ -8,6 +8,7 @@
 const express = require('express');
 const { AsyncLocalStorage } = require('async_hooks');
 const db = require('../db');
+const { FREE_MODE } = require('../auth');
 const { ah } = require('../util');
 
 const router = express.Router();
@@ -126,8 +127,12 @@ async function chat(messages, opts = {}) {
   }
 }
 
-/* 算力扣减（事务） */
+/* 算力扣减（事务）；公益模式不扣费，仅返回当前余额供页面展示 */
 async function charge(teacherId, cost) {
+  if (FREE_MODE) {
+    const r = await db.get('SELECT credits FROM teachers WHERE id = ?', [teacherId]);
+    return { credits: Number(r?.credits || 0) };
+  }
   if (cost <= 0) return { credits: 0 };
   return await db.transaction(async (tx) => {
     const r = await tx.get('SELECT credits FROM teachers WHERE id = ?', [teacherId]);

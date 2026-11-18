@@ -401,7 +401,9 @@ export default function Practice({
                 <div className="text-[#ff3b30]">批改失败：{aiGrade[q.id].error}</div>
               )}
               {aiGrade[q.id].credits != null && (
-                <div className="mt-2 text-[10px] text-ink-secondary">本次扣 1 算力 · 余额 {aiGrade[q.id].credits}</div>
+                <div className="mt-2 text-[10px] text-ink-secondary">
+                  {auth.teacher?.free_mode ? '公益版 · 不扣算力' : `本次扣 1 算力 · 余额 ${aiGrade[q.id].credits}`}
+                </div>
               )}
             </div>
           )}

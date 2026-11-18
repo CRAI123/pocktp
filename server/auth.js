@@ -60,6 +60,9 @@ function localDate(d = new Date()) {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
+/** 公益模式：注册即永久激活、AI 不扣算力；设 FREE_MODE=0 可恢复激活码闸门 */
+const FREE_MODE = process.env.FREE_MODE !== '0';
+
 /** 账号是否处于有效会员期：管理员/永久（到期日为空）均有效 */
 function membershipActive(t) {
   if (!t || t.is_admin) return true;
@@ -71,6 +74,8 @@ function membershipActive(t) {
 const activationCache = new Map(); // tid -> { ts, activated, is_admin, expires }
 const ACTIVATION_TTL = 60_000;
 const activatedRequired = ah(async (req, res, next) => {
+  /* 公益模式：不校验激活 / 会员到期，所有人可直接使用 */
+  if (FREE_MODE) return next();
   const tid = req.teacherId;
   const cached = activationCache.get(tid);
   let t;
@@ -158,13 +163,19 @@ authRouter.post('/login', ah(async (req, res) => {
       return res.status(401).json({ error: '密码不正确' });
     }
   } else {
-    // 无账号 → 直接注册（默认未激活）
+    // 无账号 → 直接注册（公益模式：永久激活并赠送展示用算力）
     const displayName = (name || '').trim() || `老师${normalized.slice(-4)}`;
     if (String(password).length < 6) return res.status(400).json({ error: '密码至少 6 位' });
     const { salt, hash } = hashPassword(password);
     const { lastInsertRowid } = await db.run(
-      'INSERT INTO teachers (name, phone, email, password_hash, salt) VALUES (?,?,?,?,?)',
-      [displayName, normalized, `${normalized}@phone.local`, hash, salt]
+      `INSERT INTO teachers (name, phone, email, password_hash, salt, activated, credits, membership_expires_at)
+       VALUES (?,?,?,?,?,?,?,?)`,
+      [
+        displayName, normalized, `${normalized}@phone.local`, hash, salt,
+        FREE_MODE ? 1 : 0,
+        FREE_MODE ? 1000 : 0,
+        null,
+      ]
     );
     teacher = await db.get('SELECT * FROM teachers WHERE id = ?', [lastInsertRowid]);
     isNew = true;
@@ -186,6 +197,24 @@ authRouter.post('/refresh', authRequired, (req, res) => {
   const ttl = remember ? REMEMBER_TTL : TOKEN_TTL;
   res.json({ token: signToken(req.teacherId, ttl), expires_at: new Date(Date.now() + ttl).toISOString() });
 });
+
+/** 一键演示登录：免注册直接进入带种子数据的演示账号（比赛 / 路演体验用） */
+authRouter.post('/demo', ah(async (req, res) => {
+  const t = await db.get("SELECT * FROM teachers WHERE phone = '13800000000'")
+    || await db.get('SELECT * FROM teachers WHERE is_admin = 0 ORDER BY id LIMIT 1');
+  if (!t) return res.status(404).json({ error: '演示账号尚未初始化，请稍后再试' });
+  if (!t.activated) {
+    await db.run('UPDATE teachers SET activated = 1 WHERE id = ?', [t.id]);
+    t.activated = 1;
+  }
+  const ttl = REMEMBER_TTL;
+  res.json({
+    token: signToken(t.id, ttl),
+    teacher: publicTeacher(t),
+    demo: true,
+    expires_at: new Date(Date.now() + ttl).toISOString(),
+  });
+}));
 
 /* ---------- 桌面端浏览器快捷登录（设备码授权） ----------
  * 桌面版发起 → 跳浏览器登录/授权 → 桌面版轮询取回令牌，全程无需在软件内输密码。
@@ -254,13 +283,15 @@ function publicTeacher(t) {
     id: t.id,
     name: t.name,
     phone: t.phone,
-    activated: !!t.activated,
+    /* 公益模式下所有人视为永久激活 */
+    activated: FREE_MODE ? true : !!t.activated,
     is_admin: !!t.is_admin,
     finance_enabled: !!t.finance_enabled,
     credits: t.credits ?? 0,
-    membership_expires_at: t.membership_expires_at || '',
+    membership_expires_at: FREE_MODE ? '' : (t.membership_expires_at || ''),
+    free_mode: FREE_MODE,
     created_at: t.created_at,
   };
 }
 
-module.exports = { authRouter, authRequired, activatedRequired, financeRequired, own, invalidateActivation, invalidateFeatures };
+module.exports = { authRouter, authRequired, activatedRequired, financeRequired, own, invalidateActivation, invalidateFeatures, FREE_MODE };
