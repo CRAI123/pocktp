@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import {
   Phone, Lock, User, LogIn, MonitorDown, ExternalLink, Loader2, Copy, Check, X,
-  MonitorSmartphone, ArrowLeft, Sparkles,
+  MonitorSmartphone, ArrowLeft,
 } from 'lucide-react';
 import { api, auth, isMembershipActive } from '../api.js';
 import { Button, Field, inputCls, BrandFooter } from '../components/ui.jsx';
@@ -27,8 +27,6 @@ export default function Login() {
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  /* 一键演示：直接进入带示例数据的演示账号，免注册 */
-  const [demoLoading, setDemoLoading] = useState(false);
   /* 桌面版以快捷登录为主，密码登录折叠在下方 */
   const [showPwd, setShowPwd] = useState(() => !isDesktopApp());
 
@@ -49,21 +47,6 @@ export default function Login() {
       setError(err.message);
     } finally {
       setLoading(false);
-    }
-  };
-
-  /* 一键体验：免注册直接登录演示账号（带示例数据） */
-  const demoLogin = async () => {
-    setError('');
-    setDemoLoading(true);
-    try {
-      const res = await api.post('/auth/demo', {});
-      auth.save(res.token, res.teacher, true);
-      navigate('/', { replace: true });
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setDemoLoading(false);
     }
   };
 
@@ -181,15 +164,6 @@ export default function Login() {
               {isDesktopApp() && !showPwd ? '推荐用浏览器快捷登录，免输密码直接进入' : '手机号未注册将自动创建账号'}
             </p>
           </div>
-
-          {/* 一键体验：比赛 / 路演时评委免注册直接进入演示账号 */}
-          <button
-            type="button" onClick={demoLogin} disabled={demoLoading}
-            className="mb-4 flex w-full items-center justify-center gap-2 rounded-full border border-[#0071e3]/20 bg-[#0071e3]/[0.07] py-2.5 text-[13px] font-semibold text-[#0071e3] transition hover:bg-[#0071e3]/[0.12] active:scale-[0.99] disabled:opacity-60"
-          >
-            {demoLoading ? <Loader2 size={15} className="animate-spin" /> : <Sparkles size={15} />}
-            {demoLoading ? '正在进入演示…' : '一键体验演示账号（无需注册）'}
-          </button>
 
           {/* 桌面版主推：浏览器快捷登录（密码登录时切换为表单，避免页面过长） */}
           {isDesktopApp() && !showPwd && (
@@ -343,7 +317,7 @@ export default function Login() {
           <div className={`hairline my-5 ${desktop ? '[@media(max-height:700px)]:my-3' : ''}`} />
 
           <p className="text-center text-[11px] leading-relaxed text-ink-secondary">
-            公益版 · 注册即可免费使用 · 登录即代表同意隐私说明
+            新账号需使用激活码解锁完整功能 · 登录即代表同意隐私说明
           </p>
 
           {!desktop && (

@@ -253,27 +253,23 @@ export default function Layout() {
           <div className="ml-auto flex items-center gap-3">
             {teacher && !teacher.is_admin && (
               <span
-                title={teacher.free_mode ? '公益版 · 免费使用' : teacher.membership_expires_at ? `会员有效期至 ${teacher.membership_expires_at}` : '永久会员'}
+                title={teacher.membership_expires_at ? `会员有效期至 ${teacher.membership_expires_at}` : '永久会员'}
                 className={`hidden items-center gap-1 rounded-full px-3 py-1 text-[11px] font-medium ring-1 ring-inset sm:inline-flex ${
                   isMembershipActive(teacher)
                     ? 'bg-[#28cd41]/10 text-[#1a7f2b] ring-[#28cd41]/20'
                     : 'bg-[#ff3b30]/10 text-[#b3251c] ring-[#ff3b30]/20'
                 }`}
               >
-                {teacher.free_mode
-                  ? '公益版 · 免费使用'
-                  : teacher.membership_expires_at
-                    ? `${isMembershipActive(teacher) ? '有效期至' : '已于'} ${teacher.membership_expires_at}`
-                    : '永久会员'}
+                {teacher.membership_expires_at
+                  ? `${isMembershipActive(teacher) ? '有效期至' : '已于'} ${teacher.membership_expires_at}`
+                  : '永久会员'}
               </span>
             )}
-            {!teacher?.free_mode && (
-              <Link to="/renew" onClick={() => setOpen(false)}
-                title="算力余额：点击前往续费"
-                className="hidden items-center gap-1 rounded-full bg-[#ff9500]/10 px-3 py-1 text-[11px] font-medium text-[#a85300] ring-1 ring-inset ring-[#ff9500]/20 transition hover:bg-[#ff9500]/15 sm:inline-flex">
-                <Zap size={12} />{teacher?.credits ?? 0} 算力
-              </Link>
-            )}
+            <Link to="/renew" onClick={() => setOpen(false)}
+              title="算力余额：点击前往续费"
+              className="hidden items-center gap-1 rounded-full bg-[#ff9500]/10 px-3 py-1 text-[11px] font-medium text-[#a85300] ring-1 ring-inset ring-[#ff9500]/20 transition hover:bg-[#ff9500]/15 sm:inline-flex">
+              <Zap size={12} />{teacher?.credits ?? 0} 算力
+            </Link>
             <span className="hidden rounded-full bg-black/[0.035] px-3 py-1 text-[11px] text-ink-secondary ring-1 ring-inset ring-black/[0.05] xl:inline-block">2026 春季学期</span>
             <span className="hidden text-[13px] font-medium text-ink sm:block">{teacher?.name || '教师'}</span>
             <div className="brand-gradient grid h-9 w-9 place-items-center rounded-full p-[2px] shadow-[0_4px_12px_-6px_rgba(0,113,227,0.6)]">
