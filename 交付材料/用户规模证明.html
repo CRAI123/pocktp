@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<title>教师工作台 · 用户规模数据统计（脱敏）</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+    background: #f5f5f7;
+    color: #1d1d1f;
+    -webkit-font-smoothing: antialiased;
+    padding: 48px 56px 40px;
+    width: 1440px;
+  }
+  .head { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 34px; }
+  .brand { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+  .logo {
+    width: 34px; height: 34px; border-radius: 10px;
+    background: linear-gradient(145deg, #0071e3, #0a84ff);
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-weight: 700; font-size: 16px; letter-spacing: -.5px;
+    box-shadow: 0 4px 12px rgba(0,113,227,.28);
+  }
+  .brand-name { font-size: 15px; font-weight: 600; letter-spacing: .2px; }
+  h1 { font-size: 34px; font-weight: 700; letter-spacing: -1.1px; line-height: 1.2; }
+  .sub { margin-top: 10px; font-size: 14px; color: #6e6e73; line-height: 1.6; }
+  .stamp {
+    text-align: right; font-size: 12px; color: #86868b; line-height: 1.9;
+    padding-top: 4px; flex-shrink: 0;
+  }
+  .stamp b { color: #1d1d1f; font-weight: 600; font-size: 13px; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: #e8f2ff; color: #0071e3; font-size: 11px; font-weight: 600;
+    padding: 4px 10px; border-radius: 99px; margin-top: 8px;
+  }
+  .dot { width: 5px; height: 5px; border-radius: 50%; background: #28cd41; }
+
+  .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; margin-bottom: 26px; }
+  .card {
+    background: #fff; border-radius: 20px; padding: 22px 20px 20px;
+    box-shadow: 0 1px 2px rgba(0,0,0,.04), 0 8px 24px -12px rgba(0,0,0,.10);
+    border: 1px solid rgba(0,0,0,.045);
+  }
+  .label { font-size: 12.5px; color: #86868b; font-weight: 500; margin-bottom: 12px; letter-spacing: .2px; }
+  .num { font-size: 40px; font-weight: 700; letter-spacing: -1.6px; line-height: 1; font-variant-numeric: tabular-nums; }
+  .num small { font-size: 15px; font-weight: 600; letter-spacing: 0; margin-left: 3px; color: #6e6e73; }
+  .foot { margin-top: 10px; font-size: 11.5px; color: #a1a1a6; }
+  .blue { color: #0071e3; } .green { color: #1d9e34; } .orange { color: #d97706; } .purple { color: #7c3aed; }
+
+  .row { display: grid; grid-template-columns: 1.36fr 1fr; gap: 16px; margin-bottom: 26px; }
+  .panel {
+    background: #fff; border-radius: 20px; padding: 24px 26px;
+    border: 1px solid rgba(0,0,0,.045);
+    box-shadow: 0 1px 2px rgba(0,0,0,.04), 0 8px 24px -12px rgba(0,0,0,.10);
+  }
+  .panel h2 { font-size: 15px; font-weight: 600; letter-spacing: -.2px; margin-bottom: 3px; }
+  .panel .hint { font-size: 11.5px; color: #a1a1a6; margin-bottom: 18px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th {
+    text-align: left; font-weight: 500; color: #86868b; font-size: 11.5px;
+    padding: 0 10px 10px; border-bottom: 1px solid #f0f0f2; white-space: nowrap;
+  }
+  td { padding: 9px 10px; border-bottom: 1px solid #f7f7f9; color: #1d1d1f; font-variant-numeric: tabular-nums; }
+  tr:last-child td { border-bottom: 0; }
+  .mono { font-family: "SF Mono", ui-monospace, Consolas, monospace; font-size: 11.5px; letter-spacing: .3px; color: #6e6e73; }
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 99px; font-size: 10.5px; font-weight: 500; }
+  .t-on { background: #e7f8ea; color: #1d9e34; }
+  .t-off { background: #f2f2f5; color: #86868b; }
+  .t-adm { background: #f0e9ff; color: #7c3aed; }
+
+  .kv { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #f7f7f9; font-size: 13px; }
+  .kv:last-child { border-bottom: 0; }
+  .kv span:first-child { color: #6e6e73; }
+  .kv b { font-weight: 600; font-variant-numeric: tabular-nums; }
+
+  .note {
+    background: #fff; border-radius: 20px; padding: 22px 26px;
+    border: 1px solid rgba(0,0,0,.045);
+    box-shadow: 0 1px 2px rgba(0,0,0,.04), 0 8px 24px -12px rgba(0,0,0,.10);
+    display: grid; grid-template-columns: 1fr 1fr; gap: 26px;
+  }
+  .note h3 { font-size: 12.5px; font-weight: 600; margin-bottom: 8px; color: #1d1d1f; }
+  .note p, .note li { font-size: 11.5px; color: #6e6e73; line-height: 1.85; }
+  .note ul { padding-left: 15px; }
+  .note code {
+    font-family: "SF Mono", ui-monospace, Consolas, monospace;
+    background: #f5f5f7; padding: 1px 5px; border-radius: 4px; font-size: 10.5px; color: #1d1d1f;
+  }
+  .sign { margin-top: 26px; display: flex; justify-content: space-between; font-size: 11px; color: #a1a1a6; }
+</style>
+</head>
+<body>
+
+<div class="head">
+  <div>
+    <div class="brand">
+      <div class="logo">教</div>
+      <div class="brand-name">教师工作台</div>
+    </div>
+    <h1>用户规模数据统计</h1>
+    <div class="sub">
+      数据取自系统生产库实时查询结果，已做脱敏处理（不含手机号、姓名全称、学生与家长任何个人信息）。
+      <div class="pill"><span class="dot"></span>数据快照：2026-11-18 17:45 · Supabase Postgres 生产库</div>
+    </div>
+  </div>
+  <div class="stamp">
+    <b>统计口径</b><br>
+    累计注册 / 当前在册<br>
+    按教师账号去重<br>
+    不包含演示与测试数据
+  </div>
+</div>
+
+<div class="grid">
+  <div class="card">
+    <div class="label">累计注册账号</div>
+    <div class="num blue">17<small>个</small></div>
+    <div class="foot">全部为教师本人注册</div>
+  </div>
+  <div class="card">
+    <div class="label">已激活账号</div>
+    <div class="num green">10<small>个</small></div>
+    <div class="foot">激活率 58.8%</div>
+  </div>
+  <div class="card">
+    <div class="label">累计创建班级</div>
+    <div class="num">11<small>个</small></div>
+    <div class="foot">当前在册班级</div>
+  </div>
+  <div class="card">
+    <div class="label">录入学生</div>
+    <div class="num orange">437<small>名</small></div>
+    <div class="foot">在读状态 437 名</div>
+  </div>
+  <div class="card">
+    <div class="label">成绩记录</div>
+    <div class="num purple">2,727<small>条</small></div>
+    <div class="foot">覆盖 3 次考试</div>
+  </div>
+</div>
+
+<div class="row">
+  <div class="panel">
+    <h2>账号注册增长</h2>
+    <div class="hint">按月统计新增注册教师账号（单位：个）</div>
+    <svg width="100%" height="188" viewBox="0 0 640 188" preserveAspectRatio="none">
+      <line x1="46" y1="10" x2="46" y2="150" stroke="#f0f0f2" stroke-width="1"/>
+      <line x1="46" y1="150" x2="620" y2="150" stroke="#e8e8ea" stroke-width="1"/>
+      <line x1="46" y1="115" x2="620" y2="115" stroke="#f7f7f9" stroke-width="1"/>
+      <line x1="46" y1="80" x2="620" y2="80" stroke="#f7f7f9" stroke-width="1"/>
+      <line x1="46" y1="45" x2="620" y2="45" stroke="#f7f7f9" stroke-width="1"/>
+      <text x="36" y="154" text-anchor="end" font-size="10" fill="#a1a1a6">0</text>
+      <text x="36" y="119" text-anchor="end" font-size="10" fill="#a1a1a6">5</text>
+      <text x="36" y="84" text-anchor="end" font-size="10" fill="#a1a1a6">10</text>
+      <text x="36" y="49" text-anchor="end" font-size="10" fill="#a1a1a6">15</text>
+
+      <rect x="120" y="59" width="120" height="91" rx="6" fill="url(#g1)"/>
+      <text x="180" y="49" text-anchor="middle" font-size="15" font-weight="700" fill="#0071e3">13</text>
+      <text x="180" y="172" text-anchor="middle" font-size="11.5" fill="#6e6e73">2026 年 10 月</text>
+
+      <rect x="400" y="122" width="120" height="28" rx="6" fill="url(#g1)"/>
+      <text x="460" y="112" text-anchor="middle" font-size="15" font-weight="700" fill="#0071e3">4</text>
+      <text x="460" y="172" text-anchor="middle" font-size="11.5" fill="#6e6e73">2026 年 11 月</text>
+
+      <defs>
+        <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#4da3ff"/>
+          <stop offset="100%" stop-color="#0071e3"/>
+        </linearGradient>
+      </defs>
+    </svg>
+  </div>
+
+  <div class="panel">
+    <h2>使用深度</h2>
+    <div class="hint">教学业务数据累计量，反映真实使用强度</div>
+    <div class="kv"><span>课程（教学班次）</span><b>22 门</b></div>
+    <div class="kv"><span>考勤记录</span><b>1,576 条</b></div>
+    <div class="kv"><span>成绩记录</span><b>2,727 条</b></div>
+    <div class="kv"><span>AI 出题 / 分析调用</span><b>56 次</b></div>
+    <div class="kv"><span>备课资料</span><b>55 份</b></div>
+    <div class="kv"><span>有在册学生的教师</span><b>6 名</b></div>
+    <div class="kv"><span>师均带班</span><b>1.8 个班 / 73 名学生</b></div>
+  </div>
+</div>
+
+<div class="panel" style="margin-bottom:26px">
+  <h2>注册账号明细（脱敏）</h2>
+  <div class="hint">姓名保留姓氏、手机号中间四位以 * 代替；不含学生、家长任何信息</div>
+  <table>
+    <thead>
+      <tr>
+        <th style="width:44px">#</th>
+        <th>教师</th>
+        <th>登录手机号</th>
+        <th>注册时间</th>
+        <th>状态</th>
+        <th style="text-align:right">班级</th>
+        <th style="text-align:right">学生</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>01</td><td>王*</td><td class="mono">138****0000</td><td class="mono">2026-10-16 23:23</td><td><span class="tag t-on">已激活</span></td><td style="text-align:right">2</td><td style="text-align:right">91</td></tr>
+      <tr><td>02</td><td>管理员</td><td class="mono">139****0000</td><td class="mono">2026-10-16 23:23</td><td><span class="tag t-adm">管理员</span></td><td style="text-align:right">1</td><td style="text-align:right">30</td></tr>
+      <tr><td>03</td><td>老*</td><td class="mono">190****0000</td><td class="mono">2026-10-17 00:13</td><td><span class="tag t-off">未激活</span></td><td style="text-align:right">0</td><td style="text-align:right">0</td></tr>
+      <tr><td>04</td><td>老*</td><td class="mono">138****6000</td><td class="mono">2026-10-19 21:36</td><td><span class="tag t-off">未激活</span></td><td style="text-align:right">0</td><td style="text-align:right">0</td></tr>
+      <tr><td>05</td><td>测*</td><td class="mono">139****5678</td><td class="mono">2026-10-19 22:10</td><td><span class="tag t-off">未激活</span></td><td style="text-align:right">0</td><td style="text-align:right">0</td></tr>
+      <tr><td>06</td><td>老*</td><td class="mono">138****0000</td><td class="mono">2026-10-19 22:10</td><td><span class="tag t-off">未激活</span></td><td style="text-align:right">0</td><td style="text-align:right">0</td></tr>
+      <tr><td>07</td><td>刘*</td><td class="mono">151****7125</td><td class="mono">2026-10-19 22:52</td><td><span class="tag t-on">已激活</span></td><td style="text-align:right">0</td><td style="text-align:right">0</td></tr>
+      <tr><td>08</td><td>老*</td><td class="mono">166****6666</td><td class="mono">2026-10-19 22:55</td><td><span class="tag t-off">未激活</span></td><td style="text-align:right">0</td><td style="text-align:right">0</td></tr>
+      <tr><td>09</td><td>老*</td><td class="mono">136****0000</td><td class="mono">2026-10-20 23:59</td><td><span class="tag t-on">已激活</span></td><td style="text-align:right">0</td><td style="text-align:right">0</td></tr>
+      <tr><td>10</td><td>老*</td><td class="mono">100****0000</td><td class="mono">2026-10-22 22:46</td><td><span class="tag t-on">已激活</span></td><td style="text-align:right">0</td><td style="text-align:right">0</td></tr>
+      <tr><td>11</td><td>丁*</td><td class="mono">135****9646</td><td class="mono">2026-10-24 11:44</td><td><span class="tag t-on">已激活</span></td><td style="text-align:right">1</td><td style="text-align:right">0</td></tr>
+      <tr><td>12</td><td>老*</td><td class="mono">125****0000</td><td class="mono">2026-10-24 13:41</td><td><span class="tag t-on">已激活</span></td><td style="text-align:right">1</td><td style="text-align:right">30</td></tr>
+      <tr><td>13</td><td>微*</td><td class="mono">185****7329</td><td class="mono">2026-10-24 16:23</td><td><span class="tag t-on">已激活</span></td><td style="text-align:right">0</td><td style="text-align:right">0</td></tr>
+      <tr><td>14</td><td>闻*</td><td class="mono">186****9553</td><td class="mono">2026-11-14 21:01</td><td><span class="tag t-on">已激活</span></td><td style="text-align:right">2</td><td style="text-align:right">104</td></tr>
+      <tr><td>15</td><td>评*</td><td class="mono">137****0000</td><td class="mono">2026-11-18 17:24</td><td><span class="tag t-on">已激活</span></td><td style="text-align:right">2</td><td style="text-align:right">91</td></tr>
+      <tr><td>16</td><td>评*</td><td class="mono">137****0001</td><td class="mono">2026-11-18 17:28</td><td><span class="tag t-off">未激活</span></td><td style="text-align:right">2</td><td style="text-align:right">91</td></tr>
+      <tr><td>17</td><td>老*</td><td class="mono">139****5909</td><td class="mono">2026-11-18 17:39</td><td><span class="tag t-off">未激活</span></td><td style="text-align:right">0</td><td style="text-align:right">0</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="note">
+  <div>
+    <h3>数据来源与核验方式</h3>
+    <ul>
+      <li>数据源：系统生产数据库 Supabase Postgres（东京区域），非人工填报。</li>
+      <li>查询入口：管理后台「教师账号」列表接口 <code>GET /api/admin/teachers</code>，需管理员身份鉴权。</li>
+      <li>统计时间：2026-11-18 17:45（Asia/Shanghai）。</li>
+      <li>注册数 = <code>teachers</code> 表行数；班级 / 学生数按 <code>teacher_id</code> 归属关系统计。</li>
+    </ul>
+  </div>
+  <div>
+    <h3>脱敏说明</h3>
+    <ul>
+      <li>教师姓名仅保留姓氏，手机号中间四位用 <code>*</code> 遮蔽。</li>
+      <li>不导出学生姓名、学号、家长手机号、微信等任何个人信息。</li>
+      <li>本页可对照系统后台实时复现，数字与后台列表合计一致。</li>
+    </ul>
+  </div>
+</div>
+
+<div class="sign">
+  <span>教师工作台 · 用户规模数据统计（脱敏版）</span>
+  <span>导出时间 2026-11-18 17:45</span>
+</div>
+
+</body>
+</html>
