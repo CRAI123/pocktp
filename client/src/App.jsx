@@ -5,6 +5,7 @@ import Layout, { isDesktopApp, DesktopTitlebar } from './components/Layout.jsx';
 import { syncCloseToTray } from './desktop.js';
 import UpdateDialog from './components/UpdateDialog.jsx';
 import Login from './pages/Login.jsx';
+import Landing from './pages/Landing.jsx';
 import DesktopLogin from './pages/DesktopLogin.jsx';
 import Activate from './pages/Activate.jsx';
 import Renew from './pages/Renew.jsx';
@@ -74,6 +75,13 @@ function RequireAdmin() {
 function RequireFinance() {
   if (!canUseFinance()) return <Navigate to="/" replace />;
   return <Finance />;
+}
+
+/** 网站入口：未登录先展示品牌首页；已登录直接进入工作台，桌面端保留原登录流程 */
+function HomeEntry() {
+  if (auth.token) return <Navigate to="/dashboard" replace />;
+  if (isDesktopApp()) return <Navigate to="/login" replace />;
+  return <Landing />;
 }
 
 export default function App() {
@@ -166,6 +174,7 @@ export default function App() {
       {/* 桌面端首次启动：右上角询问自启 / 关闭到托盘，系统通知默认开启 */}
       {isDesktopApp() && <DesktopConsent />}
       <Routes>
+      <Route path="/" element={<HomeEntry />} />
       <Route path="/login" element={<Login />} />
       <Route path="/desktop-login" element={<DesktopLogin />} />
       <Route path="/download" element={<Download />} />
@@ -174,7 +183,7 @@ export default function App() {
       <Route path="/renew" element={auth.token ? <Renew /> : <Navigate to="/login" replace />} />
       <Route element={<RequireAuth />}>
         <Route element={<Layout />}>
-          <Route index element={<Dashboard />} />
+          <Route path="dashboard" element={<Dashboard />} />
           <Route path="courses" element={<Courses />} />
           <Route path="materials" element={<Materials />} />
           <Route path="assignments" element={<Assignments />} />
