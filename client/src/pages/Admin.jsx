@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
-  Ticket, TicketCheck, TicketX, Users, Plus, Copy, Ban, Check, ShieldCheck, Link2, Zap, Sparkles, CalendarPlus, Wallet, CheckSquare,
+  Ticket, TicketCheck, TicketX, Users, Plus, Copy, Ban, Check, ShieldCheck, Link2, Zap, Sparkles, CalendarPlus, Wallet, CheckSquare, Gift,
 } from 'lucide-react';
 import { api, todayStr } from '../api.js';
 import { BASE_URL } from '../config.js';
@@ -100,6 +100,45 @@ export default function Admin() {
       setExtendErr(e.message || '操作失败，请重试');
     } finally {
       setExtendBusy(false);
+    }
+  };
+
+  /* 定向发放：算力 / 激活码 */
+  const [grantFor, setGrantFor] = useState(null);
+  const [grantKind, setGrantKind] = useState('credits');
+  const [grantAmount, setGrantAmount] = useState(300);
+  const [grantDays, setGrantDays] = useState(30);
+  const [grantBusy, setGrantBusy] = useState(false);
+  const [grantErr, setGrantErr] = useState('');
+  const [grantResult, setGrantResult] = useState(null);
+
+  const openGrant = (t) => {
+    setGrantFor(t); setGrantKind('credits'); setGrantAmount(300);
+    setGrantDays(30); setGrantErr(''); setGrantResult(null);
+  };
+
+  const submitGrant = async () => {
+    if (!grantFor || grantBusy) return;
+    const amount = Number(grantAmount);
+    if (!Number.isFinite(amount) || amount === 0) { setGrantErr('请输入有效数量'); return; }
+    setGrantBusy(true);
+    setGrantErr('');
+    try {
+      if (grantKind === 'credits') {
+        const r = await api.post(`/admin/teachers/${grantFor.id}/credits`, { amount });
+        setTeachers(list => list.map(x => (x.id === grantFor.id ? { ...x, credits: r.credits } : x)));
+        setGrantResult({ kind: 'credits', credits: r.credits, amount });
+      } else {
+        const r = await api.post(`/admin/teachers/${grantFor.id}/code`, {
+          credits: amount, validDays: Number(grantDays),
+        });
+        setGrantResult({ kind: 'code', code: r.code, credits: r.credits, validDays: r.validDays });
+        loadCodes().catch(() => {});
+      }
+    } catch (e) {
+      setGrantErr(e.message || '发放失败，请重试');
+    } finally {
+      setGrantBusy(false);
     }
   };
 
@@ -518,13 +557,22 @@ export default function Admin() {
                     <td className="px-5 py-3 text-ink-secondary">{t.created_at}</td>
                     <td className="px-5 py-3 text-right">
                       {!t.is_admin && (
-                        <button
-                          onClick={() => openExtend(t)}
-                          title="延长会员时长"
-                          className="btn-pill inline-flex items-center gap-1 bg-[#0071e3]/10 px-3 py-1.5 text-xs font-medium text-[#0071e3] transition hover:bg-[#0071e3]/15"
-                        >
-                          <CalendarPlus size={13} />延期
-                        </button>
+                        <div className="flex justify-end gap-1.5">
+                          <button
+                            onClick={() => openGrant(t)}
+                            title="发放算力或激活码"
+                            className="btn-pill inline-flex items-center gap-1 bg-[#34c759]/12 px-3 py-1.5 text-xs font-medium text-[#248a3d] transition hover:bg-[#34c759]/20"
+                          >
+                            <Gift size={13} />发放
+                          </button>
+                          <button
+                            onClick={() => openExtend(t)}
+                            title="延长会员时长"
+                            className="btn-pill inline-flex items-center gap-1 bg-[#0071e3]/10 px-3 py-1.5 text-xs font-medium text-[#0071e3] transition hover:bg-[#0071e3]/15"
+                          >
+                            <CalendarPlus size={13} />延期
+                          </button>
+                        </div>
                       )}
                     </td>
                   </tr>
@@ -621,6 +669,107 @@ export default function Admin() {
             </Button>
           </div>
         </div>
+      </Modal>
+
+      {/* 定向发放：算力 / 激活码 */}
+      <Modal open={!!grantFor} onClose={() => setGrantFor(null)} title={`发放 · ${grantFor?.name || ''}`} width="max-w-md">
+        {grantResult ? (
+          <div className="space-y-4">
+            {grantResult.kind === 'credits' ? (
+              <div className="rounded-xl bg-[#34c759]/10 px-4 py-3.5 text-sm">
+                <span className="inline-flex items-center gap-1.5 font-medium text-[#248a3d]">
+                  <Check size={15} />已发放 {grantResult.amount > 0 ? '+' : ''}{grantResult.amount} 算力
+                </span>
+                <div className="mt-1 text-xs text-ink-secondary">当前余额：{grantResult.credits}</div>
+              </div>
+            ) : (
+              <>
+                <div className="rounded-xl bg-bg-light p-4">
+                  <div className="text-xs text-ink-secondary">激活码</div>
+                  <div className="mt-1 font-mono text-lg tracking-wider">{fmtCode(grantResult.code)}</div>
+                  <div className="mt-1 text-xs text-ink-secondary">
+                    {grantResult.validDays ? `${grantResult.validDays} 天会员` : '永久会员'} · {grantResult.credits} 算力
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="secondary" onClick={() => copyText(`${BASE_URL}/redeem/${grantResult.code}`)}>复制链接</Button>
+                  <Button variant="secondary" onClick={() => copyText(fmtCode(grantResult.code))}>复制激活码</Button>
+                  <Button variant="secondary" onClick={() => copyText(`兑换网址：${BASE_URL}/redeem/${grantResult.code} 激活码：${fmtCode(grantResult.code)}`)}>复制网址+码</Button>
+                </div>
+              </>
+            )}
+            <div className="flex justify-end"><Button onClick={() => setGrantFor(null)}>完成</Button></div>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="flex gap-1.5">
+              {[['credits', '发放算力'], ['code', '发放激活码']].map(([k, l]) => (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => { setGrantKind(k); setGrantErr(''); }}
+                  className={`btn-pill flex-1 px-3 py-2 text-sm font-medium transition ${
+                    grantKind === k ? 'brand-gradient text-white shadow-md shadow-blue-500/25' : 'bg-black/[0.04] text-ink-secondary hover:bg-black/[0.07]'
+                  }`}
+                >
+                  {l}
+                </button>
+              ))}
+            </div>
+
+            <Field label={grantKind === 'credits' ? '发放数量（负数表示扣减）' : '码内包含算力'}>
+              <input
+                type="number" className={inputCls}
+                value={grantAmount}
+                onChange={e => setGrantAmount(e.target.value)}
+              />
+            </Field>
+            <div className="flex flex-wrap gap-1.5">
+              {[100, 300, 500, 1000, 3000].map(v => (
+                <button
+                  key={v} type="button" onClick={() => setGrantAmount(v)}
+                  className={`btn-pill px-3 py-1.5 text-xs font-medium transition ${
+                    Number(grantAmount) === v ? 'bg-[#0071e3] text-white' : 'bg-black/[0.04] text-ink-secondary hover:bg-black/[0.07]'
+                  }`}
+                >
+                  {v}
+                </button>
+              ))}
+            </div>
+
+            {grantKind === 'code' && (
+              <Field label="会员时长">
+                <div className="flex flex-wrap gap-1.5">
+                  {[{ d: 7, l: '7 天' }, { d: 30, l: '30 天' }, { d: 365, l: '365 天' }, { d: 0, l: '永久' }].map(o => (
+                    <button
+                      key={o.d} type="button" onClick={() => setGrantDays(o.d)}
+                      className={`btn-pill px-3.5 py-2 text-sm font-medium transition ${
+                        Number(grantDays) === o.d ? 'bg-[#0071e3] text-white' : 'bg-black/[0.04] text-ink-secondary hover:bg-black/[0.07]'
+                      }`}
+                    >
+                      {o.l}
+                    </button>
+                  ))}
+                </div>
+              </Field>
+            )}
+
+            <p className="rounded-xl bg-bg-light px-3.5 py-2.5 text-xs leading-relaxed text-ink-secondary">
+              {grantKind === 'credits'
+                ? '算力直接加到该账号，即时生效，不需要老师操作。'
+                : '生成的激活码不会自动兑换，需要你把码发给老师，由老师自行兑换。'}
+            </p>
+
+            {grantErr && <div className="rounded-xl bg-[#ff3b30]/8 px-4 py-2.5 text-sm text-[#ff3b30]">{grantErr}</div>}
+
+            <div className="flex justify-end gap-3 pt-1">
+              <Button type="button" variant="secondary" onClick={() => setGrantFor(null)}>取消</Button>
+              <Button type="button" disabled={grantBusy} onClick={submitGrant}>
+                {grantBusy ? '处理中…' : grantKind === 'credits' ? `发放 ${grantAmount || 0} 算力` : '生成激活码'}
+              </Button>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   );

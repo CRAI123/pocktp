@@ -648,6 +648,7 @@ CREATE INDEX IF NOT EXISTS idx_sa_results_job ON score_analysis_results(job_id);
 ALTER TABLE classes ADD COLUMN IF NOT EXISTS teacher_id INTEGER REFERENCES teachers(id);
 ALTER TABLE courses ADD COLUMN IF NOT EXISTS teacher_id INTEGER REFERENCES teachers(id);
 ALTER TABLE todos ADD COLUMN IF NOT EXISTS teacher_id INTEGER REFERENCES teachers(id);
+ALTER TABLE todos ADD COLUMN IF NOT EXISTS board_safe INTEGER NOT NULL DEFAULT 0;   -- 1=允许在教室大屏展示（默认不展示，避免学生信息外泄）
 ALTER TABLE notifications ADD COLUMN IF NOT EXISTS teacher_id INTEGER REFERENCES teachers(id);
 ALTER TABLE teachers ADD COLUMN IF NOT EXISTS phone TEXT;
 ALTER TABLE teachers ADD COLUMN IF NOT EXISTS activated INTEGER DEFAULT 0;

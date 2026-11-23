@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import { Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { auth, api, isMembershipActive, canUseFinance } from './api.js';
 import Layout, { isDesktopApp, DesktopTitlebar } from './components/Layout.jsx';
@@ -48,6 +48,7 @@ import Todos from './pages/Todos.jsx';
 import Comments from './pages/Comments.jsx';
 import AiTools from './pages/AiTools.jsx';
 import Timetable from './pages/Timetable.jsx';
+import Board from './pages/Board.jsx';
 import Journals from './pages/Journals.jsx';
 import Profile from './pages/Profile.jsx';
 import Classroom from './pages/Classroom.jsx';
@@ -78,15 +79,22 @@ function RequireFinance() {
   return <Finance />;
 }
 
-/** 网站入口：未登录先展示品牌首页；已登录直接进入工作台，桌面端保留原登录流程 */
+/** 网站入口：未登录先展示品牌首页；已登录直接进入工作台，桌面端保留原登录流程。
+ *  开启「开机后自动打开大屏」的机器，登录后直接进教室大屏。 */
 function HomeEntry() {
-  if (auth.token) return <Navigate to="/dashboard" replace />;
+  if (auth.token) {
+    if (localStorage.getItem('tw_board_kiosk') === '1') return <Navigate to="/board" replace />;
+    return <Navigate to="/dashboard" replace />;
+  }
   if (isDesktopApp()) return <Navigate to="/login" replace />;
   return <Landing />;
 }
 
 export default function App() {
   const [updateOpen, setUpdateOpen] = useState(false);
+  const { pathname } = useLocation();
+  /* 教室大屏：隐藏桌面端标题栏，避免学生点到关闭/最小化 */
+  const isBoard = pathname === '/board';
   /* 教师信息刷新计数：管理后台改权限后，重新拉取使导航与路由守卫即时生效 */
   const [, setMeTick] = useState(0);
 
@@ -166,12 +174,12 @@ export default function App() {
 
   return (
     <>
-      {/* 桌面端自绘标题栏（无边框窗口）；网页端不渲染 */}
-      <DesktopTitlebar />
+      {/* 桌面端自绘标题栏（无边框窗口）；网页端与教室大屏不渲染 */}
+      {!isBoard && <DesktopTitlebar />}
       {updateOpen && <UpdateDialog onClose={() => setUpdateOpen(false)} />}
-      <div className={isDesktopApp() ? 'pt-9' : ''}>
-      {/* Cookie / 隐私提示条：全站首访出现，同意状态仅存本地 */}
-      <PrivacyNotice />
+      <div className={isDesktopApp() && !isBoard ? 'pt-9' : ''}>
+      {/* Cookie / 隐私提示条：全站首访出现，同意状态仅存本地；教室大屏不显示 */}
+      {!isBoard && <PrivacyNotice />}
       {/* 桌面端首次启动：右上角询问自启 / 关闭到托盘，系统通知默认开启 */}
       {isDesktopApp() && <DesktopConsent />}
       <Routes>
@@ -183,6 +191,8 @@ export default function App() {
       <Route path="/activate" element={auth.token ? <Activate /> : <Navigate to="/login" replace />} />
       <Route path="/renew" element={auth.token ? <Renew /> : <Navigate to="/login" replace />} />
       <Route element={<RequireAuth />}>
+        {/* 教室大屏：独立全屏页面，不套侧边栏 */}
+        <Route path="board" element={<Board />} />
         <Route element={<Layout />}>
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="profile" element={<Profile />} />

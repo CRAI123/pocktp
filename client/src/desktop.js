@@ -51,6 +51,13 @@ export function syncCloseToTray(enabled) {
   invoke('set_close_to_tray', { enabled }).catch(() => {});
 }
 
+/* ---------------- 教室大屏 kiosk ---------------- */
+/** 投屏期间锁定窗口：全屏 + 置顶 + 隐藏任务栏，并拒绝关闭（含 Alt+F4） */
+export function setScreenKiosk(enabled) {
+  if (!isDesktopApp()) return;
+  invoke('set_kiosk', { enabled }).catch(() => {});
+}
+
 /* ---------------- 静默打印（直出默认打印机） ---------------- */
 const A4_W = 794;   // 96dpi 下 A4 宽
 const PAD = 56;     // 约 15mm 页边距

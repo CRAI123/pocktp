@@ -16,7 +16,31 @@ struct UpdateInfo {
 #[derive(Default)]
 struct DesktopState {
   close_to_tray: Mutex<bool>,
+  kiosk: Mutex<bool>,
   tray_hint_shown: AtomicBool,
+}
+
+/* 教室大屏 kiosk：全屏 + 置顶 + 隐藏任务栏按钮，并拦截关闭，
+ * 避免学生在教室电脑上把投屏关掉。老师可通过网页「退出投屏」或托盘菜单解除。 */
+#[tauri::command]
+fn set_kiosk(app: tauri::AppHandle, state: tauri::State<'_, DesktopState>, enabled: bool) -> Result<(), String> {
+  if let Ok(mut k) = state.kiosk.lock() {
+    *k = enabled;
+  }
+  if let Some(win) = app.get_webview_window("main") {
+    let _ = win.set_fullscreen(enabled);
+    let _ = win.set_always_on_top(enabled);
+    let _ = win.set_skip_taskbar(enabled);
+    if enabled {
+      let _ = win.set_focus();
+    }
+  }
+  Ok(())
+}
+
+#[tauri::command]
+fn kiosk_status(state: tauri::State<'_, DesktopState>) -> bool {
+  state.kiosk.lock().map(|v| *v).unwrap_or(false)
 }
 
 /* ---------- 应用内更新 ---------- */
@@ -307,6 +331,8 @@ pub fn run() {
       autostart_status,
       set_autostart,
       native_notify,
+      set_kiosk,
+      kiosk_status,
       open_classroom_window,
       print_images,
       open_url
@@ -384,6 +410,13 @@ pub fn run() {
         win.on_window_event(move |event| {
           if let tauri::WindowEvent::CloseRequested { api, .. } = event {
             let st = state_handle.state::<DesktopState>();
+            /* 教室大屏投屏期间拒绝关闭（含 Alt+F4），避免学生把大屏关掉 */
+            if st.kiosk.lock().map(|v| *v).unwrap_or(false) {
+              api.prevent_close();
+              let _ = win2.set_fullscreen(true);
+              let _ = win2.set_focus();
+              return;
+            }
             let to_tray = st.close_to_tray.lock().map(|v| *v).unwrap_or(false);
             if to_tray {
               api.prevent_close();

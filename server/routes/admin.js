@@ -151,4 +151,38 @@ router.post('/teachers/:id/extend', ah(async (req, res) => {
   res.json({ ok: true, days, membership_expires_at: newExpiry || '' });
 }));
 
+/* 直接给教师发放算力：{ amount }，正数加分，负数扣分（不允许扣成负数） */
+router.post('/teachers/:id/credits', ah(async (req, res) => {
+  const amount = Math.trunc(Number(req.body?.amount || 0));
+  if (!amount) return res.status(400).json({ error: '请输入要发放的算力数量' });
+  if (Math.abs(amount) > 10000000) return res.status(400).json({ error: '数量过大' });
+  const t = await db.get('SELECT id, credits FROM teachers WHERE id = ?', [req.params.id]);
+  if (!t) return res.status(404).json({ error: '用户不存在' });
+  if (amount < 0 && Number(t.credits || 0) + amount < 0) {
+    return res.status(400).json({ error: '扣减后算力不能为负' });
+  }
+  await db.run('UPDATE teachers SET credits = credits + ? WHERE id = ?', [amount, t.id]);
+  try { require('../auth').invalidateFeatures(t.id); } catch (_) {}
+  const after = await db.get('SELECT credits FROM teachers WHERE id = ?', [t.id]);
+  res.json({ ok: true, credits: Number(after?.credits || 0) });
+}));
+
+/* 给指定教师生成一张专属激活码：{ credits, validDays }
+ * 码本身不自动绑定，老师自行兑换；note 记录接收人便于后台追溯 */
+router.post('/teachers/:id/code', ah(async (req, res) => {
+  const t = await db.get('SELECT id, name, phone FROM teachers WHERE id = ?', [req.params.id]);
+  if (!t) return res.status(404).json({ error: '用户不存在' });
+  const parsedCredits = parseInt(req.body?.credits, 10);
+  const credits = Math.min(Math.max(Number.isFinite(parsedCredits) ? parsedCredits : 300, 0), 10000000);
+  const parsedDays = parseInt(req.body?.validDays, 10);
+  const validDays = Math.min(Math.max(Number.isFinite(parsedDays) ? parsedDays : 30, 0), 3650);
+  const code = genCode();
+  const note = `发放给 ${t.name || ''} ${t.phone || ''}`.replace(/\s+/g, ' ').trim().slice(0, 200);
+  await db.run(
+    'INSERT INTO activation_codes (code, batch, note, expires_at, credits, valid_days) VALUES (?,?,?,?,?,?)',
+    [code, '后台定向发放', note, '', credits, validDays],
+  );
+  res.status(201).json({ code, credits, validDays });
+}));
+
 module.exports = router;

@@ -177,11 +177,17 @@ router.get('/todos', ah(async (req, res) => {
 }));
 
 router.post('/todos', ah(async (req, res) => {
-  const { title, category, due_date, priority } = req.body;
+  const { title, category, due_date, priority, board_safe } = req.body;
   if (!title) return res.status(400).json({ error: 'title 必填' });
-  const info = await db.run('INSERT INTO todos (teacher_id, title, category, due_date, priority) VALUES (?,?,?,?,?)',
-    [req.teacherId, title, category || '班级事务', due_date || '', priority || '中']);
+  const info = await db.run('INSERT INTO todos (teacher_id, title, category, due_date, priority, board_safe) VALUES (?,?,?,?,?,?)',
+    [req.teacherId, title, category || '班级事务', due_date || '', priority || '中', board_safe ? 1 : 0]);
   res.status(201).json({ id: info.lastInsertRowid });
+}));
+
+/* 标记是否允许在教室大屏展示：默认关闭，只有老师明确开启的待办才会投屏 */
+router.patch('/todos/:id/board', ah(async (req, res) => {
+  await db.run('UPDATE todos SET board_safe = 1 - board_safe WHERE id = ? AND teacher_id = ?', [req.params.id, req.teacherId]);
+  res.json({ ok: true });
 }));
 
 router.patch('/todos/:id/toggle', ah(async (req, res) => {

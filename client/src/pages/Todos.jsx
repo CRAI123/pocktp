@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Plus, Trash2, CheckCircle2, Circle, CalendarDays, Wand2, Upload, RefreshCw } from 'lucide-react';
+import { Plus, Trash2, CheckCircle2, Circle, CalendarDays, Wand2, Upload, RefreshCw, Presentation } from 'lucide-react';
 import { api, ai, auth } from '../api.js';
 import { SectionHeader, Button, Modal, Field, inputCls, Badge, Empty, statusTone } from '../components/ui.jsx';
 
@@ -8,7 +8,7 @@ const CATEGORIES = ['班级事务', '活动组织', '家校沟通', '环境布�
 export default function Todos() {
   const [todos, setTodos] = useState([]);
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ title: '', category: '班级事务', due_date: '', priority: '中' });
+  const [form, setForm] = useState({ title: '', category: '班级事务', due_date: '', priority: '中', board_safe: false });
 
   const load = () => api.get('/todos').then(setTodos).catch(console.error);
   useEffect(() => { load(); }, []);
@@ -17,7 +17,7 @@ export default function Todos() {
     e.preventDefault();
     await api.post('/todos', form);
     setOpen(false);
-    setForm({ title: '', category: '班级事务', due_date: '', priority: '中' });
+    setForm({ title: '', category: '班级事务', due_date: '', priority: '中', board_safe: false });
     load();
   };
 
@@ -105,6 +105,13 @@ export default function Todos() {
                   </div>
                 </div>
                 <button
+                  onClick={async () => { await api.patch(`/todos/${t.id}/board`); load(); }}
+                  title={t.board_safe ? '已允许投屏，点击取消' : '允许在教室大屏显示'}
+                  className={`btn-pill p-2 transition ${t.board_safe ? 'text-[#1B8A57]' : 'text-ink-secondary/40 hover:text-[#1B8A57]'}`}
+                >
+                  <Presentation size={16} />
+                </button>
+                <button
                   onClick={async () => { if (confirm('确认删除该待办？')) { await api.del(`/todos/${t.id}`); load(); } }}
                   className="btn-pill p-2 text-ink-secondary/50 opacity-60 transition hover:bg-[#ff3b30]/10 hover:text-[#ff3b30] sm:opacity-0 sm:group-hover:opacity-100"
                 >
@@ -136,6 +143,13 @@ export default function Todos() {
           <Field label="截止日期">
             <input type="date" className={inputCls} value={form.due_date} onChange={e => setForm({ ...form, due_date: e.target.value })} />
           </Field>
+          <label className="flex items-start gap-2.5 rounded-xl bg-bg-light p-3 text-sm">
+            <input type="checkbox" checked={form.board_safe} onChange={e => setForm({ ...form, board_safe: e.target.checked })} className="mt-0.5" />
+            <span>
+              <span className="font-medium">允许在教室大屏显示</span>
+              <span className="mt-0.5 block text-xs text-ink-secondary">默认只在你的工作台可见；勾选后才会投到教室屏幕上</span>
+            </span>
+          </label>
           <div className="flex justify-end gap-3 pt-2">
             <Button type="button" variant="secondary" onClick={() => setOpen(false)}>取消</Button>
             <Button type="submit">创建</Button>

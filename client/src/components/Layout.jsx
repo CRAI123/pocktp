@@ -4,7 +4,7 @@ import {
   Users, CalendarCheck, MessageSquare, ListTodo, Menu, LogOut, ShieldCheck, Zap, User,
   MonitorPlay, PenLine, BookText, MonitorDown, Minus, Square, X, Settings, Wallet,
   Bot, CalendarDays, ChevronRight, BookMarked, PenTool, ListChecks, ScrollText,
-  GraduationCap, ClipboardCheck, Target,
+  GraduationCap, ClipboardCheck, Target, Presentation,
 } from 'lucide-react';
 import { useState } from 'react';
 import { auth, isMembershipActive, canUseFinance } from '../api.js';
@@ -77,6 +77,7 @@ const NAV = [
   { to: '/notifications', label: '消息通知', icon: MessageSquare },
   { to: '/todos', label: '班级待办', icon: ListTodo },
   { group: '班主任工具' },
+  { to: '/board', label: '教室大屏', icon: Presentation },
   { to: '/classroom', label: '课堂小助手', icon: MonitorPlay },
   { to: '/comments', label: 'AI 期末评语', icon: PenLine },
   { to: '/ai-tools', label: 'AI 工具', icon: Bot },
@@ -110,6 +111,7 @@ const TITLES = {
   '/classes': '班级管理', '/classes/new': '新建班级',
   '/notifications': '消息通知', '/todos': '班级事务待办',
   '/classroom': '课堂小助手', '/comments': 'AI 期末评语',
+  '/board': '教室大屏',
   '/ai-tools': 'AI 工具', '/journals': '班主任周记',
   '/timetable': '课程表',
   '/profile': '个人中心',
