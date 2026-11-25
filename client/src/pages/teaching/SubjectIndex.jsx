@@ -11,7 +11,7 @@ const SUBJECTS = [
   },
   {
     to: '/teaching/math', code: 'math', label: '数学', color: 'from-[#0071e3] to-[#00c6ff]', Icon: Sigma,
-    desc: '口算、应用题、几何专项（即将上线）',
+    desc: '口算速算、应用题精练、几何图形',
     items: ['口算速算', '应用题精练', '几何图形'],
   },
   {

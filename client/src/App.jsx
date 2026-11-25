@@ -23,6 +23,9 @@ import EnglishSentence from './pages/teaching/EnglishSentence.jsx';
 import EnglishWordbank from './pages/teaching/EnglishWordbank.jsx';
 import EnglishReading from './pages/teaching/EnglishReading.jsx';
 import EnglishDictation from './pages/teaching/EnglishDictation.jsx';
+import MathMental from './pages/teaching/MathMental.jsx';
+import MathWordProblem from './pages/teaching/MathWordProblem.jsx';
+import MathGeometry from './pages/teaching/MathGeometry.jsx';
 import ComprehensiveExam from './pages/teaching/ComprehensiveExam.jsx';
 import ClassroomPractice from './pages/teaching/ClassroomPractice.jsx';
 import Recite from './pages/prep/Recite.jsx';
@@ -204,6 +207,9 @@ export default function App() {
           <Route path="teaching" element={<SubjectIndex />} />
           <Route path="teaching/chinese" element={<ChineseIndex />} />
           <Route path="teaching/math" element={<MathIndex />} />
+          <Route path="teaching/math/mental" element={<MathMental />} />
+          <Route path="teaching/math/word-problem" element={<MathWordProblem />} />
+          <Route path="teaching/math/geometry" element={<MathGeometry />} />
           <Route path="teaching/english" element={<EnglishIndex />} />
           <Route path="teaching/chinese/dictation" element={<ChineseDictation />} />
           <Route path="teaching/chinese/pinyin" element={<ChinesePinyin />} />

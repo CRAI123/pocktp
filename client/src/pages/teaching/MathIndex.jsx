@@ -1,6 +1,13 @@
+/** 数学索引：口算速算 / 应用题精练 / 几何图形 三大专项 */
 import { Link } from 'react-router-dom';
-import { Sigma, ArrowRight, BookOpen, ClipboardList, LineChart, CalendarClock } from 'lucide-react';
+import { Calculator, Ruler, Shapes, ArrowRight, BookOpen, ClipboardList, LineChart, CalendarClock } from 'lucide-react';
 import { SectionHeader } from '../../components/ui.jsx';
+
+const ITEMS = [
+  { to: '/teaching/math/mental',       code: 'mental',       title: '口算速算专项', desc: '加减乘除、乘方等快速求值，按年级控制数值范围', Icon: Calculator, color: 'from-[#0071e3] to-[#00c6ff]' },
+  { to: '/teaching/math/word-problem', code: 'word-problem', title: '应用题精练',   desc: '生活情境的数量关系题，答案含解题步骤与结果', Icon: Ruler,      color: 'from-[#28cd41] to-[#34d058]' },
+  { to: '/teaching/math/geometry',     code: 'geometry',     title: '几何图形专项', desc: '角度、周长面积体积、图形性质与证明，需要时自动配示意图', Icon: Shapes,     color: 'from-[#af52de] to-[#d783ff]' },
+];
 
 const SHORTCUTS = [
   { to: '/courses', label: '开设课程', desc: '为数学课创建与维护', Icon: BookOpen },
@@ -14,27 +21,24 @@ export default function MathIndex() {
     <div className="space-y-6">
       <SectionHeader
         title="数学专项练习"
-        desc="口算、应用题、几何专项（即将上线）"
+        desc="口算速算、应用题精练、几何图形，逐项突破"
       />
-      <div className="card relative overflow-hidden p-8">
-        <div className="brand-gradient absolute inset-x-0 top-0 h-1" />
-        <div className="flex items-start gap-4">
-          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#0071e3] to-[#00c6ff] text-white shadow-md">
-            <Sigma size={26} />
-          </div>
-          <div>
-            <h2 className="text-xl font-semibold tracking-tight">数学专项练习正在筹备</h2>
-            <p className="mt-1.5 max-w-xl text-sm leading-relaxed text-ink-secondary">
-              我们正在开发口算速算、应用题精练、几何图形三大数学专项，预计下个版本上线。届时将自动出现在此页面。
-            </p>
-            <div className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-[#ff9500]/10 px-3 py-1 text-xs font-medium text-[#ff9500]">
-              Coming Soon
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+        {ITEMS.map(({ to, code, title, desc, Icon, color }) => (
+          <Link key={code} to={to} className="card card-hover group relative overflow-hidden p-6">
+            <div className={`mb-5 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br text-white shadow-md ${color}`}>
+              <Icon size={26} />
             </div>
-          </div>
-        </div>
+            <h3 className="text-lg font-semibold tracking-tight">{title}</h3>
+            <p className="mt-1.5 text-sm leading-relaxed text-ink-secondary">{desc}</p>
+            <div className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-[#0071e3] transition group-hover:gap-2">
+              开始练习 <ArrowRight size={15} />
+            </div>
+          </Link>
+        ))}
       </div>
 
-      <SectionHeader title="在此之前，可使用现有功能" />
+      <SectionHeader title="数学相关功能" />
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {SHORTCUTS.map(({ to, label, desc, Icon }) => (
           <Link key={to} to={to} className="card card-hover group p-5">

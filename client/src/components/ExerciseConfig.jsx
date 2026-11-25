@@ -65,6 +65,21 @@ const MANUAL_FIELDS = {
     { k: 'answer', label: '正确答案（A/B/C/D）', ph: '例：B', req: true },
     { k: 'explanation', label: '解析（选填）', ph: '例：主旨题，末段点题' },
   ],
+  mentalMath: [
+    { k: 'stem', label: '算式', ph: '例：12 × 7 =', req: true },
+    { k: 'answer', label: '答案', ph: '例：84', req: true },
+    { k: 'explanation', label: '解析（选填）', ph: '例：七八五十六……' },
+  ],
+  wordProblem: [
+    { k: 'stem', label: '题干', ph: '例：某班有 40 人，男生比女生多 6 人……', req: true, area: true },
+    { k: 'answer', label: '参考答案', ph: '含解题步骤与结果', req: true, area: true },
+    { k: 'explanation', label: '解析（选填）', ph: '例：设女生 x 人……' },
+  ],
+  geometry: [
+    { k: 'stem', label: '题干', ph: '例：如图，在△ABC 中，AB=AC……', req: true, area: true },
+    { k: 'answer', label: '参考答案', ph: '含解题步骤与结果', req: true, area: true },
+    { k: 'explanation', label: '解析（选填）', ph: '例：由等腰三角形三线合一……' },
+  ],
 };
 
 /** 组卷配置中心：AI 出题 / 历史出题 / 手动出题 三板块，支持追加或替换试卷，任意题可 AI 举一反三 */

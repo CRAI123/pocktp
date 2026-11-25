@@ -94,6 +94,15 @@ function PrintGrid({ subject, type, q }) {
       );
     }
   }
+  /* 数学：口算留 2 行，应用题 / 几何留 5-6 行书写过程 */
+  if (subject === 'math') {
+    const lines = type === 'mentalMath' ? 2 : type === 'wordProblem' ? 5 : 6;
+    return (
+      <div className="print-lines">
+        {Array.from({ length: lines }, (_, k) => <div key={k} className="print-line" />)}
+      </div>
+    );
+  }
   /* 兜底：3 行横线 */
   return (
     <div className="print-lines">
@@ -200,7 +209,7 @@ export default function Practice({
   };
   const start = () => { setStarted(true); setCurrent(0); };
 
-  const isChinese = mode === 'chinese';
+  const isZh = mode === 'chinese' || mode === 'math';
   const setAns = (v) => setAnswers(p => ({ ...p, [q.id]: v }));
   /* 题目列表为空（首题生成前/生成失败）时 q 为 null，需守卫避免渲染崩溃 */
   const correct = q ? isAnswerCorrect(q, answers[q.id]) : false;
@@ -233,7 +242,7 @@ export default function Practice({
             <button
               onClick={() => setCurrent(c => Math.max(0, c - 1))}
               disabled={isFirst}
-              title={isChinese ? '上一题' : '切换题目'}
+              title={isZh ? '上一题' : '切换题目'}
               className="h-9 w-9 rounded-full text-ink hover:bg-black/5 flex items-center justify-center transition active:scale-90 disabled:opacity-30"
             >
               <ChevronLeft size={18} />
@@ -244,7 +253,7 @@ export default function Practice({
             <button
               onClick={() => setCurrent(c => Math.min(working.length - 1, c + 1))}
               disabled={isLast}
-              title={isChinese ? '下一题' : '下一道'}
+              title={isZh ? '下一题' : '下一道'}
               className="h-9 w-9 rounded-full text-ink hover:bg-black/5 flex items-center justify-center transition active:scale-90 disabled:opacity-30"
             >
               <ChevronRight size={18} />
@@ -252,17 +261,17 @@ export default function Practice({
             <span className="mx-1 h-5 w-px bg-black/10" />
             <button
               onClick={() => setSubmitted(p => ({ ...p, [q.id]: true }))}
-              title={isChinese ? '提交答案' : '提交校验'}
+              title={isZh ? '提交答案' : '提交校验'}
               className="h-9 px-3 rounded-full text-[#0071e3] hover:bg-[#0071e3]/10 flex items-center gap-1.5 text-sm transition active:scale-90"
             >
-              <Send size={15} /><span className="hidden sm:inline">{isChinese ? '提交' : '校验'}</span>
+              <Send size={15} /><span className="hidden sm:inline">{isZh ? '提交' : '校验'}</span>
             </button>
             <button
               onClick={() => setRevealed(p => ({ ...p, [q.id]: !p[q.id] }))}
-              title={isChinese ? '查看解析' : '显示答案'}
+              title={isZh ? '查看解析' : '显示答案'}
               className="h-9 px-3 rounded-full text-[#28cd41] hover:bg-[#28cd41]/10 flex items-center gap-1.5 text-sm transition active:scale-90"
             >
-              <Eye size={15} /><span className="hidden sm:inline">{revealed[q.id] ? '隐藏' : (isChinese ? '解析' : '答案')}</span>
+              <Eye size={15} /><span className="hidden sm:inline">{revealed[q.id] ? '隐藏' : (isZh ? '解析' : '答案')}</span>
             </button>
             <button
               onClick={() => { setAiGrade(p => { const n = { ...p }; delete n[q.id]; return n; }); gradeWithAI(q); }}
@@ -282,10 +291,10 @@ export default function Practice({
             </button>
             <button
               onClick={reset}
-              title={isChinese ? '重置练习' : '重新练习'}
+              title={isZh ? '重置练习' : '重新练习'}
               className="h-9 px-3 rounded-full text-[#ff3b30] hover:bg-[#ff3b30]/10 flex items-center gap-1.5 text-sm transition active:scale-90"
             >
-              <RotateCcw size={15} /><span className="hidden sm:inline">{isChinese ? '重置' : '重练'}</span>
+              <RotateCcw size={15} /><span className="hidden sm:inline">{isZh ? '重置' : '重练'}</span>
             </button>
           </>
         )}
@@ -359,7 +368,7 @@ export default function Practice({
               <span>AI 出题已接入 · 扣算力</span>
             </div>
             <div className="mt-3 flex gap-2">
-              <Button onClick={start} className="px-5"><Play size={16} />{isChinese ? '开始练习' : '开始答题'}</Button>
+              <Button onClick={start} className="px-5"><Play size={16} />{isZh ? '开始练习' : '开始答题'}</Button>
               <Button variant="secondary" onClick={() => setConfigOpen(true)}><Sliders size={16} />配置本题</Button>
             </div>
           </div>

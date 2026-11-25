@@ -196,6 +196,9 @@ const TYPE_PROMPT = {
   wordbank: '英语选词填空：给一段短文挖 3 个空 + 6 个候选词',
   reading: '英语阅读理解：给一篇短文（80-150 词）+ 3-5 道选择题（4 选 1），覆盖主旨/细节/推断/词义',
   dictationEn: '英语单词听写：给出中文释义，让学生写出对应英文单词',
+  mentalMath: '数学口算速算：每题一个算式（加减乘除、乘方等，按年级控制数值范围），要求直接写出结果',
+  wordProblem: '数学应用题：结合生活情境的数量关系应用题，给出完整题干与设问，答案含解题步骤与结果',
+  geometry: '数学几何专项：几何图形性质、角度、周长面积体积计算或证明，必要时配示意图辅助理解',
   exam: '综合测试卷：仿中考题型结构的语文/数学/英语综合卷（语文含阅读理解与作文、英语含完形填空/阅读理解/书面表达、数学不含画图题）',
 };
 
@@ -209,6 +212,9 @@ const TYPE_PROMPT_HS = {
   wordbank: '英语选词填空/语法填空：给一段高中难度短文挖 3-5 个空 + 候选词',
   reading: '英语阅读理解：给一篇 200-350 词高中难度短文 + 3-5 道选择题（4 选 1），覆盖主旨/细节/推断/词义/态度',
   dictationEn: '英语单词听写：给出中文释义，写出对应高中核心词汇',
+  mentalMath: '数学口算/速算（高中档：分数、根式、指数对数、三角函数特殊值等快速求值）',
+  wordProblem: '数学应用题（高中档：函数、数列、概率统计、解三角形、实际情境建模）',
+  geometry: '数学几何专项（高中档：立体几何、解析几何、向量与空间角，必要时配示意图）',
   exam: '综合测试卷：仿高考题型结构的语文/数学/英语综合卷（语文含现代文阅读/古诗文阅读/语言文字运用/写作，英语含阅读理解/七选五/完形填空/语法填空/书面表达，数学含多选题且不含画图题）',
 };
 
@@ -262,6 +268,7 @@ const SYSTEM_GENERATE = (type, grade, difficulty, count, keyword, trend = false,
 ${trend ? TREND_DIRECTIVE(grade) : ''}- 数量：${count} 题
 - 主题/关键词：${keyword || '不限'}
 - 题目符合课标、考点清晰、无错别字 / 拼写错误
+- 数学专项（口算 / 应用题 / 几何）每题必须给出 answer：口算给纯数值结果；应用题、几何题给完整解答步骤与最终结果；证明题写出关键推理与结论
 ${img.rule}- 严格返回 JSON，不要任何解释或 markdown 代码块包装
 
 JSON Schema（按题型使用对应字段，未列出字段可不填）:
@@ -272,11 +279,11 @@ JSON Schema（按题型使用对应字段，未列出字段可不填）:
       "word": "dictation 题用，看拼音写词语的词语",
       "pinyin": "pinyin / dictation 题用",
       "sentence": "fix/sentence 题用，题干",
-      "stem": "reading 题用，选择题题干",
+      "stem": "题目主体：reading 写选择题题干；口算/应用题/几何题也用此字段（口算写算式如 12×7=，其余写完整题干，含设问）",
       "passage": "wordbank/reading 题用，挖空用 ____1____ ____2____ ____3____（wordbank）；reading 不挖空，给完整短文",
       "choices": ["wordbank 候选词数组；reading 每题的 4 个选项"],
       "blanks": [{"index": 0, "answer": "..."}],
-      "answer": "正确答案（dictation/pinyin/fix/sentence/dictationEn/poem 用）；reading 题用选项字母 A/B/C/D",
+      "answer": "正确答案（dictation/pinyin/fix/sentence/dictationEn/poem 用）；reading 题用选项字母 A/B/C/D；口算/应用题/几何题必填（结果 + 关键步骤）",
       "chinese": "dictationEn 题用，中文释义",
       "explanation": "一句话解析",
       "hint": "sentence/wordbank 用，一两个词提示",
