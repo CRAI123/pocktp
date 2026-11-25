@@ -1,11 +1,11 @@
 {
     "platforms":  {
                       "windows-x86_64":  {
-                                             "signature":  "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSaTlYdy8vcTFzV1NSb2YvNTZIVHN2VS9IT3dwWi94WWZMUmhUWW5FVjVscnBPek40WjNoUnZkRmxUZHRjV05iZWFpTFFqNDVoTGVnMFJ5cmpLRXhGTWE5dmIzTnBka1FrPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyOTI0OTMyCWZpbGU65pWZ5biI5bel5L2c5Y+wXzIuMC4zX3g2NC1zZXR1cC5leGUJdmVyc2lvbjoyLjAuMwpPdkNVam1LODQvMStxcnhZQ3lkUU1JWnRuaVBSYWxwSGsyRWMyR1ZvektDVlUvRThNOUtaTVN3MTZ0bVlsc3Nrc21zaEkwVE52anNyNWl5SHd1MlNEQT09Cg==",
+                                             "signature":  "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSaTlYdy8vcTFzV1EzaXZxVFdvK3B5dlNBaE84WmlUMXphTmwwQ3BESlZXNHhRUUdCSmtrTG5QNGNSMG9nTlRFUkhzbXkrRHFOOWsrMkVNaEV3cEQ3MXk5L1lVRXd4QVFRPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk1NjIyNDk5CWZpbGU65pWZ5biI5bel5L2c5Y+wXzIuMC40X3g2NC1zZXR1cC5leGUJdmVyc2lvbjoyLjAuNApvNnNqNXU4c3FGckNIVVNQR1BLNVhaYXpibUZsTGl2YlMwUDllRlh3cmpLMDJLL0NocFNnUFJYN0pXTUNFS0ozZTNEbDhlbE9YR2FMdVRpUEYxMS9BQT09Cg==",
                                              "url":  "https://teach.rayzo.cn/desktop/teacher-workbench-setup.exe"
                                          }
                   },
-    "pub_date":  "2026-10-25T10:42:50Z",
-    "version":  "2.0.3",
-    "notes":  "2.0.3：修复桌面端浏览器快捷登录无法自动调起浏览器；补全桌面命令权限（原生通知、投屏、打印、托盘设置）"
+    "pub_date":  "2026-11-25T16:01:55Z",
+    "version":  "2.0.4",
+    "notes":  "2.0.4：修复桌面端导出 PDF 无反应（改为原生保存到「下载」目录，综合测试与各专项页均已修复）"
 }
