@@ -1,7 +1,7 @@
 # 允许壳内远程页面（teach.rayzo.cn）调用桌面端自定义命令
 [[permission]]
 identifier = "allow-desktop-update"
-description = "允许更新、外部浏览器打开、原生通知、托盘设置、投屏窗口与打印"
+description = "允许更新、外部浏览器打开、原生通知、托盘设置、投屏窗口、打印、导出 PDF 与投屏锁定"
 commands.allow = [
   "check_update",
   "install_update",
@@ -9,7 +9,10 @@ commands.allow = [
   "native_notify",
   "open_classroom_window",
   "print_images",
+  "save_pdf",
   "autostart_status",
   "set_autostart",
-  "set_close_to_tray"
+  "set_close_to_tray",
+  "set_kiosk",
+  "kiosk_status"
 ]
