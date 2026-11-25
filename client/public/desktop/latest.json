@@ -1,11 +1,11 @@
 {
     "platforms":  {
                       "windows-x86_64":  {
-                                             "signature":  "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSaTlYdy8vcTFzV1EzaXZxVFdvK3B5dlNBaE84WmlUMXphTmwwQ3BESlZXNHhRUUdCSmtrTG5QNGNSMG9nTlRFUkhzbXkrRHFOOWsrMkVNaEV3cEQ3MXk5L1lVRXd4QVFRPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk1NjIyNDk5CWZpbGU65pWZ5biI5bel5L2c5Y+wXzIuMC40X3g2NC1zZXR1cC5leGUJdmVyc2lvbjoyLjAuNApvNnNqNXU4c3FGckNIVVNQR1BLNVhaYXpibUZsTGl2YlMwUDllRlh3cmpLMDJLL0NocFNnUFJYN0pXTUNFS0ozZTNEbDhlbE9YR2FMdVRpUEYxMS9BQT09Cg==",
-                                             "url":  "https://teach.rayzo.cn/desktop/teacher-workbench-setup.exe"
+                                             "signature":  "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSaTlYdy8vcTFzV2RnNEt3VkJ3My9LK0tCNFlHQ0lZRTlURkwvYVRlSUg4UG40ZjBib0k4cERFMVR0WVZpV3FkclFIT1g5M3ZRZTRGblF0cGhEMDVFdjNuaXcrUHlBL3dFPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk1NjIzNjY0CWZpbGU65pWZ5biI5bel5L2c5Y+wXzIuMC41X3g2NC1zZXR1cC5leGUJdmVyc2lvbjoyLjAuNQpqa25JRFVzd2I2VStwNlhzSnFzWGJ4cm9yVlRwcldXU0ZZbTBMRk55OG90YmdKM2dxMHNCMkYrdXp1Q2FjSWsrYlQvKzlaTEkycGpTUXpNMWtydFhEdz09Cg==",
+                                             "url":  "https://grnzcptzggikstzklpag.supabase.co/storage/v1/object/sign/materials/desktop/teacher-workbench-setup.exe?token=eyJraWQiOiI1NTRlZDdkYy1iMTgzLTRhNTAtYTAxZS05OWE5NjkwNWRjYmIiLCJhbGciOiJIUzUxMiJ9.eyJ1cmwiOiJtYXRlcmlhbHMvZGVza3RvcC90ZWFjaGVyLXdvcmtiZW5jaC1zZXR1cC5leGUiLCJzY29wZSI6ImRvd25sb2FkIiwiaWF0IjoxNzk1NjIzNjgxLCJleHAiOjIxMTA5ODM2ODF9.psr3KsPn5emSbT1UI1IJWABUaIIJmsjxyZ7JJL5FMV8QmfxRbBGrud4OI1ChsrQs97LNs5mwkNg_aXBzjoKBIw"
                                          }
                   },
-    "pub_date":  "2026-11-25T16:01:55Z",
-    "version":  "2.0.4",
-    "notes":  "2.0.4：修复桌面端导出 PDF 无反应（改为原生保存到「下载」目录，综合测试与各专项页均已修复）"
+    "pub_date":  "2026-11-25T16:21:22Z",
+    "version":  "2.0.5",
+    "notes":  "2.0.5：安装包精简（4.7MB，不再内嵌旧包），修复桌面端导出 PDF 无反应；改用云端下载托管"
 }
