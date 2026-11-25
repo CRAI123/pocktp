@@ -58,6 +58,14 @@ export function setScreenKiosk(enabled) {
   invoke('set_kiosk', { enabled }).catch(() => {});
 }
 
+/* ---------------- 导出 PDF（桌面版走原生落盘） ---------------- */
+/** 保存 PDF 到「下载」目录：data 可为 base64 或 dataURL，返回最终路径。
+ *  浏览器不支持该能力（由调用方回退到 jsPDF.save）。 */
+export function savePdfFile(filename, data) {
+  if (!isDesktopApp()) return Promise.reject(new Error('仅桌面版支持原生保存'));
+  return invoke('save_pdf', { filename, data });
+}
+
 /* ---------------- 静默打印（直出默认打印机） ---------------- */
 const A4_W = 794;   // 96dpi 下 A4 宽
 const PAD = 56;     // 约 15mm 页边距

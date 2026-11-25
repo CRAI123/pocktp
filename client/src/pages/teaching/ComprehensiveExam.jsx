@@ -7,7 +7,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Sparkles, Loader2, Download, Eye, EyeOff, Wand2, TrendingUp, GraduationCap, CheckSquare, Square, Printer, Image as ImageIcon } from 'lucide-react';
 import { ai, auth } from '../../api.js';
-import { isDesktopApp, printSheets, notifyDone } from '../../desktop.js';
+import { isDesktopApp, printSheets, notifyDone, savePdfFile } from '../../desktop.js';
 import { Button, SectionHeader, Badge, inputCls } from '../../components/ui.jsx';
 import QuestionImage from '../../components/QuestionImage.jsx';
 import { useQuestionImages } from '../../hooks/useQuestionImages.js';
@@ -286,7 +286,14 @@ export default function ComprehensiveExam() {
           if (i > 0) pdf.addPage();
           pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, w, h);
         }
-        pdf.save(`${title}.pdf`);
+        /* 桌面版 WebView2 不支持浏览器下载，走原生保存到「下载」目录 */
+        if (isDesktopApp()) {
+          const path = await savePdfFile(`${title}.pdf`, pdf.output('datauristring'));
+          notifyDone('PDF 已导出', path);
+          alert(`PDF 已保存到：\n${path}`);
+        } else {
+          pdf.save(`${title}.pdf`);
+        }
       } finally {
         hidden.forEach((el, i) => { el.style.display = prevDisplay[i] || ''; });
         pages.forEach((el, i) => {
@@ -299,7 +306,7 @@ export default function ComprehensiveExam() {
       }
     } catch (e) {
       console.error(e);
-      alert('PDF 生成失败：' + e.message);
+      alert('PDF 生成失败：' + e.message + (isDesktopApp() ? '\n\n若为旧版客户端，请升级到最新桌面版后再导出。' : ''));
     } finally { setPdfBusy(false); }
   }
 

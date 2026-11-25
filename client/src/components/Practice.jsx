@@ -13,6 +13,7 @@ import jsPDF from 'jspdf';
 import ExerciseConfig from './ExerciseConfig.jsx';
 import QuestionImage from './QuestionImage.jsx';
 import { useQuestionImages } from '../hooks/useQuestionImages.js';
+import { isDesktopApp, savePdfFile, notifyDone } from '../desktop.js';
 
 const todayStr = () => {
   const d = new Date();
@@ -556,10 +557,17 @@ export default function Practice({
       pdf.addImage(ca.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, w, h);
       pdf.addPage();
       pdf.addImage(cb.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, w, h);
-      pdf.save(`${title}.pdf`);
+      /* 桌面版 WebView2 不支持浏览器下载，走原生保存到「下载」目录 */
+      if (isDesktopApp()) {
+        const path = await savePdfFile(`${title}.pdf`, pdf.output('datauristring'));
+        notifyDone('PDF 已导出', path);
+        alert(`PDF 已保存到：\n${path}`);
+      } else {
+        pdf.save(`${title}.pdf`);
+      }
     } catch (e) {
       console.error(e);
-      alert('PDF 生成失败：' + e.message);
+      alert('PDF 生成失败：' + e.message + (isDesktopApp() ? '\n\n若为旧版客户端，请升级到最新桌面版后再导出。' : ''));
     } finally {
       setBusy(false);
     }

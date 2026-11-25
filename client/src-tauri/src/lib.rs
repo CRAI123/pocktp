@@ -182,6 +182,59 @@ fn open_classroom_window(app: tauri::AppHandle, split: Option<bool>) -> Result<(
   Ok(())
 }
 
+/* ---------- 导出 PDF：写入「下载」目录 ----------
+ * WebView2 不支持浏览器式 blob 下载（jsPDF.save 会静默失败），前端把 PDF 转 base64 走原生落盘。
+ * data 兼容 dataURL（data:application/pdf;base64,xxx）与纯 base64，返回最终路径 */
+#[tauri::command]
+async fn save_pdf(filename: String, data: String) -> Result<String, String> {
+  tauri::async_runtime::spawn_blocking(move || do_save_pdf(filename, data))
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+fn do_save_pdf(filename: String, data: String) -> Result<String, String> {
+  use base64::Engine as _;
+
+  let b64 = data.split(',').next_back().unwrap_or(&data).trim();
+  let bytes = base64::engine::general_purpose::STANDARD
+    .decode(b64)
+    .map_err(|e| format!("PDF 数据解码失败：{}", e))?;
+
+  /* 文件名清洗：替换 Windows 非法字符 */
+  let safe: String = filename
+    .chars()
+    .map(|c| if "\\/:*?\"<>|".contains(c) { '_' } else { c })
+    .collect();
+  let name = if safe.to_lowercase().ends_with(".pdf") {
+    safe
+  } else {
+    format!("{}.pdf", safe)
+  };
+
+  /* 下载目录：USERPROFILE\Downloads，不可用则回退临时目录 */
+  let dir = std::env::var("USERPROFILE")
+    .ok()
+    .map(|p| std::path::PathBuf::from(p).join("Downloads"))
+    .filter(|p| std::fs::create_dir_all(p).is_ok())
+    .unwrap_or_else(std::env::temp_dir);
+
+  /* 重名自动加序号，避免覆盖已有文件 */
+  let mut path = dir.join(&name);
+  if path.exists() {
+    let stem = name.trim_end_matches(".pdf");
+    for i in 1..1000 {
+      let candidate = dir.join(format!("{}({}).pdf", stem, i));
+      if !candidate.exists() {
+        path = candidate;
+        break;
+      }
+    }
+  }
+
+  std::fs::write(&path, bytes).map_err(|e| format!("写入 PDF 失败：{}", e))?;
+  Ok(path.to_string_lossy().to_string())
+}
+
 /* ---------- 静默打印：直出默认打印机（不弹预览） ----------
  * 前端把每一页渲染成 JPEG（base64），这里落盘后交给 Windows 打印子系统逐页输出 */
 #[tauri::command]
@@ -335,6 +388,7 @@ pub fn run() {
       kiosk_status,
       open_classroom_window,
       print_images,
+      save_pdf,
       open_url
     ])
     .setup(|app| {
