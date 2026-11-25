@@ -11,6 +11,8 @@ import { Button } from './ui.jsx';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import ExerciseConfig from './ExerciseConfig.jsx';
+import QuestionImage from './QuestionImage.jsx';
+import { useQuestionImages } from '../hooks/useQuestionImages.js';
 
 const todayStr = () => {
   const d = new Date();
@@ -141,11 +143,18 @@ export default function Practice({
   /* 举一反三：基于当前题生成 3 道同型变式，直接追加到试卷 */
   const [similarMsg, setSimilarMsg] = useState('');
   const [similarBusy, setSimilarBusy] = useState(false);
+  /* 按题按需生图：对 need_image 的题逐张生成配图，失败可重试 */
+  const { retry: retryImage } = useQuestionImages(working, setWorking, {
+    onCreditsError: () => setSimilarMsg('算力不足，已停止生成配图'),
+  });
   const runSimilar = async () => {
     if (!q || similarBusy) return;
     setSimilarBusy(true); setSimilarMsg('');
     try {
-      const d = await ai.similar(type, q, 3);
+      /* 剥离运行时配图字段（data URL 很大），只把题目结构发给 LLM */
+      const clean = { ...q };
+      delete clean.image; delete clean.imageLoading; delete clean.imageError;
+      const d = await ai.similar(type, clean, 3);
       appendRef.current = true;
       setWorking(p => [...p, ...(d.questions || [])]);
       setSimilarMsg(`已追加 ${d.questions?.length || 0} 道同类题 · 扣 ${d.cost} 算力`);
@@ -361,6 +370,7 @@ export default function Practice({
           {renderGroupHeader && q.groupIndex !== undefined && (current === 0 || working[current - 1]?.groupIndex !== q.groupIndex) && renderGroupHeader(q)}
           <div className="text-sm font-medium text-ink-secondary">第 {current + 1} 题{q.groupSize > 1 ? ` / 共 ${q.groupSize} 题（本短文）` : ''}</div>
           <div className="mt-2 text-xl leading-relaxed sm:text-2xl">{renderPrompt(q, state)}</div>
+          <QuestionImage q={q} onRetry={retryImage} />
           <div className="mt-6">{renderAnswerInput(q, answers[q.id] || '', setAns, submitted[q.id], state)}</div>
           {submitted[q.id] && (
             <div className={`mt-5 flex items-center gap-2 rounded-2xl px-4 py-3 text-sm ${correct ? 'bg-[#28cd41]/10 text-[#1f9e33]' : 'bg-[#ff3b30]/8 text-[#ff3b30]'}`}>
@@ -436,6 +446,7 @@ export default function Practice({
         {working.map((qq, i) => (
           <li key={qq.id} className="print-item">
             <div className="print-head"><span className="print-no">{i + 1}.</span><span className="print-prompt">{renderPrompt(qq, state)}</span></div>
+            <QuestionImage q={qq} variant="print" />
             <div className="print-answers-area"><PrintGrid subject={subject} type={type} q={qq} /></div>
           </li>
         ))}

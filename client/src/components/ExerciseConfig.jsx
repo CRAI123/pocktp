@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { RefreshCw, History, PenLine, Trash2, Sparkles, Loader2, X, TrendingUp, Flame } from 'lucide-react';
+import { RefreshCw, History, PenLine, Trash2, Sparkles, Loader2, X, TrendingUp, Flame, Image as ImageIcon } from 'lucide-react';
 import { ai, auth } from '../api.js';
 import { Button, Modal, inputCls } from './ui.jsx';
 
@@ -72,7 +72,7 @@ export default function ExerciseConfig({ open, onClose, type, subject = 'chinese
   const [tab, setTab] = useState('ai');
 
   /* 出题配置 */
-  const [form, setForm] = useState({ grade: '10', difficulty: 'medium', count: 10, keyword: '', trend: false });
+  const [form, setForm] = useState({ grade: '10', difficulty: 'medium', count: 10, keyword: '', trend: false, withImages: true });
   /* AI 板块 */
   const [aiQs, setAiQs] = useState(null);
   const [aiSel, setAiSel] = useState([]);
@@ -112,6 +112,7 @@ export default function ExerciseConfig({ open, onClose, type, subject = 'chinese
       count: initial.count || 10,
       keyword: initial.keyword || '',
       trend: !!initial.trend,
+      withImages: initial.withImages !== false,
     }));
     setAiQs(null); setAiSel([]); setAiErr(''); setAiAppend(false);
     setHist(null); setHistId(null); setHistQs(null); setHistSel([]); setHistErr('');
@@ -194,7 +195,10 @@ export default function ExerciseConfig({ open, onClose, type, subject = 'chinese
     if (simBusyId) return;
     setSimBusyId(q.id); setSimErr('');
     try {
-      const d = await ai.similar(type, q, 3);
+      /* 剥离运行时配图字段（data URL 很大），只把题目结构发给 LLM */
+      const clean = { ...q };
+      delete clean.image; delete clean.imageLoading; delete clean.imageError;
+      const d = await ai.similar(type, clean, 3, form.withImages);
       setSimQs(d.questions || []);
       setSimSel((d.questions || []).map(x => x.id));
       setSimSrc(qText(q));
@@ -215,6 +219,7 @@ export default function ExerciseConfig({ open, onClose, type, subject = 'chinese
             <input type="checkbox" checked={checked} className="h-4 w-4 shrink-0 accent-[#0071e3]"
               onChange={() => setSel(list => checked ? list.filter(x => x !== q.id) : [...list, q.id])} />
             <span className="min-w-0 flex-1 truncate text-ink">{qText(q) || '(空题干)'}</span>
+            {q.need_image && <ImageIcon size={13} className="shrink-0 text-[#af52de]" title="本题将生成配图" />}
             <span className="shrink-0 text-xs text-ink-secondary">答案：{qAnswer(q) || '—'}</span>
             <button
               onClick={(e) => { e.preventDefault(); runSimilar(q); }}
@@ -292,7 +297,15 @@ export default function ExerciseConfig({ open, onClose, type, subject = 'chinese
             <span className="mx-1 h-4 w-px bg-black/10" />
             <Chip active={form.trend} tone="orange" onClick={() => setForm(f => ({ ...f, trend: !f.trend }))}
             ><span className="inline-flex items-center gap-1"><TrendingUp size={13} />{isHigh(form.grade) ? '高考' : '中考'}新题型 · 新风向</span></Chip>
+            <span className="mx-1 h-4 w-px bg-black/10" />
+            <Chip active={form.withImages} onClick={() => setForm(f => ({ ...f, withImages: !f.withImages }))}
+            ><span className="inline-flex items-center gap-1"><ImageIcon size={13} />生成配图（AI 按需判断）</span></Chip>
           </div>
+          {form.withImages && (
+            <p className="rounded-xl bg-[#af52de]/10 px-3 py-2 text-xs leading-relaxed text-[#7a36a3]">
+              已开启配图：AI 会判断每道题是否需要配图（如几何图形、实验装置、情景场景等），需要时自动生成并居中展示在题目下方；纯文字/计算/默写题不会配图。每张配图另扣算力（可在后台调整）。
+            </p>
+          )}
           <div className="flex items-center gap-2">
             <span className="shrink-0 text-xs text-ink-secondary">数量</span>
             <input type="number" min="1" max="30" value={form.count}

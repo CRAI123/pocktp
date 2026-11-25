@@ -1,9 +1,11 @@
 /** 课堂练习：全科目 · 课题/知识点 + 题型清单 → 自动生成描述词 → 确认（可修改）→ 生成练习 */
 import { useState } from 'react';
-import { Sparkles, Loader2, Printer, Trash2, Plus, BookOpenCheck, CheckSquare, Eye, EyeOff, RotateCcw, TrendingUp } from 'lucide-react';
+import { Sparkles, Loader2, Printer, Trash2, Plus, BookOpenCheck, CheckSquare, Eye, EyeOff, RotateCcw, TrendingUp, Image as ImageIcon } from 'lucide-react';
 import { SectionHeader, Button, Badge, Empty } from '../../components/ui.jsx';
 import { ai, auth } from '../../api.js';
 import { isDesktopApp, printSheets, notifyDone } from '../../desktop.js';
+import QuestionImage from '../../components/QuestionImage.jsx';
+import { useQuestionImages } from '../../hooks/useQuestionImages.js';
 
 const GRADES = [
   { v: '1', l: '一年级' }, { v: '2', l: '二年级' }, { v: '3', l: '三年级' },
@@ -55,6 +57,7 @@ export default function ClassroomPractice() {
   /* ---- 表单 ---- */
   const [form, setForm] = useState({ subject: '语文', grade: '10', topic: '', knowledge: '' });
   const [trend, setTrend] = useState(true);
+  const [withImages, setWithImages] = useState(true);
   const [items, setItems] = useState([{ qtype: '选择题', count: 2 }, { qtype: '填空题', count: 3 }]);
   /* ---- 描述词（自动生成后可编辑） ---- */
   const [draft, setDraft] = useState('');
@@ -68,6 +71,11 @@ export default function ClassroomPractice() {
   const [showAns, setShowAns] = useState({});
   const [done, setDone] = useState(false);
   const [printBusy, setPrintBusy] = useState(false);
+
+  /* 按题按需生图：对 need_image 的题逐张生成配图，失败可重试 */
+  const { retry: retryImage } = useQuestionImages(questions, setQuestions, {
+    onCreditsError: () => notifyDone('算力不足', '已停止生成配图，充值后可重试'),
+  });
 
   const total = items.reduce((s, i) => s + (i.qtype ? i.count : 0), 0);
   const gradeLabel = GRADES.find(g => g.v === form.grade)?.l || '';
@@ -105,7 +113,7 @@ export default function ClassroomPractice() {
         setProg({ cur: curBatch, total: batches.length, done });
         const d = await ai.practice({
           subject: form.subject.trim(), grade: form.grade, topic: form.topic.trim(),
-          knowledge: form.knowledge.trim(), prompt: draft.trim(), trend,
+          knowledge: form.knowledge.trim(), prompt: draft.trim(), trend, withImages,
           items: batches[i],
         });
         const qs = d.questions || [];
@@ -177,6 +185,11 @@ export default function ClassroomPractice() {
                   trend ? 'bg-[#ff9500] text-white' : 'bg-black/[0.05] text-ink-secondary hover:bg-black/10'
                 }`}>
                 <TrendingUp size={13} />{isHigh(form.grade) ? '高考' : '中考'}新风向
+              </button>
+              <span className="mx-1 h-4 w-px bg-black/10" />
+              <button onClick={() => setWithImages(v => !v)} title="AI 按需为题目生成配图"
+                className={`inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-medium transition active:scale-95 ${withImages ? 'bg-[#af52de] text-white' : 'bg-black/[0.05] text-ink-secondary hover:bg-black/10'}`}>
+                <ImageIcon size={13} />生成配图
               </button>
             </div>
           </div>
@@ -312,6 +325,7 @@ export default function ClassroomPractice() {
                     <div className="mb-2 rounded-xl border-l-2 border-black/10 bg-bg-light px-3.5 py-2.5 text-[13px] leading-relaxed text-ink-secondary whitespace-pre-wrap">{q.passage}</div>
                   )}
                   <p className="whitespace-pre-wrap text-sm leading-relaxed">{q.stem}</p>
+                  <QuestionImage q={q} onRetry={retryImage} />
                   {q.choices?.length ? (
                     <div className="mt-2 grid gap-1 sm:grid-cols-2">
                       {q.choices.map((c, j) => (
@@ -353,6 +367,7 @@ export default function ClassroomPractice() {
                   <span className="print-prompt">{q.stem}（{q.points} 分）</span>
                 </div>
                 {q.passage && <div className="exam-passage">{q.passage}</div>}
+                <QuestionImage q={q} variant="print" />
                 {q.choices?.length ? (
                   <div className="exam-choices">
                     {q.choices.map((c, j) => <span key={j}>{LETTERS[j]}. {c}</span>)}

@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="zh-CN" data-resolution="landscape">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.15.0/dist/gsap.min.js"></script>
+    <style>
+      :root {
+        --ground: #f5f5f7;
+        --ink: #1d1d1f;
+        --ink-2: #6e6e73;
+        --blue: #0071e3;
+        --green: #2bc48a;
+        --dark: #141416;
+      }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body {
+        width: 1920px; height: 1080px;
+        overflow: hidden;
+        background: var(--ground);
+        font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans SC", Arial, sans-serif;
+        color: var(--ink);
+      }
+      #root { position: relative; width: 100%; height: 100%; overflow: hidden; }
+
+      /* ---------- 通用场景 ---------- */
+      .scene {
+        position: absolute; inset: 0;
+        display: flex; align-items: center;
+        padding: 0 118px;
+        gap: 86px;
+        background: var(--ground);
+      }
+      .shot {
+        width: 1010px; flex-shrink: 0;
+        border-radius: 22px; overflow: hidden;
+        border: 1px solid rgba(0,0,0,0.07);
+        box-shadow: 0 48px 90px -42px rgba(16,24,40,0.55), 0 0 0 1px rgba(255,255,255,0.6) inset;
+        background: #fff;
+      }
+      .shot img { display: block; width: 100%; height: auto; }
+
+      .copy { flex: 1; min-width: 0; }
+      .eyebrow {
+        display: inline-flex; align-items: center; gap: 12px;
+        font-size: 18px; font-weight: 600; letter-spacing: 0.16em;
+        color: #0066cc; text-transform: uppercase;
+      }
+      .eyebrow i { display: block; width: 34px; height: 2px; background: var(--blue); border-radius: 2px; }
+      .title {
+        margin-top: 26px;
+        font-size: 66px; line-height: 1.16; font-weight: 700;
+        letter-spacing: -0.045em; max-width: 640px;
+      }
+      .title em { font-style: normal; color: var(--blue); }
+      .rule { margin-top: 30px; width: 96px; height: 3px; background: linear-gradient(90deg, var(--blue), var(--green)); border-radius: 3px; }
+
+      .points { margin-top: 40px; display: flex; flex-direction: column; gap: 22px; }
+      .point { display: flex; gap: 16px; font-size: 28px; line-height: 1.5; color: #3a3a3c; }
+      .point span.dot {
+        margin-top: 11px; width: 8px; height: 8px; flex-shrink: 0;
+        border-radius: 50%; background: var(--blue);
+        box-shadow: 0 0 0 5px rgba(0,113,227,0.12);
+      }
+
+      /* ---------- 片头 ---------- */
+      .intro {
+        position: absolute; inset: 0; background: var(--dark);
+        display: flex; flex-direction: column; justify-content: center;
+        padding: 0 168px; color: #fff; overflow: hidden;
+      }
+      .glow-a {
+        position: absolute; width: 900px; height: 900px; border-radius: 50%;
+        top: -420px; right: -260px;
+        background: radial-gradient(circle, rgba(43,196,138,0.32), transparent 62%);
+        filter: blur(10px);
+      }
+      .glow-b {
+        position: absolute; width: 780px; height: 780px; border-radius: 50%;
+        bottom: -430px; left: -180px;
+        background: radial-gradient(circle, rgba(0,113,227,0.34), transparent 64%);
+        filter: blur(12px);
+      }
+      .brand-row { position: relative; display: flex; align-items: center; gap: 18px; }
+      .brand-mark {
+        width: 58px; height: 58px; border-radius: 16px;
+        background: linear-gradient(135deg, #0071e3, #2bc48a);
+        display: grid; place-items: center;
+        font-size: 26px; font-weight: 700; color: #fff;
+        box-shadow: 0 18px 40px -16px rgba(0,113,227,0.9);
+      }
+      .brand-name { font-size: 26px; font-weight: 600; letter-spacing: 0.01em; }
+      .brand-sub { font-size: 15px; color: rgba(255,255,255,0.5); margin-top: 4px; letter-spacing: 0.08em; }
+      .hero-title {
+        position: relative; margin-top: 62px;
+        font-size: 116px; line-height: 1.06; font-weight: 700; letter-spacing: -0.05em;
+      }
+      .hero-title em { font-style: normal; color: #4da3ff; }
+      .hero-sub { position: relative; margin-top: 34px; font-size: 30px; color: rgba(255,255,255,0.68); letter-spacing: 0.01em; }
+      .hero-line {
+        position: relative; margin-top: 56px; display: flex; gap: 14px; align-items: center;
+        font-size: 17px; color: rgba(255,255,255,0.62); letter-spacing: 0.22em;
+      }
+
+      /* ---------- 片尾 ---------- */
+      .outro {
+        position: absolute; inset: 0; background: var(--dark);
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        color: #fff; overflow: hidden;
+      }
+      .outro .glow-a { top: auto; bottom: -500px; right: 50%; transform: translateX(50%); }
+      .outro-title { position: relative; font-size: 78px; font-weight: 700; letter-spacing: -0.045em; }
+      .outro-title em { font-style: normal; color: #4da3ff; }
+      .outro-sub { position: relative; margin-top: 28px; font-size: 26px; color: rgba(255,255,255,0.6); }
+      .outro-url {
+        position: relative; margin-top: 52px;
+        display: inline-flex; align-items: center; gap: 14px;
+        padding: 20px 44px; border-radius: 999px;
+        background: rgba(255,255,255,0.08);
+        border: 1px solid rgba(255,255,255,0.16);
+        font-size: 30px; font-weight: 600; letter-spacing: 0.02em;
+        backdrop-filter: blur(8px);
+      }
+      .outro-foot { position: relative; margin-top: 62px; font-size: 16px; color: rgba(255,255,255,0.58); letter-spacing: 0.14em; }
+
+      /* ---------- 转场 ---------- */
+      .wipe {
+        position: absolute; inset: 0; z-index: 900; background: #f5f5f7;
+        opacity: 0; pointer-events: none;
+      }
+      .wipe.dark { background: #141416; }
+    </style>
+  </head>
+  <body>
+    <div
+      id="root"
+      data-composition-id="main"
+      data-start="0"
+      data-duration="55"
+      data-width="1920"
+      data-height="1080"
+    >
+      <!-- 1. 片头 -->
+      <section class="clip intro" data-start="0" data-duration="4.9" data-track-index="1">
+        <div class="glow-a"></div>
+        <div class="glow-b"></div>
+        <div class="brand-row">
+          <div class="brand-mark" data-layout-ignore>教</div>
+          <div>
+            <div class="brand-name">教师工作台</div>
+            <div class="brand-sub" data-layout-ignore>RAYZO TEACHER WORKSPACE</div>
+          </div>
+        </div>
+        <h1 class="hero-title">把一天的教学<br />收进<em>一个屏幕</em></h1>
+        <p class="hero-sub">备课、上课、批改、分析、沟通，串成一条工作线。</p>
+        <div class="hero-line" data-layout-ignore>LESS WORK · MORE TEACHING</div>
+      </section>
+
+      <!-- 2. 工作台总览 -->
+      <section class="clip scene" data-start="4.7" data-duration="10.6" data-track-index="2">
+        <div class="shot" id="s2-shot" data-layout-allow-overflow><img src="shots/01-dashboard.png" alt="工作台总览" /></div>
+        <div class="copy">
+          <div class="eyebrow" id="s2-eyebrow" data-layout-ignore><i></i>01 / 教学总览</div>
+          <h2 class="title" id="s2-title">今天的课，<em>一屏看清</em></h2>
+          <div class="rule" id="s2-rule"></div>
+          <div class="points">
+            <div class="point" id="s2-p1"><span class="dot"></span>待办、课表、考试倒计时自动汇总</div>
+            <div class="point" id="s2-p2"><span class="dot"></span>备考进度按天推进，完成率实时更新</div>
+            <div class="point" id="s2-p3"><span class="dot"></span>点名学生、查看课表一步直达</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3. 红包课堂 -->
+      <section class="clip scene" data-start="15.3" data-duration="12.4" data-track-index="3">
+        <div class="shot" id="s3-shot" data-layout-allow-overflow><img src="shots/03-redpacket.png" alt="红包课堂" /></div>
+        <div class="copy">
+          <div class="eyebrow" id="s3-eyebrow" data-layout-ignore><i></i>02 / 课堂互动</div>
+          <h2 class="title" id="s3-title">学生上台，<em>抢着答题</em></h2>
+          <div class="rule" id="s3-rule"></div>
+          <div class="points">
+            <div class="point" id="s3-p1"><span class="dot"></span>发红包、抢到就弹题，课堂秒变抢答现场</div>
+            <div class="point" id="s3-p2"><span class="dot"></span>连击最高 3 倍积分，排行榜实时刷新</div>
+            <div class="point" id="s3-p3"><span class="dot"></span>积分换文具与免作业券，全程不用手机</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 4. AI 成绩分析 -->
+      <section class="clip scene" data-start="27.7" data-duration="11.2" data-track-index="4">
+        <div class="shot" id="s4-shot" data-layout-allow-overflow><img src="shots/04-score.png" alt="AI 成绩分析" /></div>
+        <div class="copy">
+          <div class="eyebrow" id="s4-eyebrow" data-layout-ignore><i></i>03 / AI 分析</div>
+          <h2 class="title" id="s4-title">三次考试，<em>读懂一个学生</em></h2>
+          <div class="rule" id="s4-rule"></div>
+          <div class="points">
+            <div class="point" id="s4-p1"><span class="dot"></span>导入成绩即生成个人诊断与提升方案</div>
+            <div class="point" id="s4-p2"><span class="dot"></span>单科、总分、排名多维对比</div>
+            <div class="point" id="s4-p3"><span class="dot"></span>全班一次跑完，失败自动重试</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 5. 个人中心 -->
+      <section class="clip scene" data-start="38.9" data-duration="9.9" data-track-index="5">
+        <div class="shot" id="s5-shot" data-layout-allow-overflow><img src="shots/05-profile.png" alt="个人中心" /></div>
+        <div class="copy">
+          <div class="eyebrow" id="s5-eyebrow" data-layout-ignore><i></i>04 / 账号中心</div>
+          <h2 class="title" id="s5-title">课程、班级、算力<br /><em>一处管理</em></h2>
+          <div class="rule" id="s5-rule"></div>
+          <div class="points">
+            <div class="point" id="s5-p1"><span class="dot"></span>课程自动带出班级与科目</div>
+            <div class="point" id="s5-p2"><span class="dot"></span>会员状态、算力余额一目了然</div>
+            <div class="point" id="s5-p3"><span class="dot"></span>资料与密码自助修改</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 6. 片尾 -->
+      <section class="clip outro" data-start="48.8" data-duration="6.2" data-track-index="6">
+        <div class="glow-a" data-layout-ignore></div>
+        <h2 class="outro-title">从备课到复盘，<em>一个入口完成</em></h2>
+        <p class="outro-sub">教师工作台 · 面向一线教师的 AI 教学与班务平台</p>
+        <div class="outro-url" id="outro-url">teach.rayzo.cn</div>
+        <div class="outro-foot" data-layout-ignore>睿造打印工坊 · RAYZO PRINT STUDIO</div>
+      </section>
+
+      <!-- 转场白幕 -->
+      <div class="clip wipe" id="w1" data-start="4.55" data-duration="0.7" data-track-index="90"></div>
+      <div class="clip wipe" id="w2" data-start="15.15" data-duration="0.7" data-track-index="90"></div>
+      <div class="clip wipe" id="w3" data-start="27.55" data-duration="0.7" data-track-index="90"></div>
+      <div class="clip wipe" id="w4" data-start="38.75" data-duration="0.7" data-track-index="90"></div>
+      <div class="clip wipe dark" id="w5" data-start="48.65" data-duration="0.7" data-track-index="90"></div>
+    </div>
+
+    <script>
+      window.__timelines = window.__timelines || {};
+      const tl = gsap.timeline({ paused: true });
+
+      /* ---------- 片头 ---------- */
+      tl.from(".brand-row", { y: 26, duration: 0.6, ease: "power3.out" }, 0.02);
+      tl.from(".hero-title", { y: 54, opacity: 0, duration: 0.85, ease: "expo.out" }, 0.32);
+      tl.from(".hero-sub", { y: 28, opacity: 0, duration: 0.6, ease: "power2.out" }, 0.72);
+      tl.from(".hero-line", { opacity: 0, duration: 0.5, ease: "sine.out" }, 1.0);
+      tl.from(".intro .glow-a", { opacity: 0, scale: 0.8, duration: 1.4, ease: "power2.out" }, 0);
+      tl.from(".intro .glow-b", { opacity: 0, scale: 0.85, duration: 1.5, ease: "power2.out" }, 0.2);
+
+      /* ---------- 场景 2：工作台 ---------- */
+      const s2 = 4.75;
+      tl.from("#s2-shot", { x: -70, opacity: 0, scale: 0.97, duration: 0.95, ease: "expo.out" }, s2 + 0.1);
+      tl.from("#s2-eyebrow", { x: 36, opacity: 0, duration: 0.55, ease: "power3.out" }, s2 + 0.28);
+      tl.from("#s2-title", { y: 34, opacity: 0, duration: 0.7, ease: "expo.out" }, s2 + 0.4);
+      tl.from("#s2-rule", { scaleX: 0, transformOrigin: "left center", duration: 0.6, ease: "power3.inOut" }, s2 + 0.62);
+      tl.from("#s2-p1", { y: 22, opacity: 0, duration: 0.5, ease: "power2.out" }, s2 + 0.78);
+      tl.from("#s2-p2", { y: 22, opacity: 0, duration: 0.5, ease: "power2.out" }, s2 + 0.9);
+      tl.from("#s2-p3", { y: 22, opacity: 0, duration: 0.5, ease: "power2.out" }, s2 + 1.02);
+      tl.fromTo("#s2-shot img", { scale: 1 }, { scale: 1.045, duration: 9.1, ease: "none" }, s2 + 1.1);
+
+      /* ---------- 场景 3：红包课堂 ---------- */
+      const s3 = 15.35;
+      tl.from("#s3-shot", { x: -70, opacity: 0, scale: 0.97, duration: 0.95, ease: "expo.out" }, s3 + 0.1);
+      tl.from("#s3-eyebrow", { x: 36, opacity: 0, duration: 0.55, ease: "power3.out" }, s3 + 0.28);
+      tl.from("#s3-title", { y: 34, opacity: 0, duration: 0.7, ease: "expo.out" }, s3 + 0.4);
+      tl.from("#s3-rule", { scaleX: 0, transformOrigin: "left center", duration: 0.6, ease: "power3.inOut" }, s3 + 0.62);
+      tl.from("#s3-p1", { y: 22, opacity: 0, duration: 0.5, ease: "power2.out" }, s3 + 0.78);
+      tl.from("#s3-p2", { y: 22, opacity: 0, duration: 0.5, ease: "power2.out" }, s3 + 0.9);
+      tl.from("#s3-p3", { y: 22, opacity: 0, duration: 0.5, ease: "power2.out" }, s3 + 1.02);
+      tl.fromTo("#s3-shot img", { scale: 1 }, { scale: 1.05, duration: 10.9, ease: "none" }, s3 + 1.1);
+      /* 红包徽记轻微呼吸，强调互动感 */
+      tl.fromTo("#s3-shot", { filter: "saturate(1)" }, { filter: "saturate(1.08)", duration: 4, ease: "sine.inOut" }, s3 + 1.2);
+
+      /* ---------- 场景 4：成绩分析 ---------- */
+      const s4 = 27.75;
+      tl.from("#s4-shot", { x: -70, opacity: 0, scale: 0.97, duration: 0.95, ease: "expo.out" }, s4 + 0.1);
+      tl.from("#s4-eyebrow", { x: 36, opacity: 0, duration: 0.55, ease: "power3.out" }, s4 + 0.28);
+      tl.from("#s4-title", { y: 34, opacity: 0, duration: 0.7, ease: "expo.out" }, s4 + 0.4);
+      tl.from("#s4-rule", { scaleX: 0, transformOrigin: "left center", duration: 0.6, ease: "power3.inOut" }, s4 + 0.62);
+      tl.from("#s4-p1", { y: 22, opacity: 0, duration: 0.5, ease: "power2.out" }, s4 + 0.78);
+      tl.from("#s4-p2", { y: 22, opacity: 0, duration: 0.5, ease: "power2.out" }, s4 + 0.9);
+      tl.from("#s4-p3", { y: 22, opacity: 0, duration: 0.5, ease: "power2.out" }, s4 + 1.02);
+      tl.fromTo("#s4-shot img", { scale: 1 }, { scale: 1.045, duration: 9.7, ease: "none" }, s4 + 1.1);
+
+      /* ---------- 场景 5：个人中心 ---------- */
+      const s5 = 38.95;
+      tl.from("#s5-shot", { x: -70, opacity: 0, scale: 0.97, duration: 0.95, ease: "expo.out" }, s5 + 0.1);
+      tl.from("#s5-eyebrow", { x: 36, opacity: 0, duration: 0.55, ease: "power3.out" }, s5 + 0.28);
+      tl.from("#s5-title", { y: 34, opacity: 0, duration: 0.7, ease: "expo.out" }, s5 + 0.4);
+      tl.from("#s5-rule", { scaleX: 0, transformOrigin: "left center", duration: 0.6, ease: "power3.inOut" }, s5 + 0.62);
+      tl.from("#s5-p1", { y: 22, opacity: 0, duration: 0.5, ease: "power2.out" }, s5 + 0.78);
+      tl.from("#s5-p2", { y: 22, opacity: 0, duration: 0.5, ease: "power2.out" }, s5 + 0.9);
+      tl.from("#s5-p3", { y: 22, opacity: 0, duration: 0.5, ease: "power2.out" }, s5 + 1.02);
+      tl.fromTo("#s5-shot img", { scale: 1 }, { scale: 1.045, duration: 8.5, ease: "none" }, s5 + 1.1);
+
+      /* ---------- 片尾 ---------- */
+      const s6 = 48.85;
+      tl.from(".outro .glow-a", { opacity: 0, scale: 0.85, duration: 1.6, ease: "power2.out" }, s6);
+      tl.from(".outro-title", { y: 46, opacity: 0, duration: 0.9, ease: "expo.out" }, s6 + 0.2);
+      tl.from(".outro-sub", { y: 26, opacity: 0, duration: 0.6, ease: "power2.out" }, s6 + 0.5);
+      tl.from("#outro-url", { y: 22, opacity: 0, scale: 0.96, duration: 0.6, ease: "back.out(1.4)" }, s6 + 0.72);
+      tl.from(".outro-foot", { opacity: 0, duration: 0.6, ease: "sine.out" }, s6 + 1.0);
+
+      /* ---------- 转场白幕 ---------- */
+      const wipes = [
+        [4.55, "w1"], [15.15, "w2"], [27.55, "w3"], [38.75, "w4"], [48.65, "w5"],
+      ];
+      wipes.forEach(([t, id]) => {
+        tl.fromTo("#" + id, { opacity: 0 }, { opacity: 1, duration: 0.16, ease: "power2.in" }, t);
+        tl.to("#" + id, { opacity: 0, duration: 0.3, ease: "power2.out" }, t + 0.2);
+      });
+
+      window.__timelines["main"] = tl;
+      tl.seek(0);
+    </script>
+  </body>
+</html>

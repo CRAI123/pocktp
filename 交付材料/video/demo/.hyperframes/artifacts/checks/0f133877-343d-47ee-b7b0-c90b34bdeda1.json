@@ -1,0 +1,848 @@
+{
+  "ok": false,
+  "strict": false,
+  "browserSkipped": false,
+  "lint": {
+    "ok": false,
+    "errorCount": 1,
+    "warningCount": 12,
+    "infoCount": 0,
+    "findings": [
+      {
+        "code": "studio_missing_editable_id",
+        "severity": "warning",
+        "message": "<section class=\"intro\" data-start=\"0\" data-track-index=\"1\"> has no id, so Studio cannot use a stable edit target for its timeline and canvas controls.",
+        "selector": "[data-composition-id]",
+        "dataAttributes": {},
+        "sourceFile": "E:\\desktop\\pocktp\\交付材料\\video\\demo\\index.html",
+        "bbox": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "time": 0,
+        "fixHint": "Add a stable, human-readable id such as id=\"hero-title\" or id=\"scene-1-card\" to every timeline-visible element you want agents or Studio to edit."
+      },
+      {
+        "code": "studio_missing_editable_id",
+        "severity": "warning",
+        "message": "<section class=\"scene\" data-start=\"4.7\" data-track-index=\"2\"> has no id, so Studio cannot use a stable edit target for its timeline and canvas controls.",
+        "selector": "[data-composition-id]",
+        "dataAttributes": {},
+        "sourceFile": "E:\\desktop\\pocktp\\交付材料\\video\\demo\\index.html",
+        "bbox": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "time": 0,
+        "fixHint": "Add a stable, human-readable id such as id=\"hero-title\" or id=\"scene-1-card\" to every timeline-visible element you want agents or Studio to edit."
+      },
+      {
+        "code": "studio_missing_editable_id",
+        "severity": "warning",
+        "message": "<section class=\"scene\" data-start=\"15.3\" data-track-index=\"3\"> has no id, so Studio cannot use a stable edit target for its timeline and canvas controls.",
+        "selector": "[data-composition-id]",
+        "dataAttributes": {},
+        "sourceFile": "E:\\desktop\\pocktp\\交付材料\\video\\demo\\index.html",
+        "bbox": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "time": 0,
+        "fixHint": "Add a stable, human-readable id such as id=\"hero-title\" or id=\"scene-1-card\" to every timeline-visible element you want agents or Studio to edit."
+      },
+      {
+        "code": "studio_missing_editable_id",
+        "severity": "warning",
+        "message": "<section class=\"scene\" data-start=\"27.7\" data-track-index=\"4\"> has no id, so Studio cannot use a stable edit target for its timeline and canvas controls.",
+        "selector": "[data-composition-id]",
+        "dataAttributes": {},
+        "sourceFile": "E:\\desktop\\pocktp\\交付材料\\video\\demo\\index.html",
+        "bbox": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "time": 0,
+        "fixHint": "Add a stable, human-readable id such as id=\"hero-title\" or id=\"scene-1-card\" to every timeline-visible element you want agents or Studio to edit."
+      },
+      {
+        "code": "studio_missing_editable_id",
+        "severity": "warning",
+        "message": "<section class=\"scene\" data-start=\"38.9\" data-track-index=\"5\"> has no id, so Studio cannot use a stable edit target for its timeline and canvas controls.",
+        "selector": "[data-composition-id]",
+        "dataAttributes": {},
+        "sourceFile": "E:\\desktop\\pocktp\\交付材料\\video\\demo\\index.html",
+        "bbox": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "time": 0,
+        "fixHint": "Add a stable, human-readable id such as id=\"hero-title\" or id=\"scene-1-card\" to every timeline-visible element you want agents or Studio to edit."
+      },
+      {
+        "code": "studio_missing_editable_id",
+        "severity": "warning",
+        "message": "<section class=\"outro\" data-start=\"48.8\" data-track-index=\"6\"> has no id, so Studio cannot use a stable edit target for its timeline and canvas controls.",
+        "selector": "[data-composition-id]",
+        "dataAttributes": {},
+        "sourceFile": "E:\\desktop\\pocktp\\交付材料\\video\\demo\\index.html",
+        "bbox": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "time": 0,
+        "fixHint": "Add a stable, human-readable id such as id=\"hero-title\" or id=\"scene-1-card\" to every timeline-visible element you want agents or Studio to edit."
+      },
+      {
+        "code": "timeline_track_too_dense",
+        "severity": "warning",
+        "message": "This HTML file has 11 timed elements. Smaller sub-compositions keep timelines easier to read, iterate on, and diff.",
+        "selector": "[data-composition-id]",
+        "dataAttributes": {},
+        "sourceFile": "E:\\desktop\\pocktp\\交付材料\\video\\demo\\index.html",
+        "bbox": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "time": 0,
+        "fixHint": "Move coherent scene groups into separate .html files under compositions/ and mount them from the parent with data-composition-src so the timeline stays easier to inspect, revise, and validate."
+      },
+      {
+        "code": "font_family_without_font_face",
+        "severity": "error",
+        "message": "Font families used without @font-face declaration: pingfang sc, microsoft yahei, noto sans sc. These are not in the auto-resolved font list, so the renderer cannot supply them automatically. Text will fall back to a generic font, producing incorrect typography in the video.",
+        "selector": "[data-composition-id]",
+        "dataAttributes": {},
+        "sourceFile": "E:\\desktop\\pocktp\\交付材料\\video\\demo\\index.html",
+        "bbox": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "time": 0,
+        "fixHint": "Add @font-face { font-family: '...'; src: url('capture/assets/fonts/...woff2'); } for each font family, pointing to the captured .woff2 files, or switch to a Google Fonts family. An OS font such as PingFang SC or Hiragino Sans renders locally from the installed copy, but a cloud render has no copy and refuses it."
+      },
+      {
+        "code": "nested_structure_needs_subcomposition",
+        "severity": "warning",
+        "message": "<section> is a timeline element that contains nested <div>. The timeline shows one row per top-level element, and the root composition is built only from sub-compositions.",
+        "selector": "[data-composition-id]",
+        "dataAttributes": {},
+        "sourceFile": "E:\\desktop\\pocktp\\交付材料\\video\\demo\\index.html",
+        "bbox": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "time": 0,
+        "fixHint": "Move <section> and its contents into a sub-composition file and mount it with data-composition-src."
+      },
+      {
+        "code": "nested_structure_needs_subcomposition",
+        "severity": "warning",
+        "message": "<section> is a timeline element that contains nested <div id=\"s2-shot\">. The timeline shows one row per top-level element, and the root composition is built only from sub-compositions.",
+        "selector": "[data-composition-id]",
+        "dataAttributes": {},
+        "sourceFile": "E:\\desktop\\pocktp\\交付材料\\video\\demo\\index.html",
+        "bbox": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "time": 0,
+        "fixHint": "Move <section> and its contents into a sub-composition file and mount it with data-composition-src."
+      },
+      {
+        "code": "nested_structure_needs_subcomposition",
+        "severity": "warning",
+        "message": "<section> is a timeline element that contains nested <div id=\"s3-shot\">. The timeline shows one row per top-level element, and the root composition is built only from sub-compositions.",
+        "selector": "[data-composition-id]",
+        "dataAttributes": {},
+        "sourceFile": "E:\\desktop\\pocktp\\交付材料\\video\\demo\\index.html",
+        "bbox": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "time": 0,
+        "fixHint": "Move <section> and its contents into a sub-composition file and mount it with data-composition-src."
+      },
+      {
+        "code": "nested_structure_needs_subcomposition",
+        "severity": "warning",
+        "message": "<section> is a timeline element that contains nested <div id=\"s4-shot\">. The timeline shows one row per top-level element, and the root composition is built only from sub-compositions.",
+        "selector": "[data-composition-id]",
+        "dataAttributes": {},
+        "sourceFile": "E:\\desktop\\pocktp\\交付材料\\video\\demo\\index.html",
+        "bbox": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "time": 0,
+        "fixHint": "Move <section> and its contents into a sub-composition file and mount it with data-composition-src."
+      },
+      {
+        "code": "nested_structure_needs_subcomposition",
+        "severity": "warning",
+        "message": "<section> is a timeline element that contains nested <div id=\"s5-shot\">. The timeline shows one row per top-level element, and the root composition is built only from sub-compositions.",
+        "selector": "[data-composition-id]",
+        "dataAttributes": {},
+        "sourceFile": "E:\\desktop\\pocktp\\交付材料\\video\\demo\\index.html",
+        "bbox": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "time": 0,
+        "fixHint": "Move <section> and its contents into a sub-composition file and mount it with data-composition-src."
+      }
+    ],
+    "filesScanned": 1
+  },
+  "runtime": {
+    "ok": true,
+    "errorCount": 0,
+    "warningCount": 0,
+    "infoCount": 0,
+    "findings": []
+  },
+  "layout": {
+    "ok": true,
+    "errorCount": 0,
+    "warningCount": 0,
+    "infoCount": 7,
+    "findings": [
+      {
+        "code": "container_overflow",
+        "severity": "info",
+        "time": 3.056,
+        "selector": "section[data-start=\"0\"] > div:nth-of-type(1)",
+        "message": "Element extends outside a clipping layout container.",
+        "rect": {
+          "left": 1280,
+          "top": -420,
+          "right": 2180,
+          "bottom": 480,
+          "width": 900,
+          "height": 900
+        },
+        "containerSelector": "section[data-start=\"0\"]",
+        "fixHint": "Resize/reposition the child or container, or mark intentional overflow with data-layout-allow-overflow.",
+        "containerRect": {
+          "left": 0,
+          "top": 0,
+          "right": 1920,
+          "bottom": 1080,
+          "width": 1920,
+          "height": 1080
+        },
+        "overflow": {
+          "right": 260,
+          "top": 420
+        },
+        "dataAttributes": {},
+        "sourceFile": "index.html",
+        "bbox": {
+          "x": 1280,
+          "y": -420,
+          "width": 900,
+          "height": 900
+        },
+        "firstSeen": 3.056,
+        "lastSeen": 3.056,
+        "occurrences": 1,
+        "heldMs": 0,
+        "times": [
+          3.056
+        ]
+      },
+      {
+        "code": "container_overflow",
+        "severity": "info",
+        "time": 3.056,
+        "selector": "div.glow-b",
+        "message": "Element extends outside a clipping layout container.",
+        "rect": {
+          "left": -180,
+          "top": 730,
+          "right": 600,
+          "bottom": 1510,
+          "width": 780,
+          "height": 780
+        },
+        "containerSelector": "section[data-start=\"0\"]",
+        "fixHint": "Resize/reposition the child or container, or mark intentional overflow with data-layout-allow-overflow.",
+        "containerRect": {
+          "left": 0,
+          "top": 0,
+          "right": 1920,
+          "bottom": 1080,
+          "width": 1920,
+          "height": 1080
+        },
+        "overflow": {
+          "left": 180,
+          "bottom": 430
+        },
+        "dataAttributes": {},
+        "sourceFile": "index.html",
+        "bbox": {
+          "x": -180,
+          "y": 730,
+          "width": 780,
+          "height": 780
+        },
+        "firstSeen": 3.056,
+        "lastSeen": 3.056,
+        "occurrences": 1,
+        "heldMs": 0,
+        "times": [
+          3.056
+        ]
+      },
+      {
+        "code": "container_overflow",
+        "severity": "info",
+        "time": 9.167,
+        "selector": "#s2-shot > img:nth-of-type(1)",
+        "message": "Element extends outside a clipping layout container.",
+        "rect": {
+          "left": 110.73,
+          "top": 219.83,
+          "right": 1135.27,
+          "bottom": 860.17,
+          "width": 1024.53,
+          "height": 640.33
+        },
+        "containerSelector": "#s2-shot",
+        "fixHint": "Resize/reposition the child or container, or mark intentional overflow with data-layout-allow-overflow.",
+        "containerRect": {
+          "left": 118,
+          "top": 224,
+          "right": 1128,
+          "bottom": 856,
+          "width": 1010,
+          "height": 632
+        },
+        "overflow": {
+          "left": 7.27,
+          "right": 7.27,
+          "top": 4.17,
+          "bottom": 4.17
+        },
+        "dataAttributes": {
+          "data-hf-render-id": "hf-media-0",
+          "data-hf-authored-opacity": ""
+        },
+        "sourceFile": "index.html",
+        "bbox": {
+          "x": 110.73,
+          "y": 219.83,
+          "width": 1024.53,
+          "height": 640.33
+        },
+        "firstSeen": 9.167,
+        "lastSeen": 15.278,
+        "occurrences": 2,
+        "heldMs": 0,
+        "times": [
+          9.167,
+          15.278
+        ]
+      },
+      {
+        "code": "container_overflow",
+        "severity": "info",
+        "time": 21.389,
+        "selector": "#s3-shot > img:nth-of-type(1)",
+        "message": "Element extends outside a clipping layout container.",
+        "rect": {
+          "left": 107.61,
+          "top": 217.88,
+          "right": 1138.39,
+          "bottom": 862.12,
+          "width": 1030.78,
+          "height": 644.24
+        },
+        "containerSelector": "#s3-shot",
+        "fixHint": "Resize/reposition the child or container, or mark intentional overflow with data-layout-allow-overflow.",
+        "containerRect": {
+          "left": 118,
+          "top": 224,
+          "right": 1128,
+          "bottom": 856,
+          "width": 1010,
+          "height": 632
+        },
+        "overflow": {
+          "left": 10.39,
+          "right": 10.39,
+          "top": 6.12,
+          "bottom": 6.12
+        },
+        "dataAttributes": {
+          "data-hf-render-id": "hf-media-1",
+          "data-hf-authored-opacity": ""
+        },
+        "sourceFile": "index.html",
+        "bbox": {
+          "x": 107.61,
+          "y": 217.88,
+          "width": 1030.78,
+          "height": 644.24
+        },
+        "firstSeen": 21.389,
+        "lastSeen": 27.5,
+        "occurrences": 2,
+        "heldMs": 0,
+        "times": [
+          21.389,
+          27.5
+        ]
+      },
+      {
+        "code": "container_overflow",
+        "severity": "info",
+        "time": 33.611,
+        "selector": "#s4-shot > img:nth-of-type(1)",
+        "message": "Element extends outside a clipping layout container.",
+        "rect": {
+          "left": 107.91,
+          "top": 218.07,
+          "right": 1138.09,
+          "bottom": 861.93,
+          "width": 1030.18,
+          "height": 643.86
+        },
+        "containerSelector": "#s4-shot",
+        "fixHint": "Resize/reposition the child or container, or mark intentional overflow with data-layout-allow-overflow.",
+        "containerRect": {
+          "left": 118,
+          "top": 224,
+          "right": 1128,
+          "bottom": 856,
+          "width": 1010,
+          "height": 632
+        },
+        "overflow": {
+          "left": 10.09,
+          "right": 10.09,
+          "top": 5.93,
+          "bottom": 5.93
+        },
+        "dataAttributes": {
+          "data-hf-render-id": "hf-media-2",
+          "data-hf-authored-opacity": ""
+        },
+        "sourceFile": "index.html",
+        "bbox": {
+          "x": 107.91,
+          "y": 218.07,
+          "width": 1030.18,
+          "height": 643.86
+        },
+        "firstSeen": 33.611,
+        "lastSeen": 33.611,
+        "occurrences": 1,
+        "heldMs": 0,
+        "times": [
+          33.611
+        ]
+      },
+      {
+        "code": "container_overflow",
+        "severity": "info",
+        "time": 45.833,
+        "selector": "#s5-shot > img:nth-of-type(1)",
+        "message": "Element extends outside a clipping layout container.",
+        "rect": {
+          "left": 103.68,
+          "top": 215.42,
+          "right": 1142.32,
+          "bottom": 864.58,
+          "width": 1038.64,
+          "height": 649.15
+        },
+        "containerSelector": "#s5-shot",
+        "fixHint": "Resize/reposition the child or container, or mark intentional overflow with data-layout-allow-overflow.",
+        "containerRect": {
+          "left": 118,
+          "top": 224,
+          "right": 1128,
+          "bottom": 856,
+          "width": 1010,
+          "height": 632
+        },
+        "overflow": {
+          "left": 14.32,
+          "right": 14.32,
+          "top": 8.58,
+          "bottom": 8.58
+        },
+        "dataAttributes": {
+          "data-hf-render-id": "hf-media-3",
+          "data-hf-authored-opacity": ""
+        },
+        "sourceFile": "index.html",
+        "bbox": {
+          "x": 103.68,
+          "y": 215.42,
+          "width": 1038.64,
+          "height": 649.15
+        },
+        "firstSeen": 45.833,
+        "lastSeen": 45.833,
+        "occurrences": 1,
+        "heldMs": 0,
+        "times": [
+          45.833
+        ]
+      },
+      {
+        "code": "container_overflow",
+        "severity": "info",
+        "time": 51.944,
+        "selector": "[data-start=\"48.8\"] > div:nth-of-type(1)",
+        "message": "Element extends outside a clipping layout container.",
+        "rect": {
+          "left": 510,
+          "top": 680,
+          "right": 1410,
+          "bottom": 1580,
+          "width": 900,
+          "height": 900
+        },
+        "containerSelector": "[data-start=\"48.8\"]",
+        "fixHint": "Resize/reposition the child or container, or mark intentional overflow with data-layout-allow-overflow.",
+        "containerRect": {
+          "left": 0,
+          "top": 0,
+          "right": 1920,
+          "bottom": 1080,
+          "width": 1920,
+          "height": 1080
+        },
+        "overflow": {
+          "bottom": 500
+        },
+        "dataAttributes": {},
+        "sourceFile": "index.html",
+        "bbox": {
+          "x": 510,
+          "y": 680,
+          "width": 900,
+          "height": 900
+        },
+        "firstSeen": 51.944,
+        "lastSeen": 51.944,
+        "occurrences": 1,
+        "heldMs": 0,
+        "times": [
+          51.944
+        ]
+      }
+    ],
+    "duration": 55,
+    "samples": [
+      3.056,
+      9.167,
+      15.278,
+      21.389,
+      27.5,
+      33.611,
+      39.722,
+      45.833,
+      51.944
+    ],
+    "transitionSamples": [],
+    "transitionSamplesDropped": 0,
+    "tolerance": 2,
+    "totalIssueCount": 7,
+    "truncated": false,
+    "faceCheck": {
+      "ran": true,
+      "candidates": 0,
+      "faces": 0
+    }
+  },
+  "motion": {
+    "ok": true,
+    "errorCount": 0,
+    "warningCount": 0,
+    "infoCount": 0,
+    "findings": [],
+    "enabled": false,
+    "samples": 0
+  },
+  "contrast": {
+    "ok": true,
+    "errorCount": 0,
+    "warningCount": 0,
+    "infoCount": 0,
+    "findings": [],
+    "enabled": true,
+    "samples": [
+      3.056,
+      15.278,
+      27.5,
+      39.722,
+      51.944
+    ],
+    "checked": 22,
+    "passed": 22
+  },
+  "craft": {
+    "ok": true,
+    "errorCount": 0,
+    "warningCount": 2,
+    "infoCount": 0,
+    "findings": [
+      {
+        "code": "film_silent",
+        "severity": "warning",
+        "message": "This 55 s film has no sound source (no <audio>, no <video> with sound): add a music bed and sounds on the visible actions unless the person asked for silence; see references/sound.md.",
+        "selector": "[data-composition-id]",
+        "dataAttributes": {},
+        "sourceFile": "index.html",
+        "bbox": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "time": 0
+      },
+      {
+        "code": "text_below_floor",
+        "severity": "warning",
+        "message": "Type floor is 28 px (2.6% of the 1080 px short side, what a phone can read) and 19 text elements stay under it for 0.5 s or more, the smallest \"01 / 教学总览\" at 18 px: set reading text to at least 28 px, or put data-layout-ignore on text that is texture rather than reading; see references/look.md.",
+        "text": "01 / 教学总览",
+        "selector": "#s2-eyebrow",
+        "dataAttributes": {},
+        "sourceFile": "index.html",
+        "bbox": {
+          "x": 1265.68,
+          "y": 366.22,
+          "width": 139.36,
+          "height": 24
+        },
+        "time": 5.25,
+        "times": [
+          0,
+          0,
+          5.25,
+          5.75,
+          5.875,
+          6,
+          15.75,
+          16.25,
+          16.375,
+          16.5,
+          28.25,
+          28.75,
+          28.875,
+          29,
+          39.375,
+          39.875,
+          40,
+          40.125,
+          49.5
+        ],
+        "fontPx": 18,
+        "floorPx": 28,
+        "seconds": 10.125,
+        "elements": [
+          {
+            "selector": "#s2-eyebrow",
+            "text": "01 / 教学总览",
+            "fontPx": 18,
+            "time": 5.25,
+            "seconds": 10.125
+          },
+          {
+            "selector": "#s3-eyebrow",
+            "text": "02 / 课堂互动",
+            "fontPx": 18,
+            "time": 15.75,
+            "seconds": 12
+          },
+          {
+            "selector": "#s4-eyebrow",
+            "text": "03 / AI 分析",
+            "fontPx": 18,
+            "time": 28.25,
+            "seconds": 10.75
+          },
+          {
+            "selector": "#s5-eyebrow",
+            "text": "04 / 账号中心",
+            "fontPx": 18,
+            "time": 39.375,
+            "seconds": 9.5
+          },
+          {
+            "selector": "#s2-p1",
+            "text": "待办、课表、考试倒计时自动汇总",
+            "fontPx": 24,
+            "time": 5.75,
+            "seconds": 9.625
+          },
+          {
+            "selector": "#s2-p2",
+            "text": "备考进度按天推进，完成率实时更新",
+            "fontPx": 24,
+            "time": 5.875,
+            "seconds": 9.5
+          },
+          {
+            "selector": "#s2-p3",
+            "text": "点名学生、查看课表一步直达",
+            "fontPx": 24,
+            "time": 6,
+            "seconds": 9.375
+          },
+          {
+            "selector": "#s3-p1",
+            "text": "发红包、抢到就弹题，课堂秒变抢答现场",
+            "fontPx": 24,
+            "time": 16.25,
+            "seconds": 11.5
+          },
+          {
+            "selector": "#s3-p2",
+            "text": "连击最高 3 倍积分，排行榜实时刷新",
+            "fontPx": 24,
+            "time": 16.375,
+            "seconds": 11.375
+          },
+          {
+            "selector": "#s3-p3",
+            "text": "积分换文具与免作业券，全程不用手机",
+            "fontPx": 24,
+            "time": 16.5,
+            "seconds": 11.25
+          },
+          {
+            "selector": "#s4-p1",
+            "text": "导入成绩即生成个人诊断与提升方案",
+            "fontPx": 24,
+            "time": 28.75,
+            "seconds": 10.25
+          },
+          {
+            "selector": "#s4-p2",
+            "text": "单科、总分、排名多维对比",
+            "fontPx": 24,
+            "time": 28.875,
+            "seconds": 10.125
+          },
+          {
+            "selector": "#s4-p3",
+            "text": "全班一次跑完，失败自动重试",
+            "fontPx": 24,
+            "time": 29,
+            "seconds": 10
+          },
+          {
+            "selector": "#s5-p1",
+            "text": "课程自动带出班级与科目",
+            "fontPx": 24,
+            "time": 39.875,
+            "seconds": 9
+          },
+          {
+            "selector": "#s5-p2",
+            "text": "会员状态、算力余额一目了然",
+            "fontPx": 24,
+            "time": 40,
+            "seconds": 8.875
+          },
+          {
+            "selector": "#s5-p3",
+            "text": "资料与密码自助修改",
+            "fontPx": 24,
+            "time": 40.125,
+            "seconds": 8.75
+          },
+          {
+            "selector": "div.brand-mark",
+            "text": "教",
+            "fontPx": 26,
+            "time": 0,
+            "seconds": 5
+          },
+          {
+            "selector": "div.brand-name",
+            "text": "教师工作台",
+            "fontPx": 26,
+            "time": 0,
+            "seconds": 5
+          },
+          {
+            "selector": "p.outro-sub",
+            "text": "教师工作台 · 面向一线教师的 AI 教学与班务平台",
+            "fontPx": 26,
+            "time": 49.5,
+            "seconds": 5.5
+          }
+        ]
+      }
+    ],
+    "enabled": true,
+    "step": 0.125,
+    "samples": 440
+  },
+  "audio": {
+    "ok": true,
+    "errorCount": 0,
+    "warningCount": 0,
+    "infoCount": 1,
+    "findings": [
+      {
+        "code": "audio_none",
+        "severity": "info",
+        "message": "The film has no sound: no clip in it plays audio.",
+        "selector": "[data-composition-id]",
+        "dataAttributes": {},
+        "sourceFile": "index.html",
+        "bbox": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "time": 0
+      }
+    ]
+  },
+  "hdr": {
+    "autoPromotion": null,
+    "inspection": "available"
+  },
+  "snapshots": {
+    "enabled": false,
+    "files": [],
+    "times": [],
+    "findingFiles": []
+  }
+}

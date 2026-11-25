@@ -5,10 +5,12 @@
  *  - PDF：A4 分页题目卷 + 独立答案页
  */
 import { useEffect, useMemo, useState } from 'react';
-import { Sparkles, Loader2, Download, Eye, EyeOff, Wand2, TrendingUp, GraduationCap, CheckSquare, Square, Printer } from 'lucide-react';
+import { Sparkles, Loader2, Download, Eye, EyeOff, Wand2, TrendingUp, GraduationCap, CheckSquare, Square, Printer, Image as ImageIcon } from 'lucide-react';
 import { ai, auth } from '../../api.js';
 import { isDesktopApp, printSheets, notifyDone } from '../../desktop.js';
 import { Button, SectionHeader, Badge, inputCls } from '../../components/ui.jsx';
+import QuestionImage from '../../components/QuestionImage.jsx';
+import { useQuestionImages } from '../../hooks/useQuestionImages.js';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 
@@ -125,7 +127,7 @@ function EssayGrid() {
 export default function ComprehensiveExam() {
   /* ---- 配置 ---- */
   const [cfg, setCfg] = useState({
-    grade: '10', difficulty: 'medium', trend: true, keyword: '',
+    grade: '10', difficulty: 'medium', trend: true, keyword: '', withImages: true,
     subjects: { chinese: 4, math: 4, english: 4 },
   });
   /* 每科出题模式：lean 精练 / full 整卷 23 题 / custom 自定义 */
@@ -147,6 +149,11 @@ export default function ComprehensiveExam() {
   const [printBusy, setPrintBusy] = useState(false);
   /* 屏幕端学科页签：一科一个页面，切换查看，互不混杂 */
   const [activeSubj, setActiveSubj] = useState('chinese');
+
+  /* 按题按需生图：对 need_image 的题逐张生成配图，失败可重试 */
+  const { retry: retryImage } = useQuestionImages(questions, setQuestions, {
+    onCreditsError: () => notifyDone('算力不足', '已停止生成配图，充值后可重试'),
+  });
 
   const anyLoading = SUBJECTS.some(s => subjState[s.key].loading);
   const gradeLabel = GRADES.find(g => g.v === cfg.grade)?.l || '';
@@ -195,7 +202,7 @@ export default function ComprehensiveExam() {
         const b = batches[i];
         const d = await ai.exam({
           grade: cfg.grade, difficulty: cfg.difficulty, trend: cfg.trend,
-          keyword: cfg.keyword,
+          keyword: cfg.keyword, withImages: cfg.withImages,
           subjects: [{ subject: key, ...(b.qtypes ? { qtypes: b.qtypes } : { count: b.count }) }],
         });
         const qs = d.questions || [];
@@ -229,7 +236,10 @@ export default function ComprehensiveExam() {
     if (!fb || regenBusy) return;
     setRegenBusy(q.id); setRegenErr('');
     try {
-      const d = await ai.regenerate('exam', q, fb);
+      /* 剥离运行时配图字段（data URL 很大），只把题目结构发给 LLM */
+      const clean = { ...q };
+      delete clean.image; delete clean.imageLoading; delete clean.imageError;
+      const d = await ai.regenerate('exam', clean, fb, cfg.withImages);
       const nq = d.question;
       setQuestions(list => list.map(x => x.id === q.id ? nq : x));
       setSel(list => list.includes(q.id) ? [...list.filter(x => x !== q.id), nq.id] : list);
@@ -376,6 +386,7 @@ export default function ComprehensiveExam() {
               <div className="mb-2 rounded-xl border-l-2 border-black/10 bg-bg-light px-3.5 py-2.5 text-[13px] leading-relaxed text-ink-secondary whitespace-pre-wrap">{q.passage}</div>
             )}
             <div className="whitespace-pre-wrap text-sm leading-relaxed sm:text-[15px]">{q.stem}</div>
+            <QuestionImage q={q} onRetry={retryImage} />
             {q.qtype === '选择题' && Array.isArray(q.choices) && (
               <div className="mt-2 grid gap-1.5 sm:grid-cols-2">
                 {q.choices.map((c, i) => (
@@ -443,10 +454,19 @@ export default function ComprehensiveExam() {
           <Chip active={cfg.trend} tone="orange" onClick={() => setCfg(f => ({ ...f, trend: !f.trend }))}>
             <span className="inline-flex items-center gap-1"><TrendingUp size={13} />{isHigh(cfg.grade) ? '高考' : '中考'}新题型 · 新风向</span>
           </Chip>
+          <span className="mx-1 h-4 w-px bg-black/10" />
+          <Chip active={cfg.withImages} onClick={() => setCfg(f => ({ ...f, withImages: !f.withImages }))}>
+            <span className="inline-flex items-center gap-1"><ImageIcon size={13} />生成配图（AI 按需）</span>
+          </Chip>
         </div>
         {cfg.trend && (
           <p className="rounded-xl bg-[#ff9500]/10 px-3 py-2 text-xs leading-relaxed text-[#c77700]">
             已开启新风向：每科至少 1 道新题型——真实情境化、跨学科融合、开放性设问、新材料。
+          </p>
+        )}
+        {cfg.withImages && (
+          <p className="rounded-xl bg-[#af52de]/10 px-3 py-2 text-xs leading-relaxed text-[#7a36a3]">
+            已开启配图：AI 按需判断每题是否配图，生成后居中展示在题目下方，纯文字/计算/默写题不配图。
           </p>
         )}
         {/* 三科独立生成卡：语数英彻底分开，每科可选出题模式 */}
@@ -674,6 +694,7 @@ export default function ComprehensiveExam() {
                       <span className="print-prompt">（{q.points} 分）{q.stem}</span>
                     </div>
                     {q.passage && <div className="exam-passage">{q.passage}</div>}
+                    <QuestionImage q={q} variant="print" />
                     {q.qtype === '选择题' && Array.isArray(q.choices) && (
                       <div className="exam-choices">
                         {q.choices.map((c, i) => <span key={i}>{LETTERS[i]}. {c}</span>)}

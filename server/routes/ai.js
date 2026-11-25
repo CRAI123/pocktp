@@ -18,6 +18,13 @@ const MODEL = process.env.AI_MODEL || 'claude-sonnet-4-6';
 const MODEL_BACKUP = process.env.AI_MODEL_BACKUP || 'claude-opus-5';
 const COST = Number(process.env.AI_COST_PER_CALL || 5);
 
+/* AI 生图：同一中转网关的图像通道（OpenAI 兼容 /v1/images/generations，返回 base64）
+ * 与文本 KEY 分离：生图走独立渠道计费，前端每题按需单独调用，不占出题的 60s 预算 */
+const IMAGE_BASE = (process.env.AI_IMAGE_BASE_URL || BASE).replace(/\/$/, '');
+const IMAGE_KEY = process.env.AI_IMAGE_KEY || '';
+const IMAGE_MODEL = process.env.AI_IMAGE_MODEL || 'gpt-image-2';
+const IMAGE_COST = Number(process.env.AI_IMAGE_COST || 5);
+
 /* 分级计费：按功能实际消耗定价（轻量操作低价，重活高价），余额不足统一 402 */
 const COSTS = {
   generate: COST,   // AI 出题（批量生成）
@@ -37,6 +44,7 @@ const COSTS = {
   homework: 5,       // 作业提效（题目 + 答案 + 批注）
   essaycomment: 2,   // 作文 / 作业评语
   material: 1,       // 备课资料库 AI 检索
+  image: IMAGE_COST, // AI 生图（单张，按题按需生成）
 };
 
 /* 教师自选模型只允许服务端已配置的主/备模型，禁止前端传任意值 */
@@ -135,6 +143,35 @@ async function chat(messages, opts = {}) {
   }
 }
 
+/* 生图：调用图像通道 /v1/images/generations，返回 data URL（base64）。
+ * 单独 52s 超时（生图较慢），失败抛带 status 的错误由路由转成可读 JSON。
+ * 返回 data URL 而非存储 URL：前端可直接 <img src> 且 html2canvas 导出 PDF 无跨域污染。 */
+async function generateImage(prompt) {
+  if (!IMAGE_KEY) throw Object.assign(new Error('AI_IMAGE_KEY 未配置'), { status: 503 });
+  const p = String(prompt || '').trim();
+  if (!p) throw Object.assign(new Error('图片提示词不能为空'), { status: 400 });
+  if (p.length > 2000) throw Object.assign(new Error('图片提示词过长（≤2000 字）'), { status: 400 });
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 52_000);
+  try {
+    const r = await fetch(`${IMAGE_BASE}/v1/images/generations`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${IMAGE_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: IMAGE_MODEL, prompt: p, n: 1, size: '1024x1024', response_format: 'b64_json' }),
+      signal: ctrl.signal,
+    });
+    const text = await r.text();
+    let data; try { data = JSON.parse(text); } catch { data = { raw: text }; }
+    if (!r.ok) throw Object.assign(new Error(data?.error?.message || `生图失败 HTTP ${r.status}`), { status: r.status, raw: data });
+    const item = data?.data?.[0];
+    if (item?.b64_json) return `data:image/png;base64,${item.b64_json}`;
+    if (item?.url) return item.url;
+    throw Object.assign(new Error('生图返回为空'), { status: 502 });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /* 算力扣减（事务） */
 async function charge(teacherId, cost) {
   if (cost <= 0) return { credits: 0 };
@@ -197,13 +234,35 @@ const GRADE_DESC = (g) => {
   return `${g} 年级`;
 };
 
-const SYSTEM_GENERATE = (type, grade, difficulty, count, keyword, trend = false) => `你是${GRADE_DESC(grade)}出题专家，正在生成【${(IS_HS(grade) && TYPE_PROMPT_HS[type]) || TYPE_PROMPT[type] || type}】专项练习题。
+/* ===== AI 配图：让模型自我判断每题是否需要图 + 给出详细英文生图提示词 ===== */
+const IMG_POSITIONS = ['after_stem', 'after_passage', 'inline'];
+/** enabled=true 时返回要拼进 prompt 的 schema 片段与规则说明；否则返回空串（模型不返回配图字段） */
+const IMAGE_BLOCK = (enabled) => enabled ? {
+  schema: `      "need_image": true或false,
+      "image_prompt": "仅 need_image=true 时填写：一段英文详细生图提示词（画面主体/场景/动作/风格/构图/配色）",
+      "image_position": "after_stem 或 after_passage",`,
+  rule: `- 配图判断：need_image 表示本题是否需要配图辅助理解。只有「需要可视化才能读懂」的题才配图（如几何图形、物理/化学实验装置、地理示意图、生物结构、情景对话场景、历史事件画面、函数图像等）；纯文字题、计算题、默写题、普通选择题/填空题 need_image 一律为 false。
+- need_image=true 时，image_prompt 必须用英文写一段详细提示词（写清主体、场景、动作、画风、构图、配色），图片内严禁出现任何文字/字母/数字/水印/logo；image_position 选 after_stem（题干后）或 after_passage（材料后）。`,
+} : { schema: '', rule: '' };
+
+/** 清洗 AI 返回的配图字段：未开启或无有效提示词时一律 need_image=false，避免前端误触发生图 */
+function imgFields(q, enabled) {
+  if (!enabled) return {};
+  const need = q?.need_image === true || q?.need_image === 'true' || q?.need_image === 1;
+  const prompt = String(q?.image_prompt || '').trim().slice(0, 600);
+  const pos = IMG_POSITIONS.includes(q?.image_position) ? q.image_position : 'after_stem';
+  return (need && prompt) ? { need_image: true, image_prompt: prompt, image_position: pos } : { need_image: false };
+}
+
+const SYSTEM_GENERATE = (type, grade, difficulty, count, keyword, trend = false, withImages = true) => {
+  const img = IMAGE_BLOCK(withImages);
+  return `你是${GRADE_DESC(grade)}出题专家，正在生成【${(IS_HS(grade) && TYPE_PROMPT_HS[type]) || TYPE_PROMPT[type] || type}】专项练习题。
 要求：
 - 难度：${difficulty}（easy=基础、medium=中等、hard=拔高）
 ${trend ? TREND_DIRECTIVE(grade) : ''}- 数量：${count} 题
 - 主题/关键词：${keyword || '不限'}
 - 题目符合课标、考点清晰、无错别字 / 拼写错误
-- 严格返回 JSON，不要任何解释或 markdown 代码块包装
+${img.rule}- 严格返回 JSON，不要任何解释或 markdown 代码块包装
 
 JSON Schema（按题型使用对应字段，未列出字段可不填）:
 {
@@ -221,18 +280,20 @@ JSON Schema（按题型使用对应字段，未列出字段可不填）:
       "chinese": "dictationEn 题用，中文释义",
       "explanation": "一句话解析",
       "hint": "sentence/wordbank 用，一两个词提示",
-      "topic": "${keyword || '综合'}"
+      "topic": "${keyword || '综合'}"${img.schema ? `,\n${img.schema}` : ''}
     }
   ]
 }`;
+};
 
 /* ===== POST /api/ai/generate ===== */
 router.post('/generate', ah(async (req, res) => {
-  const { type, grade = '3', difficulty = 'medium', count = 10, keyword = '', trend = false } = req.body || {};
+  const { type, grade = '3', difficulty = 'medium', count = 10, keyword = '', trend = false, withImages = true } = req.body || {};
+  const imgOn = !!withImages;
   if (!type || !TYPE_PROMPT[type]) return res.status(400).json({ error: 'type 不合法' });
   const n = Math.max(1, Math.min(30, Number(count) || 10));
   const out0 = await chatJson([
-    { role: 'system', content: SYSTEM_GENERATE(type, grade, difficulty, n, keyword, !!trend) },
+    { role: 'system', content: SYSTEM_GENERATE(type, grade, difficulty, n, keyword, !!trend, imgOn) },
     { role: 'user', content: `请生成 ${n} 道题。` },
   ], { maxTokens: 4096 });
   const parsed = out0?.parsed;
@@ -259,6 +320,7 @@ router.post('/generate', ah(async (req, res) => {
           explanation: sq.explanation || '',
           groupIndex: gi,
           groupSize: subs.length,
+          ...imgFields(sq, imgOn),
         });
       });
     });
@@ -267,6 +329,7 @@ router.post('/generate', ah(async (req, res) => {
       id: `ai-${type}-${Date.now()}-${i}`,
       grade, difficulty, topic: keyword || 'AI 生成',
       ...q,
+      ...imgFields(q, imgOn),
     }));
   }
   if (!questions.length) return res.status(502).json({ error: 'AI 返回解析失败，请重试' });
@@ -294,6 +357,28 @@ router.get('/history', ah(async (req, res) => {
   );
   /* questions 字段是 JSONB，pg 自动解析为对象/数组（get/all 已统一 parseInt int8） */
   res.json({ history: rows.map(r => ({ ...r, questions: typeof r.questions === 'string' ? JSON.parse(r.questions) : r.questions })) });
+}));
+
+/* ===== POST /api/ai/image  按题按需生图（扣 AI_IMAGE_COST 算力，返回 data URL） =====
+ * 出题接口只让 AI 给出 need_image + image_prompt，真正生图由前端拿到题目后逐张调用本接口，
+ * 避免多张图串行生成超出 Vercel 60s 上限；余额不足返回 402，前端停止后续生图并提示。 */
+router.post('/image', ah(async (req, res) => {
+  const { prompt = '' } = req.body || {};
+  const cost = COSTS.image;
+  /* 先扣费再生图：算力不足直接 402，避免生图成功却扣不到费 */
+  const charged = await charge(req.teacherId, cost);
+  let url;
+  try {
+    url = await generateImage(prompt);
+  } catch (e) {
+    /* 生图失败退回本次扣费，让前端可重试而不白扣算力 */
+    await db.run('UPDATE teachers SET credits = credits + ? WHERE id = ?', [cost, req.teacherId])
+      .catch(() => {});
+    const status = e?.status || 502;
+    return res.status(status).json({ error: e?.message || '生图失败，请重试', retryable: status >= 500 || status === 429 });
+  }
+  saveToolHistory(req.teacherId, 'image', String(prompt).slice(0, 120), [{ prompt: String(prompt).slice(0, 600) }], cost, { count: 1 });
+  res.json({ url, cost, credits: charged.credits });
 }));
 
 /* ===== POST /api/ai/grade ===== */
@@ -514,19 +599,21 @@ router.post('/extract', ah(async (req, res) => {
 
 /* ===== POST /api/ai/similar  举一反三：基于单题生成同类型变式题 ===== */
 router.post('/similar', ah(async (req, res) => {
-  const { type, question, count = 3 } = req.body || {};
+  const { type, question, count = 3, withImages = true } = req.body || {};
   if (!type || !TYPE_PROMPT[type]) return res.status(400).json({ error: 'type 不合法' });
   if (!question || typeof question !== 'object') return res.status(400).json({ error: 'question 必填' });
   const n = Math.max(1, Math.min(5, Number(count) || 3));
-  /* 去掉内部字段后作为参考原题 */
+  /* 去掉内部/运行时字段后作为参考原题（image 是 data URL，绝不能塞进 LLM 上下文） */
   const original = { ...question };
-  delete original.id; delete original.groupIndex; delete original.groupSize; delete original.grade; delete original.difficulty; delete original.topic;
+  ['id', 'groupIndex', 'groupSize', 'grade', 'difficulty', 'topic', 'image', 'imageLoading', 'imageError']
+    .forEach(k => delete original[k]);
+  const img = IMAGE_BLOCK(withImages);
   const prompt = `题型：${TYPE_PROMPT[type] || type}
 参考原题（JSON）：
 ${JSON.stringify(original, null, 2)}
 
-请"举一反三"：生成 ${n} 道与原题同类型、同结构、同考点的变式题——考查知识点一致，但素材/词语/情境/数据不同，难度相当，可直接用于替换练习。字段结构与原题保持一致（原题有的字段都要给）。严格返回 JSON，不要 markdown 包装：
-{"questions": [ {…与原题同结构…} ]}`;
+请"举一反三"：生成 ${n} 道与原题同类型、同结构、同考点的变式题——考查知识点一致，但素材/词语/情境/数据不同，难度相当，可直接用于替换练习。字段结构与原题保持一致（原题有的字段都要给）。${img.rule}严格返回 JSON，不要 markdown 包装：
+{"questions": [ {…与原题同结构…${img.schema ? ', 含 need_image/image_prompt/image_position' : ''}} ]}`;
   const out0 = await chatJson([{ role: 'user', content: prompt }], { maxTokens: 2500 });
   const parsed = out0?.parsed;
   const result = out0?.result || {};
@@ -536,6 +623,7 @@ ${JSON.stringify(original, null, 2)}
     grade: question.grade || '', difficulty: question.difficulty || 'medium',
     topic: `举一反三${question.topic ? ` · ${question.topic}` : ''}`,
     ...q2,
+    ...imgFields(q2, withImages),
   }));
   if (!questions.length) return res.status(502).json({ error: 'AI 返回解析失败，请重试' });
   const cost = COSTS.similar;
@@ -569,9 +657,10 @@ const EXAM_QTYPES = ['选择题', '填空题', '解答题', '简答题', '阅读
 /* 各题型默认分值（中高考风格） */
 const EXAM_POINTS = { '选择题': 3, '填空题': 3, '解答题': 6, '简答题': 4, '阅读理解': 4, '完形填空': 10, '作文题': 40 };
 
-const SYSTEM_EXAM = (grade, difficulty, parts, trend, keyword) => {
+const SYSTEM_EXAM = (grade, difficulty, parts, trend, keyword, withImages = true) => {
   const hs = IS_HS(grade);
   const exam = hs ? '高考' : '中考';
+  const img = IMAGE_BLOCK(withImages);
   const subjectDesc = hs ? EXAM_SUBJECT_DESC_HS : EXAM_SUBJECT_DESC;
   const structure = hs
     ? '语文=现代文阅读/古诗文阅读/语言文字运用/名句默写/写作；数学=单选/多选/填空/解答；英语=阅读理解/完形填空/语法填空/书面表达'
@@ -596,13 +685,13 @@ ${parts.map(p => {
 - 题型结构完整仿${exam}：${structure}
 - 难度：${difficulty}（easy=基础、medium=中等、hard=拔高）；${grade === 'zk' || grade === 'gk' || Number(grade) >= 7 ? fit : `知识与难度严格符合该年级课标，仅题型结构仿${exam}`}
 ${trend ? TREND_DIRECTIVE(grade) + '- 每个学科至少 1 道新题型（真实情境化 / 跨学科融合 / 开放性设问 / 新材料）\n' : ''}- 主题/关键词：${keyword || '不限'}
-- 数学严禁出现需要画图、作图、识图的题目；几何内容一律以文字描述图形，让学生计算或证明
+- 数学：严禁出现需要学生画图、作图、识图才能作答的题目；但可为几何图形 / 函数图像配一张示意图辅助理解（need_image=true），题目本身仍须可仅凭文字计算或证明
 - 题目符合课标、表述准确严谨、无错别字；选择题正确答案唯一且干扰项有质量；填空题答案简洁唯一
 - 阅读理解/完形填空必须把阅读材料原文放入 passage 字段，材料语言规范、难度适配年级、有考查价值；设问覆盖不同能力层级（信息筛选/理解分析/赏析评价/推断探究）
 - 作文题 stem 必须包含：作文题目 + 写作要求（文体、角度、字数建议）；answer 给出审题指导、参考立意与高分范文要点（80 字以内）
 - 分值参考：${pointsRef}
 - 题干/选项/材料/解析中如需引用，一律使用中文引号「」，JSON 字符串内禁止出现未转义的英文双引号
-- 严格返回 JSON，不要任何解释或 markdown 代码块包装
+${img.rule}- 严格返回 JSON，不要任何解释或 markdown 代码块包装
 
 JSON Schema:
 {
@@ -615,7 +704,7 @@ JSON Schema:
       "choices": ["仅选择题：4 个选项内容，不含 A. 前缀"],
       "answer": "选择题填 A/B/C/D；完形填空按题号依次给出如 1.A 2.B 3.C；作文题给审题指导与范文要点；其余填参考答案（解答题给关键步骤与结果）",
       "explanation": "一句话解析",
-      "points": 3
+      "points": 3${img.schema ? `,\n${img.schema}` : ''}
     }
   ]
 }`;
@@ -697,7 +786,8 @@ async function chatJson(messages, opts = {}) {
 
 /* ===== POST /api/ai/exam  生成综合测试卷（分科调用，每科可带 qtypes 题型约束，扣 2 算力/次） ===== */
 router.post('/exam', ah(async (req, res) => {
-  const { grade = '9', difficulty = 'medium', keyword = '', trend = true } = req.body || {};
+  const { grade = '9', difficulty = 'medium', keyword = '', trend = true, withImages = true } = req.body || {};
+  const imgOn = !!withImages;
   /* subjects: [{ subject: 'chinese'|'math'|'english', count, qtypes? }]
    * qtypes = 题型约束数组（每个元素一题，同题型重复出现表示多题，如 ['选择题','选择题','填空题']），
    * 用于精练模式（同类型只留一题）与整卷模式（仿中考题型结构）的精确控制 */
@@ -716,7 +806,7 @@ router.post('/exam', ah(async (req, res) => {
   if (total > 25) return res.status(400).json({ error: '单次生成最多 25 题，更多题量会自动分批' });
 
   const out = await chatJson([
-    { role: 'system', content: SYSTEM_EXAM(grade, difficulty, parts, !!trend, keyword) },
+    { role: 'system', content: SYSTEM_EXAM(grade, difficulty, parts, !!trend, keyword, imgOn) },
     { role: 'user', content: `请生成综合测试卷，共 ${total} 道题。` },
   ], { maxTokens: 8000 });
   const parsed = out?.parsed;
@@ -751,6 +841,7 @@ router.post('/exam', ah(async (req, res) => {
       ...(qtype === '选择题' ? { choices, answer: String(q.answer || 'A').trim().toUpperCase().slice(0, 1) } : { answer: String(q.answer ?? '').trim() }),
       explanation: String(q.explanation || '').trim(),
       points: pts > 0 ? Math.min(maxPts, pts) : (EXAM_POINTS[qtype] || 3),
+      ...imgFields(q, imgOn),
     };
   };
   const questions = [];
@@ -783,7 +874,8 @@ router.post('/exam', ah(async (req, res) => {
 
 /* ===== POST /api/ai/practice  课堂练习（全科目：科目+课题+知识点+题型清单，按题扣费 1 算力/题） ===== */
 router.post('/practice', ah(async (req, res) => {
-  const { subject, grade, topic, knowledge = '', prompt = '', trend = true } = req.body || {};
+  const { subject, grade, topic, knowledge = '', prompt = '', trend = true, withImages = true } = req.body || {};
+  const imgOn = !!withImages;
   /* items: [{ qtype, count }] —— 题型自由（选择/填空/判断/简答/论述/计算…），非语数英白名单；题数不限，前端自动分批 */
   const rawItems = Array.isArray(req.body?.items) ? req.body.items : [];
   const items = rawItems
@@ -795,8 +887,13 @@ router.post('/practice', ah(async (req, res) => {
   if (!items.length) return res.status(400).json({ error: '请至少设置一种题型与数量' });
 
   const trendPrompt = trend ? `\n【命题风向】融入${IS_HS(grade) ? '高考' : '中考'}新风向：真实情境化、跨学科融合、开放性设问——若本批题量 ≥3，至少 1 道新风向题。` : '';
+  const img = IMAGE_BLOCK(imgOn);
+  const imgExample = img.schema
+    ? `,"need_image":true或false,"image_prompt":"仅 need_image=true 时填英文详细生图提示词","image_position":"after_stem 或 after_passage"`
+    : '';
   const sys = `你是${String(subject).trim()}资深教师与命题专家，深谙${GRADE_DESC(String(grade || '7'))}课程标准与课堂教学节奏。请为课堂练习命题：紧扣课题与知识点、题干表述规范、难度适合课堂即时检测；选择题给 4 个选项；论述/简答题答案给评分要点；每题附简要解析。
-【排版硬要求】阅读/材料/语段类题目：材料正文必须单独放入 passage 字段（200-400 字、连续成段），不得塞进 stem；stem 只写设问，一道大题含多个小题时，每个小题必须独立成行（用 \\n 换行，如 "（1）…\\n（2）…\\n（3）…"），禁止把所有小题连成一段；其它题型的 stem 需要分点时同样用 \\n 换行。`;
+【排版硬要求】阅读/材料/语段类题目：材料正文必须单独放入 passage 字段（200-400 字、连续成段），不得塞进 stem；stem 只写设问，一道大题含多个小题时，每个小题必须独立成行（用 \\n 换行，如 "（1）…\\n（2）…\\n（3）…"），禁止把所有小题连成一段；其它题型的 stem 需要分点时同样用 \\n 换行。
+${img.rule}`;
   const user = `【课题】《${String(topic).trim()}》
 【科目】${String(subject).trim()}
 【年级】${GRADE_DESC(String(grade || '7'))}
@@ -806,7 +903,7 @@ router.post('/practice', ah(async (req, res) => {
 ${String(prompt || '').trim() || '（无补充要求）'}${trendPrompt}
 
 请严格按题型与数量命制，返回 JSON（不要 markdown 包装，字符串内引用一律用「」）：
-{"questions": [{"qtype":"题型","passage":"材料正文（仅阅读/材料类题目填写，其它题型省略此字段）","stem":"题干（多个小题用 \\n 逐小题换行）","choices":["选项A","选项B","选项C","选项D"],"answer":"答案（选择题为字母，论述/简答为评分要点）","explanation":"简要解析","points":分值}]}`;
+{"questions": [{"qtype":"题型","passage":"材料正文（仅阅读/材料类题目填写，其它题型省略此字段）","stem":"题干（多个小题用 \\n 逐小题换行）","choices":["选项A","选项B","选项C","选项D"],"answer":"答案（选择题为字母，论述/简答为评分要点）","explanation":"简要解析","points":分值${imgExample}}]}`;
 
   const out = await chatJson([
     { role: 'system', content: sys },
@@ -839,6 +936,7 @@ ${String(prompt || '').trim() || '（无补充要求）'}${trendPrompt}
       answer: String(q.answer ?? '').trim(),
       explanation: String(q.explanation || '').trim(),
       points: pts > 0 ? Math.min(20, pts) : (/选择|填空|判断/.test(t) ? 3 : /论述|计算|应用/.test(t) ? 6 : 4),
+      ...imgFields(q, imgOn),
     });
   }
   if (!questions.length) return res.status(502).json({ error: 'AI 返回解析失败' });
@@ -858,24 +956,25 @@ ${String(prompt || '').trim() || '（无补充要求）'}${trendPrompt}
 
 /* ===== POST /api/ai/regenerate  单题重出：按改进提示词重新命制 1 题替换（扣 1 算力） ===== */
 router.post('/regenerate', ah(async (req, res) => {
-  const { type, question, feedback = '' } = req.body || {};
+  const { type, question, feedback = '', withImages = true } = req.body || {};
   if (!type || !TYPE_PROMPT[type]) return res.status(400).json({ error: 'type 不合法' });
   if (!question || typeof question !== 'object') return res.status(400).json({ error: 'question 必填' });
   const fb = String(feedback).trim().slice(0, 200);
   if (!fb) return res.status(400).json({ error: '请填写改进提示词' });
 
-  /* 去掉内部字段后作为参考原题 */
+  /* 去掉内部/运行时字段后作为参考原题（image 是 data URL，绝不能塞进 LLM 上下文） */
   const original = { ...question };
-  delete original.id; delete original.groupIndex; delete original.groupSize;
-  delete original.grade; delete original.difficulty; delete original.topic;
+  ['id', 'groupIndex', 'groupSize', 'grade', 'difficulty', 'topic', 'image', 'imageLoading', 'imageError']
+    .forEach(k => delete original[k]);
+  const img = IMAGE_BLOCK(withImages);
   const prompt = `题型：${TYPE_PROMPT[type] || type}
 参考原题（JSON）：
 ${JSON.stringify(original, null, 2)}
 
 老师对这道题不满意，改进要求：${fb}
 
-请按改进要求重新命制 1 道题替换原题——保持学科、题型、字段结构、年级与难度不变，仅按改进要求调整素材/情境/考点/表述。严格返回 JSON，不要 markdown 包装：
-{"question": {…与原题同结构…}}`;
+请按改进要求重新命制 1 道题替换原题——保持学科、题型、字段结构、年级与难度不变，仅按改进要求调整素材/情境/考点/表述。${img.rule}严格返回 JSON，不要 markdown 包装：
+{"question": {…与原题同结构…${img.schema ? ', 含 need_image/image_prompt/image_position' : ''}}}`;
   const out0 = await chatJson([{ role: 'user', content: prompt }], { maxTokens: 2500 });
   const parsed = out0?.parsed;
   const result = out0?.result || {};
@@ -890,6 +989,7 @@ ${JSON.stringify(original, null, 2)}
     ...q,
     ...(question.subject ? { subject: question.subject } : {}),
     ...(question.qtype ? { qtype: question.qtype } : {}),
+    ...imgFields(q, withImages),
   };
   if (!String(out.stem || out.sentence || out.word || out.passage || out.pinyin || '').trim()) {
     return res.status(502).json({ error: 'AI 返回解析失败' });
@@ -990,20 +1090,25 @@ JSON Schema：
 
 /* ===== POST /api/ai/homework  作业提效：题目 + 答案 + 批注（扣 5 算力） ===== */
 router.post('/homework', ah(async (req, res) => {
-  const { subject = '', grade = '7', topic = '', count = 5, difficulty = 'medium', types = '' } = req.body || {};
+  const { subject = '', grade = '7', topic = '', count = 5, difficulty = 'medium', types = '', withImages = true } = req.body || {};
+  const imgOn = !!withImages;
   if (!String(subject).trim()) return res.status(400).json({ error: '请填写学科' });
   if (!String(topic).trim()) return res.status(400).json({ error: '请填写作业主题 / 知识点' });
   const n = Math.max(1, Math.min(15, Number(count) || 5));
+  const img = IMAGE_BLOCK(imgOn);
+  const imgExample = img.schema
+    ? `,"need_image":true或false,"image_prompt":"仅 need_image=true 时填英文详细生图提示词","image_position":"after_stem 或 after_passage"`
+    : '';
   const sys = `你是${GRADE_DESC(String(grade))}${String(subject).trim()}教师，正在设计一份课后作业。
 要求：
 - 紧扣给定知识点，难度：${difficulty === 'easy' ? '基础为主' : difficulty === 'hard' ? '拔高为主' : '基础与提升兼顾'}，共 ${n} 题
 - 题型尽量覆盖：${String(types).trim() || '选择、填空、简答/解答等常规题型'}
 - 每题给出参考答案（解答题给关键步骤），并给老师一条「批注」——说明评分要点与常见错误
 - 题干表述准确、无错别字；选择题给 4 个选项
-- 严格返回 JSON，不要 markdown 包装，字符串内引用一律用「」
+${img.rule}- 严格返回 JSON，不要 markdown 包装，字符串内引用一律用「」
 
 JSON Schema：
-{"questions":[{"qtype":"选择题|填空题|简答题|解答题|其他","stem":"题干","choices":["仅选择题的 4 个选项"],"answer":"参考答案","comment":"批注：评分要点 / 常见错误","points":5}]}`;
+{"questions":[{"qtype":"选择题|填空题|简答题|解答题|其他","stem":"题干","choices":["仅选择题的 4 个选项"],"answer":"参考答案","comment":"批注：评分要点 / 常见错误","points":5${imgExample}}]}`;
   const user = `【学科】${String(subject).trim()}
 【年级】${GRADE_DESC(String(grade))}
 【知识点/主题】${String(topic).trim()}
@@ -1026,6 +1131,7 @@ JSON Schema：
       answer: String(q?.answer || '').trim(),
       comment: String(q?.comment || '').trim(),
       points: pts > 0 ? Math.min(20, pts) : 5,
+      ...imgFields(q, imgOn),
     };
   }).filter(q => q.stem);
   if (!questions.length) return res.status(502).json({ error: 'AI 返回解析失败，请重试' });

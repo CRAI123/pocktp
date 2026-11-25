@@ -3,9 +3,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   Bot, BookOpen, ClipboardCheck, PenLine, Search, Loader2, Copy, Check, Settings2,
-  Sparkles, Download, Eye, EyeOff, FileText, Lightbulb,
+  Sparkles, Download, Eye, EyeOff, FileText, Lightbulb, Image as ImageIcon,
 } from 'lucide-react';
 import { SectionHeader, Button, Badge, Empty, Modal, Field, inputCls } from '../components/ui.jsx';
+import QuestionImage from '../components/QuestionImage.jsx';
+import { useQuestionImages } from '../hooks/useQuestionImages.js';
 import { ai, api, auth } from '../api.js';
 
 const GRADES = [
@@ -333,12 +335,16 @@ function ListCard({ title, items, tone }) {
 
 /* ==================== 作业提效 ==================== */
 function HomeworkPanel({ disabled }) {
-  const [form, setForm] = useState({ subject: '数学', grade: '10', topic: '', count: 5, difficulty: 'medium', types: '' });
+  const [form, setForm] = useState({ subject: '数学', grade: '10', topic: '', count: 5, difficulty: 'medium', types: '', withImages: true });
   const [list, setList] = useState([]);
   const [showAns, setShowAns] = useState({});
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState('');
   const [copied, copy] = useCopy();
+  /* 按题按需生图：对 need_image 的题逐张生成配图，失败可重试 */
+  const { retry: retryImage } = useQuestionImages(list, setList, {
+    onCreditsError: () => setErr?.('算力不足，已停止生成配图'),
+  });
 
   const run = async () => {
     if (!form.topic.trim()) { setErr('请填写作业主题或知识点'); return; }
@@ -396,6 +402,10 @@ function HomeworkPanel({ disabled }) {
           </Field>
         </div>
 
+        <label className="mt-4 flex cursor-pointer items-center gap-1.5 text-xs text-ink-secondary">
+          <input type="checkbox" checked={form.withImages} onChange={e => setForm(f => ({ ...f, withImages: e.target.checked }))} className="h-3.5 w-3.5 accent-[#af52de]" />
+          <ImageIcon size={13} className="text-[#af52de]" />生成配图（AI 按需判断）
+        </label>
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <Button onClick={run} disabled={loading || disabled}>
             {loading ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
@@ -420,6 +430,7 @@ function HomeworkPanel({ disabled }) {
                 </button>
               </div>
               <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed">{q.stem}</p>
+              <QuestionImage q={q} onRetry={retryImage} />
               {!!q.choices?.length && (
                 <div className="mt-2 grid grid-cols-1 gap-1 text-sm text-ink-secondary sm:grid-cols-2">
                   {q.choices.map((c, j) => <div key={j}>{'ABCDEFG'[j]}. {c}</div>)}
