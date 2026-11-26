@@ -3,6 +3,7 @@ import { Zap, CheckCircle2, Loader2, Clock, X, QrCode, AlertCircle } from 'lucid
 import QRCode from 'qrcode';
 import { auth, pay } from '../api.js';
 import { Button, SectionHeader } from '../components/ui.jsx';
+import { isDesktopApp } from '../desktop.js';
 
 const STATUS_TEXT = { pending: '待支付', paid: '已到账', refunded: '已退款' };
 
@@ -54,12 +55,15 @@ export default function Recharge() {
     setActive({ pkg, status: 'loading', error: '' });
     try {
       const r = await pay.create(pkg.id);
-      const next = { pkg, orderNo: r.orderNo, qr: '', counterUrl: r.counterUrl || '', status: 'pending', error: '' };
+      const opts = { width: 260, margin: 2, color: { dark: '#111', light: '#fff' } };
+      const next = { pkg, orderNo: r.orderNo, qr: '', qrForCounter: false, counterUrl: r.counterUrl || '', status: 'pending', error: '' };
       if (r.qr) {
-        next.qr = await QRCode.toDataURL(r.qr, { width: 260, margin: 2, color: { dark: '#111', light: '#fff' } });
+        next.qr = await QRCode.toDataURL(r.qr, opts);
       } else if (r.counterUrl) {
-        // 在点击手势内打开收银台，避免被浏览器弹窗拦截
-        window.open(r.counterUrl, '_blank', 'noopener');
+        /* 桌面版(Tauri)打不开外部浏览器，统一把收银台地址渲染成二维码；网页版额外自动开新标签 */
+        next.qr = await QRCode.toDataURL(r.counterUrl, opts);
+        next.qrForCounter = true;
+        if (!isDesktopApp()) window.open(r.counterUrl, '_blank', 'noopener');
       }
       setActive(next);
       startPolling(r.orderNo);
@@ -180,26 +184,24 @@ export default function Recharge() {
                     <div className="rounded-2xl border border-black/[0.06] p-3">
                       <img src={active.qr} alt="支付二维码" className="h-[220px] w-[220px]" />
                     </div>
-                    <div className="mt-3 text-[15px] font-semibold text-ink">请扫码支付 {fmtYuan(active.pkg?.amount)}</div>
-                    <div className="mt-1 flex items-center gap-1 text-[12px] text-ink-secondary">
-                      <Clock size={12} /> 二维码 5 分钟内有效，支付成功后自动到账
+                    <div className="mt-3 text-[15px] font-semibold text-ink">
+                      {active.qrForCounter ? '手机扫码打开收银台支付' : '请扫码支付'} {fmtYuan(active.pkg?.amount)}
                     </div>
-                  </>
-                ) : active.counterUrl ? (
-                  <>
-                    <div className="rounded-2xl border border-black/[0.06] p-6 text-center">
-                      <QrCode size={40} className="mx-auto text-ink-secondary" />
-                      <div className="mt-2 text-[15px] font-semibold text-ink">收银台已在新标签页打开</div>
-                      <div className="mt-1 text-[12px] text-ink-secondary">应付金额 {fmtYuan(active.pkg?.amount)}，完成支付后自动到账</div>
+                    <div className="mt-1 flex items-center gap-1 text-[12px] text-ink-secondary">
+                      <Clock size={12} /> 支付成功后自动到账，无需刷新
+                    </div>
+                    {active.qrForCounter && active.counterUrl && (
                       <a
                         href={active.counterUrl}
                         target="_blank"
                         rel="noreferrer"
-                        className="mt-3 inline-block rounded-xl bg-[#0071e3] px-4 py-2 text-sm text-white transition hover:bg-[#0077ed]"
-                      >重新打开收银台</a>
-                    </div>
+                        className="mt-3 text-[12px] text-[#0071e3] underline underline-offset-2"
+                      >或在浏览器中打开收银台</a>
+                    )}
                   </>
-                ) : null}
+                ) : (
+                  <div className="py-10 text-sm text-ink-secondary">正在生成二维码…</div>
+                )}
                 <div className="mt-3 flex items-center gap-1 text-[12px] text-[#0071e3]">
                   <Loader2 size={12} className="animate-spin" /> 等待支付结果…
                 </div>
