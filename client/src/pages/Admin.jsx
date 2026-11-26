@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
-  Ticket, TicketCheck, TicketX, Users, Plus, Copy, Ban, Check, ShieldCheck, Link2, Zap, Sparkles, CalendarPlus, Wallet, CheckSquare, Gift,
+  Ticket, TicketCheck, TicketX, Users, Plus, Copy, Ban, Check, ShieldCheck, Link2, Zap, Sparkles, CalendarPlus, Wallet, CheckSquare, Gift, Minus,
 } from 'lucide-react';
 import { api, todayStr } from '../api.js';
 import { BASE_URL } from '../config.js';
@@ -103,8 +103,9 @@ export default function Admin() {
     }
   };
 
-  /* 定向发放：算力 / 激活码 */
+  /* 定向发放：算力 / 激活码；grantMode='deduct' 时复用同一弹窗做扣减 */
   const [grantFor, setGrantFor] = useState(null);
+  const [grantMode, setGrantMode] = useState('grant');
   const [grantKind, setGrantKind] = useState('credits');
   const [grantAmount, setGrantAmount] = useState(300);
   const [grantDays, setGrantDays] = useState(30);
@@ -113,14 +114,24 @@ export default function Admin() {
   const [grantResult, setGrantResult] = useState(null);
 
   const openGrant = (t) => {
-    setGrantFor(t); setGrantKind('credits'); setGrantAmount(300);
+    setGrantFor(t); setGrantMode('grant'); setGrantKind('credits'); setGrantAmount(300);
+    setGrantDays(30); setGrantErr(''); setGrantResult(null);
+  };
+
+  /* 扣减算力：复用发放弹窗，强制 credits 模式 */
+  const openDeduct = (t) => {
+    setGrantFor(t); setGrantMode('deduct'); setGrantKind('credits'); setGrantAmount('');
     setGrantDays(30); setGrantErr(''); setGrantResult(null);
   };
 
   const submitGrant = async () => {
     if (!grantFor || grantBusy) return;
-    const amount = Number(grantAmount);
-    if (!Number.isFinite(amount) || amount === 0) { setGrantErr('请输入有效数量'); return; }
+    const raw = Number(grantAmount);
+    if (!Number.isFinite(raw) || raw === 0) { setGrantErr('请输入有效数量'); return; }
+    const amount = grantMode === 'deduct' ? -Math.abs(raw) : raw;
+    if (grantMode === 'deduct' && Math.abs(raw) > Number(grantFor.credits || 0)) {
+      setGrantErr('扣减数量不能超过当前余额'); return;
+    }
     setGrantBusy(true);
     setGrantErr('');
     try {
@@ -566,6 +577,13 @@ export default function Admin() {
                             <Gift size={13} />发放
                           </button>
                           <button
+                            onClick={() => openDeduct(t)}
+                            title="扣减该教师的算力"
+                            className="btn-pill inline-flex items-center gap-1 bg-[#ff3b30]/10 px-3 py-1.5 text-xs font-medium text-[#d70015] transition hover:bg-[#ff3b30]/18"
+                          >
+                            <Minus size={13} />扣减
+                          </button>
+                          <button
                             onClick={() => openExtend(t)}
                             title="延长会员时长"
                             className="btn-pill inline-flex items-center gap-1 bg-[#0071e3]/10 px-3 py-1.5 text-xs font-medium text-[#0071e3] transition hover:bg-[#0071e3]/15"
@@ -672,13 +690,13 @@ export default function Admin() {
       </Modal>
 
       {/* 定向发放：算力 / 激活码 */}
-      <Modal open={!!grantFor} onClose={() => setGrantFor(null)} title={`发放 · ${grantFor?.name || ''}`} width="max-w-md">
+      <Modal open={!!grantFor} onClose={() => setGrantFor(null)} title={grantMode === 'deduct' ? `扣减算力 · ${grantFor?.name || ''}` : `发放 · ${grantFor?.name || ''}`} width="max-w-md">
         {grantResult ? (
           <div className="space-y-4">
             {grantResult.kind === 'credits' ? (
               <div className="rounded-xl bg-[#34c759]/10 px-4 py-3.5 text-sm">
                 <span className="inline-flex items-center gap-1.5 font-medium text-[#248a3d]">
-                  <Check size={15} />已发放 {grantResult.amount > 0 ? '+' : ''}{grantResult.amount} 算力
+                  <Check size={15} />{grantResult.amount < 0 ? `已扣减 ${Math.abs(grantResult.amount)} 算力` : `已发放 +${grantResult.amount} 算力`}
                 </span>
                 <div className="mt-1 text-xs text-ink-secondary">当前余额：{grantResult.credits}</div>
               </div>
@@ -702,22 +720,24 @@ export default function Admin() {
           </div>
         ) : (
           <div className="space-y-4">
-            <div className="flex gap-1.5">
-              {[['credits', '发放算力'], ['code', '发放激活码']].map(([k, l]) => (
-                <button
-                  key={k}
-                  type="button"
-                  onClick={() => { setGrantKind(k); setGrantErr(''); }}
-                  className={`btn-pill flex-1 px-3 py-2 text-sm font-medium transition ${
-                    grantKind === k ? 'brand-gradient text-white shadow-md shadow-blue-500/25' : 'bg-black/[0.04] text-ink-secondary hover:bg-black/[0.07]'
-                  }`}
-                >
-                  {l}
-                </button>
-              ))}
-            </div>
+            {grantMode === 'grant' && (
+              <div className="flex gap-1.5">
+                {[['credits', '发放算力'], ['code', '发放激活码']].map(([k, l]) => (
+                  <button
+                    key={k}
+                    type="button"
+                    onClick={() => { setGrantKind(k); setGrantErr(''); }}
+                    className={`btn-pill flex-1 px-3 py-2 text-sm font-medium transition ${
+                      grantKind === k ? 'brand-gradient text-white shadow-md shadow-blue-500/25' : 'bg-black/[0.04] text-ink-secondary hover:bg-black/[0.07]'
+                    }`}
+                  >
+                    {l}
+                  </button>
+                ))}
+              </div>
+            )}
 
-            <Field label={grantKind === 'credits' ? '发放数量（负数表示扣减）' : '码内包含算力'}>
+            <Field label={grantMode === 'deduct' ? `扣减数量（当前余额 ${grantFor?.credits ?? 0}）` : grantKind === 'credits' ? '发放数量（负数表示扣减）' : '码内包含算力'}>
               <input
                 type="number" className={inputCls}
                 value={grantAmount}
@@ -755,9 +775,11 @@ export default function Admin() {
             )}
 
             <p className="rounded-xl bg-bg-light px-3.5 py-2.5 text-xs leading-relaxed text-ink-secondary">
-              {grantKind === 'credits'
-                ? '算力直接加到该账号，即时生效，不需要老师操作。'
-                : '生成的激活码不会自动兑换，需要你把码发给老师，由老师自行兑换。'}
+              {grantMode === 'deduct'
+                ? '扣减立即生效，且不会扣成负数；如需清零，按当前余额填写即可。'
+                : grantKind === 'credits'
+                  ? '算力直接加到该账号，即时生效，不需要老师操作。'
+                  : '生成的激活码不会自动兑换，需要你把码发给老师，由老师自行兑换。'}
             </p>
 
             {grantErr && <div className="rounded-xl bg-[#ff3b30]/8 px-4 py-2.5 text-sm text-[#ff3b30]">{grantErr}</div>}
@@ -765,7 +787,7 @@ export default function Admin() {
             <div className="flex justify-end gap-3 pt-1">
               <Button type="button" variant="secondary" onClick={() => setGrantFor(null)}>取消</Button>
               <Button type="button" disabled={grantBusy} onClick={submitGrant}>
-                {grantBusy ? '处理中…' : grantKind === 'credits' ? `发放 ${grantAmount || 0} 算力` : '生成激活码'}
+                {grantBusy ? '处理中…' : grantMode === 'deduct' ? `扣减 ${Math.abs(Number(grantAmount) || 0)} 算力` : grantKind === 'credits' ? `发放 ${grantAmount || 0} 算力` : '生成激活码'}
               </Button>
             </div>
           </div>
