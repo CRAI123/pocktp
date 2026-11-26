@@ -222,10 +222,10 @@ function createMossClient(cfg) {
     try {
       json = JSON.parse(text);
     } catch {
-      throw new Error(`MOSS 响应非 JSON(${serviceId}): ${text.slice(0, 200)}`);
+      throw new Error(`MOSS 响应非 JSON(${serviceId}) [HTTP ${res.status} @ ${baseUrl}]: ${text.slice(0, 200)}`);
     }
     if (!json || !json.head) {
-      throw new Error(`MOSS 响应缺少 head(${serviceId}): ${text.slice(0, 200)}`);
+      throw new Error(`MOSS 响应缺少 head(${serviceId}) [HTTP ${res.status} @ ${baseUrl}]: ${text.slice(0, 200)}`);
     }
     if (json.head.code !== '000000') {
       throw new Error(`MOSS ${serviceId} 返回错误: ${json.head.code} ${json.head.desc || ''}`.trim());
