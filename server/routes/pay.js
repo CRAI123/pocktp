@@ -29,13 +29,26 @@ const { createMossClient } = require('../moss');
 const router = express.Router();
 
 /* ---------------- 配置 ---------------- */
-const APPID = process.env.LAKALA_APPID || '';
-const MERCHANT_NO = process.env.LAKALA_MERCHANT_NO || '';
-const PRIVATE_KEY = (process.env.LAKALA_PRIVATE_KEY || '').replace(/\\n/g, '\n');
-const PUBLIC_KEY = (process.env.LAKALA_PUBLIC_KEY || '').replace(/\\n/g, '\n');
-const ACCOUNT_TYPE = process.env.LAKALA_ACCOUNT_TYPE || 'ALIPAY';
-const MOSS_BASE_URL = (process.env.LAKALA_MOSS_BASE_URL || 'https://moss.lakala.com/ord-api/unified/v3').replace(/\/$/, '');
-const APP_URL = (process.env.APP_URL || 'https://teach.rayzo.cn').replace(/\/$/, '');
+/* 环境变量清洗：Vercel 面板粘贴时容易带入首尾空格、包裹引号，
+ * 甚至把整行 "KEY=VALUE" 粘进值里。这些都会原样进入签名串，
+ * 导致网关报 999080(业务渠道不存在) 或验签失败。 */
+function envTrim(v) {
+  return String(v == null ? '' : v).trim().replace(/^['"]|['"]$/g, '');
+}
+/** 短标识（appid / 商户号 / 渠道类型）：额外容错「整行 KEY=VALUE 被粘进值里」 */
+function envId(v) {
+  let s = envTrim(v);
+  const eq = s.indexOf('=');
+  if (eq > 0) s = envTrim(s.slice(eq + 1));
+  return s;
+}
+const APPID = envId(process.env.LAKALA_APPID);
+const MERCHANT_NO = envId(process.env.LAKALA_MERCHANT_NO);
+const PRIVATE_KEY = (process.env.LAKALA_PRIVATE_KEY || '').replace(/\\n/g, '\n').trim();
+const PUBLIC_KEY = (process.env.LAKALA_PUBLIC_KEY || '').replace(/\\n/g, '\n').trim();
+const ACCOUNT_TYPE = envId(process.env.LAKALA_ACCOUNT_TYPE) || 'ALIPAY';
+const MOSS_BASE_URL = (envTrim(process.env.LAKALA_MOSS_BASE_URL) || 'https://moss.lakala.com/ord-api/unified/v3').replace(/\/$/, '');
+const APP_URL = (envTrim(process.env.APP_URL) || 'https://teach.rayzo.cn').replace(/\/$/, '');
 
 function configured() {
   return !!(APPID && MERCHANT_NO && PRIVATE_KEY && PUBLIC_KEY);
@@ -127,6 +140,31 @@ function buildPayRequest(orderNo, amountFen, notifyUrl, ip, opts) {
 /* ---------------- 公开：套餐列表 ---------------- */
 router.get('/packages', (req, res) => {
   res.json({ packages: PACKAGES });
+});
+
+/* 临时诊断：部署后访问 /api/pay/_diag?k=diag2026 查看环境变量实际读取情况 */
+router.get('/_diag', (req, res) => {
+  if (req.query.k !== 'diag2026') return res.status(404).end();
+  const info = (s) => ({
+    len: s.length,
+    head: s.slice(0, 5),
+    tail: s.slice(-5),
+    hasSpace: /\s/.test(s),
+    hasEq: s.includes('='),
+    hasQuote: /["']/.test(s),
+  });
+  let host = '(invalid)';
+  try { host = new URL(MOSS_BASE_URL).host; } catch (_) { /* keep invalid */ }
+  res.json({
+    configured: configured(),
+    appid: info(APPID),
+    merchantNo: info(MERCHANT_NO),
+    accountType: info(ACCOUNT_TYPE),
+    baseUrlHost: host,
+    baseUrlTailsWithToken: /token=/.test(MOSS_BASE_URL),
+    privKey: { len: PRIVATE_KEY.length, head: PRIVATE_KEY.slice(0, 27) },
+    pubKey: { len: PUBLIC_KEY.length, head: PUBLIC_KEY.slice(0, 26) },
+  });
 });
 
 /* ---------------- 下单：建 pending 订单 + MOSS 取二维码/收银台 ---------------- */
