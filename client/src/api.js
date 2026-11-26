@@ -126,3 +126,11 @@ export const ai = {
   settings: () => api.get('/ai/settings'),
   saveSettings: (params) => api.put('/ai/settings', params),
 };
+
+/** 算力充值（拉卡拉支付） */
+export const pay = {
+  packages: () => api.get('/pay/packages'),
+  create: (packageId) => api.post('/pay/create', { packageId }),
+  status: (orderNo) => api.get(`/pay/status/${encodeURIComponent(orderNo)}`),
+  orders: () => api.get('/pay/orders'),
+};

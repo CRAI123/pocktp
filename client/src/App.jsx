@@ -54,6 +54,7 @@ import Timetable from './pages/Timetable.jsx';
 import Board from './pages/Board.jsx';
 import Journals from './pages/Journals.jsx';
 import Profile from './pages/Profile.jsx';
+import Recharge from './pages/Recharge.jsx';
 import Classroom from './pages/Classroom.jsx';
 import NotFound from './pages/NotFound.jsx';
 import Download from './pages/Download.jsx';
@@ -198,6 +199,7 @@ export default function App() {
         <Route path="board" element={<Board />} />
         <Route element={<Layout />}>
           <Route path="dashboard" element={<Dashboard />} />
+          <Route path="recharge" element={<Recharge />} />
           <Route path="profile" element={<Profile />} />
           <Route path="courses" element={<Courses />} />
           <Route path="materials" element={<Materials />} />

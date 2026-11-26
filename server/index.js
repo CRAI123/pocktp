@@ -8,6 +8,7 @@ const teachingRouter = require('./routes/teaching');
 const classworkRouter = require('./routes/classwork');
 const activationRouter = require('./routes/activation');
 const deliveryRouter = require('./routes/delivery');
+const payRouter = require('./routes/pay');
 const adminRouter = require('./routes/admin');
 const aiRouter = require('./routes/ai');
 const classadminRouter = require('./routes/classadmin');
@@ -17,7 +18,8 @@ const scoreAnalysisRouter = require('./routes/scoreAnalysis');
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+/* 保存原始报文字符串：支付回调验签需要对未解析的原始 body 验签 */
+app.use(express.json({ verify: (req, res, buf) => { req.rawBody = buf.toString('utf8'); } }));
 
 /* 认证（无需登录） */
 app.use('/api/auth', authRouter);
@@ -27,6 +29,9 @@ app.use('/api/activation', authRequired, activationRouter);
 
 /* 自动发货（第三方卡密平台调用，密钥校验，无需登录） */
 app.use('/api/delivery', deliveryRouter);
+
+/* 算力充值支付（/packages、/notify 公开，其余路由内部鉴权） */
+app.use('/api/pay', payRouter);
 
 /* 管理后台（路由内部校验管理员身份） */
 app.use('/api/admin', authRequired, adminRouter);

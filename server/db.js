@@ -683,6 +683,22 @@ ALTER TABLE grades ADD COLUMN IF NOT EXISTS rank INTEGER DEFAULT 0;             
 ALTER TABLE grades ADD COLUMN IF NOT EXISTS rank_total INTEGER DEFAULT 0;           -- 参与排名总人数
 ALTER TABLE grades ADD COLUMN IF NOT EXISTS rank_scope TEXT DEFAULT '';             -- class=班级排名 / grade=年级排名
 CREATE UNIQUE INDEX IF NOT EXISTS idx_teachers_phone ON teachers(phone);
+
+CREATE TABLE IF NOT EXISTS orders (
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES teachers(id) ON DELETE CASCADE,
+  order_no TEXT NOT NULL UNIQUE,          -- 商户订单号（传给虎皮椒）
+  amount INTEGER NOT NULL,                -- 订单金额，单位：分（避免浮点）
+  credits INTEGER NOT NULL,               -- 到账算力
+  status TEXT NOT NULL DEFAULT 'pending', -- pending / paid / refunded
+  channel TEXT DEFAULT 'xunhu',           -- 支付渠道
+  transaction_id TEXT DEFAULT '',         -- 第三方交易号
+  open_order_id TEXT DEFAULT '',          -- 虎皮椒内部订单号
+  created_at TEXT DEFAULT (to_char(now() AT TIME ZONE 'Asia/Shanghai','YYYY-MM-DD HH24:MI:SS')),
+  paid_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_orders_user ON orders(user_id);
+CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
 `);
 
   /* ---------- 教师账号（密码同 auth.js 的 scrypt 方案） ---------- */

@@ -1,4 +1,4 @@
-﻿# 桌面壳一键发布：打包完成后运行（版本号需先改 client/src-tauri/tauri.conf.json 的 version）
+﻿﻿# 桌面壳一键发布：打包完成后运行（版本号需先改 client/src-tauri/tauri.conf.json 的 version）
 # 安装包上传到 Supabase Storage（不进 git，也不会被下一版安装包内嵌），
 # 只把体积很小的 latest.json 放进 client/public/desktop，随 Vercel 部署供客户端检查更新。
 # 用法：powershell -File scripts/desktop-release.ps1 -Version 2.0.5 -Notes "修复某问题"

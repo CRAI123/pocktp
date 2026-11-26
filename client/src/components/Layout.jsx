@@ -83,6 +83,7 @@ const NAV = [
   { to: '/ai-tools', label: 'AI 工具', icon: Bot },
   { to: '/journals', label: '班主任周记', icon: BookText },
   { group: '账号' },
+  { to: '/recharge', label: '算力充值', icon: Zap },
   { to: '/profile', label: '个人中心', icon: User },
 ];
 
@@ -115,6 +116,7 @@ const TITLES = {
   '/ai-tools': 'AI 工具', '/journals': '班主任周记',
   '/timetable': '课程表',
   '/profile': '个人中心',
+  '/recharge': '算力充值',
   '/admin': '管理后台',
 };
 
@@ -274,6 +276,11 @@ export default function Layout() {
               title="算力余额：点击前往续费"
               className="hidden items-center gap-1 rounded-full bg-[#ff9500]/10 px-3 py-1 text-[11px] font-medium text-[#a85300] ring-1 ring-inset ring-[#ff9500]/20 transition hover:bg-[#ff9500]/15 sm:inline-flex">
               <Zap size={12} />{teacher?.credits ?? 0} 算力
+            </Link>
+            <Link to="/recharge" onClick={() => setOpen(false)}
+              title="充值算力"
+              className="hidden items-center rounded-full px-2.5 py-1 text-[11px] font-medium text-[#0071e3] ring-1 ring-inset ring-[#0071e3]/20 transition hover:bg-[#0071e3]/8 sm:inline-flex">
+              充值
             </Link>
             <span className="hidden rounded-full bg-black/[0.035] px-3 py-1 text-[11px] text-ink-secondary ring-1 ring-inset ring-black/[0.05] xl:inline-block">2026 春季学期</span>
             <span className="hidden text-[13px] font-medium text-ink sm:block">{teacher?.name || '教师'}</span>
