@@ -162,9 +162,10 @@ authRouter.post('/login', ah(async (req, res) => {
     const displayName = (name || '').trim() || `老师${normalized.slice(-4)}`;
     if (String(password).length < 6) return res.status(400).json({ error: '密码至少 6 位' });
     const { salt, hash } = hashPassword(password);
+    /* 新用户注册即送 30 算力，便于先体验 AI 功能 */
     const { lastInsertRowid } = await db.run(
-      'INSERT INTO teachers (name, phone, email, password_hash, salt) VALUES (?,?,?,?,?)',
-      [displayName, normalized, `${normalized}@phone.local`, hash, salt]
+      'INSERT INTO teachers (name, phone, email, password_hash, salt, credits) VALUES (?,?,?,?,?,?)',
+      [displayName, normalized, `${normalized}@phone.local`, hash, salt, 30]
     );
     teacher = await db.get('SELECT * FROM teachers WHERE id = ?', [lastInsertRowid]);
     isNew = true;
