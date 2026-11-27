@@ -23,7 +23,8 @@ const router = express.Router();
 
 /* ---------------- 配置 ---------------- */
 function envTrim(v) {
-  return String(v == null ? '' : v).trim().replace(/^['"]|['"]$/g, '');
+  /* 面板粘贴时容易带入首尾空格、引号或反引号，这里统一剥掉 */
+  return String(v == null ? '' : v).trim().replace(/^[`'"]+|[`'"]+$/g, '');
 }
 function envId(v) {
   let s = envTrim(v);
@@ -120,6 +121,11 @@ router.get('/_diag', (req, res) => {
     baseUrlHost: host,
     baseUrlTailsWithSlash: BASE_URL.endsWith('/'),
     appUrl: APP_URL,
+    /* 进程里实际存在的 EPAY_* 变量名与长度，用于排查命名/覆盖问题 */
+    envNames: Object.keys(process.env)
+      .filter((k) => k.toUpperCase().includes('EPAY'))
+      .sort()
+      .map((k) => [k, String(process.env[k] || '').length]),
   });
 });
 
