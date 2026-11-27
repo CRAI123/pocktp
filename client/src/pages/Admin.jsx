@@ -257,7 +257,6 @@ export default function Admin() {
             <div className="mb-5">
               <div className="mb-2 flex items-center gap-1.5 text-xs font-medium text-ink-secondary">
                 <Sparkles size={13} className="text-[#ff9500]" /> 快选档位（推荐）
-                <span className="text-ink-secondary/60">· 闲鱼挂单价 ¥2.9 起</span>
               </div>
               <div className="flex flex-wrap gap-1.5">
                 {TIERS.map(t => {
@@ -318,7 +317,7 @@ export default function Admin() {
               </Field>
               <Field label="批次（选填）">
                 <input
-                  placeholder="如：闲鱼 10 月批" className={inputCls}
+                  placeholder="如：10 月批次" className={inputCls}
                   value={gen.batch} onChange={e => setGen({ ...gen, batch: e.target.value })}
                 />
               </Field>

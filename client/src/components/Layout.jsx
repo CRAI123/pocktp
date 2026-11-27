@@ -272,8 +272,8 @@ export default function Layout() {
                   : '永久会员'}
               </span>
             )}
-            <Link to="/renew" onClick={() => setOpen(false)}
-              title="算力余额：点击前往续费"
+            <Link to="/recharge" onClick={() => setOpen(false)}
+              title="算力余额：点击前往充值"
               className="hidden items-center gap-1 rounded-full bg-[#ff9500]/10 px-3 py-1 text-[11px] font-medium text-[#a85300] ring-1 ring-inset ring-[#ff9500]/20 transition hover:bg-[#ff9500]/15 sm:inline-flex">
               <Zap size={12} />{teacher?.credits ?? 0} 算力
             </Link>

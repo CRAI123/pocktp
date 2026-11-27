@@ -106,8 +106,8 @@ export default function Profile() {
                 </span>
               </div>
             </div>
-            <a href="/renew" className="ml-auto inline-flex items-center gap-1.5 rounded-full bg-white/95 px-3.5 py-2 text-[12.5px] font-semibold text-ink shadow-sm transition hover:bg-white">
-              <Zap size={13} className="text-[#ff9500]" /> 续费与算力
+            <a href="/recharge" className="ml-auto inline-flex items-center gap-1.5 rounded-full bg-white/95 px-3.5 py-2 text-[12.5px] font-semibold text-ink shadow-sm transition hover:bg-white">
+              <Zap size={13} className="text-[#ff9500]" /> 算力充值
             </a>
           </div>
         </div>

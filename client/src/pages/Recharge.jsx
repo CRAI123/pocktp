@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { Zap, CheckCircle2, Loader2, Clock, X, AlertCircle } from 'lucide-react';
 import QRCode from 'qrcode';
-import { auth, pay } from '../api.js';
-import { Button, SectionHeader } from '../components/ui.jsx';
+import { api, auth, pay } from '../api.js';
+import { Button, SectionHeader, inputCls } from '../components/ui.jsx';
 import { isDesktopApp } from '../desktop.js';
 
 const STATUS_TEXT = { pending: '待支付', paid: '已到账', refunded: '已退款', closed: '已关闭' };
@@ -14,6 +14,11 @@ export default function Recharge() {
   /* 支付弹窗：null=关闭；{pkg,orderNo,payUrl,qr,status,error} */
   const [active, setActive] = useState(null);
   const timer = useRef(null);
+  /* 激活码兑换：小字入口，默认收起 */
+  const [showCode, setShowCode] = useState(false);
+  const [codeVal, setCodeVal] = useState('');
+  const [codeMsg, setCodeMsg] = useState('');
+  const [codeLoading, setCodeLoading] = useState(false);
 
   useEffect(() => {
     pay.packages().then(r => setPackages(r.packages || [])).catch(() => {});
@@ -70,9 +75,62 @@ export default function Recharge() {
     }
   };
 
+  /* 激活码兑换：成功后同步会员状态与算力余额 */
+  const redeemCode = async (e) => {
+    e.preventDefault();
+    const code = codeVal.trim();
+    if (!code || codeLoading) return;
+    setCodeLoading(true);
+    setCodeMsg('');
+    try {
+      const r = await api.post('/activation/redeem', { code });
+      auth.save(auth.token, {
+        ...auth.teacher,
+        activated: true,
+        credits: r.credits,
+        membership_expires_at: r.membership_expires_at || '',
+      }, auth.remember);
+      setBalance(r.credits);
+      setCodeVal('');
+      setCodeMsg(`兑换成功，当前算力 ${r.credits}`);
+    } catch (err) {
+      setCodeMsg(err.message || '兑换失败，请核对激活码');
+    } finally {
+      setCodeLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-8">
       <SectionHeader title="算力充值" desc="AI 出题、批改、生图等功能按次消耗算力。使用支付宝扫码支付，付款后自动到账。" />
+
+      {/* 我有激活码：小字入口，点开只有一个兑换框 */}
+      <div className="-mt-4 flex flex-wrap items-center gap-x-2 gap-y-1.5 text-[12px] text-ink-secondary">
+        {!showCode ? (
+          <button
+            onClick={() => setShowCode(true)}
+            className="font-medium text-[#0071e3] underline-offset-2 hover:underline"
+          >我有激活码</button>
+        ) : (
+          <form onSubmit={redeemCode} className="flex items-center gap-2">
+            <input
+              autoFocus
+              value={codeVal}
+              onChange={e => setCodeVal(e.target.value.toUpperCase())}
+              placeholder="XXXX-XXXX-XXXX-XXXX"
+              className={`${inputCls} h-9 w-52 py-1 font-mono text-[12.5px] tracking-wider uppercase`}
+            />
+            <button
+              type="submit"
+              disabled={codeLoading || !codeVal.trim()}
+              className="rounded-lg bg-[#0071e3] px-3 py-1.5 text-[12px] font-medium text-white disabled:opacity-50"
+            >{codeLoading ? '兑换中…' : '兑换'}</button>
+          </form>
+        )}
+        {codeMsg && (
+          <span className={codeMsg.startsWith('兑换成功') ? 'text-[#1a7f2b]' : 'text-[#b3251c]'}>{codeMsg}</span>
+        )}
+      </div>
 
       {/* 当前余额 */}
       <div className="card flex flex-wrap items-center justify-between gap-4 p-5 sm:p-6">
