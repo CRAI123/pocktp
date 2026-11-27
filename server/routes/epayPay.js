@@ -101,6 +101,28 @@ router.get('/packages', (req, res) => {
   res.json({ packages: PACKAGES });
 });
 
+/* 临时诊断：只回显是否存在与长度，不回显密钥内容。
+ * 访问 /api/pay/_diag?k=diag2026 可确认线上进程是否读到环境变量。 */
+router.get('/_diag', (req, res) => {
+  if (req.query.k !== 'diag2026') return res.status(404).end();
+  const info = (s) => ({
+    len: String(s || '').length,
+    hasSpace: /\s/.test(String(s || '')),
+    hasQuote: /["']/.test(String(s || '')),
+  });
+  let host = '(invalid)';
+  try { host = new URL(BASE_URL).host; } catch (_) { /* keep invalid */ }
+  res.json({
+    configured: configured(),
+    pid: PID,
+    key: info(KEY),
+    type: TYPE,
+    baseUrlHost: host,
+    baseUrlTailsWithSlash: BASE_URL.endsWith('/'),
+    appUrl: APP_URL,
+  });
+});
+
 /* ---------------- 下单：建 pending 订单 + 返回支付页地址 ---------------- */
 router.post('/create', authRequired, activatedRequired, ah(async (req, res) => {
   const client = getClient();
