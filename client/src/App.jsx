@@ -55,6 +55,7 @@ import Board from './pages/Board.jsx';
 import Journals from './pages/Journals.jsx';
 import Profile from './pages/Profile.jsx';
 import Recharge from './pages/Recharge.jsx';
+import PayResult from './pages/PayResult.jsx';
 import Classroom from './pages/Classroom.jsx';
 import NotFound from './pages/NotFound.jsx';
 import Download from './pages/Download.jsx';
@@ -192,6 +193,8 @@ export default function App() {
       <Route path="/desktop-login" element={<DesktopLogin />} />
       <Route path="/download" element={<Download />} />
       <Route path="/redeem/:code?" element={<Redeem />} />
+      {/* 支付宝同步回跳：页面本身公开且保持中性，查单接口仍校验登录态和订单归属 */}
+      <Route path="/pay/result" element={<PayResult />} />
       <Route path="/activate" element={auth.token ? <Activate /> : <Navigate to="/login" replace />} />
       <Route path="/renew" element={auth.token ? <Renew /> : <Navigate to="/login" replace />} />
       <Route element={<RequireAuth />}>

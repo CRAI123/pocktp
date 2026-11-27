@@ -127,7 +127,7 @@ export const ai = {
   saveSettings: (params) => api.put('/ai/settings', params),
 };
 
-/** 算力充值（拉卡拉支付） */
+/** 算力充值（支付宝 AI 网页应用收款） */
 export const pay = {
   packages: () => api.get('/pay/packages'),
   create: (packageId) => api.post('/pay/create', { packageId }),

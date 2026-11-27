@@ -687,18 +687,43 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_teachers_phone ON teachers(phone);
 CREATE TABLE IF NOT EXISTS orders (
   id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   user_id INTEGER NOT NULL REFERENCES teachers(id) ON DELETE CASCADE,
-  order_no TEXT NOT NULL UNIQUE,          -- 商户订单号（传给虎皮椒）
+  order_no TEXT NOT NULL UNIQUE,          -- 商户订单号（支付宝 out_trade_no）
   amount INTEGER NOT NULL,                -- 订单金额，单位：分（避免浮点）
   credits INTEGER NOT NULL,               -- 到账算力
-  status TEXT NOT NULL DEFAULT 'pending', -- pending / paid / refunded
-  channel TEXT DEFAULT 'xunhu',           -- 支付渠道
+  status TEXT NOT NULL DEFAULT 'pending', -- pending / paid / refunded / closed
+  channel TEXT DEFAULT 'alipay',          -- 支付渠道
   transaction_id TEXT DEFAULT '',         -- 第三方交易号
-  open_order_id TEXT DEFAULT '',          -- 虎皮椒内部订单号
+  open_order_id TEXT DEFAULT '',          -- 历史支付渠道内部订单号
   created_at TEXT DEFAULT (to_char(now() AT TIME ZONE 'Asia/Shanghai','YYYY-MM-DD HH24:MI:SS')),
   paid_at TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_orders_user ON orders(user_id);
 CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
+
+/* 支付宝通知事件：notify_id 唯一约束提供数据库级去重，与到账同事务提交 */
+CREATE TABLE IF NOT EXISTS payment_notifications (
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  notify_id TEXT NOT NULL UNIQUE,
+  order_no TEXT NOT NULL REFERENCES orders(order_no) ON DELETE CASCADE,
+  trade_no TEXT DEFAULT '',
+  trade_status TEXT NOT NULL,
+  payload JSONB,
+  created_at TEXT DEFAULT (to_char(now() AT TIME ZONE 'Asia/Shanghai','YYYY-MM-DD HH24:MI:SS'))
+);
+CREATE INDEX IF NOT EXISTS idx_payment_notifications_order ON payment_notifications(order_no);
+
+/* 退款请求：同一请求号固定订单和金额，未知结果可安全重试或查询 */
+CREATE TABLE IF NOT EXISTS refund_requests (
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  order_no TEXT NOT NULL REFERENCES orders(order_no) ON DELETE CASCADE,
+  out_request_no TEXT NOT NULL UNIQUE,
+  amount INTEGER NOT NULL,
+  status TEXT NOT NULL DEFAULT 'processing', -- processing / succeeded
+  transaction_id TEXT DEFAULT '',
+  created_at TEXT DEFAULT (to_char(now() AT TIME ZONE 'Asia/Shanghai','YYYY-MM-DD HH24:MI:SS')),
+  completed_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_refund_requests_order ON refund_requests(order_no);
 `);
 
   /* ---------- 教师账号（密码同 auth.js 的 scrypt 方案） ---------- */
